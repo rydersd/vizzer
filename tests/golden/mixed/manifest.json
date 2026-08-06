@@ -1,0 +1,106 @@
+{
+  "generated_by": "vizzer",
+  "schema": 1,
+  "doc_count": 9,
+  "docs": [
+    {
+      "path": "TODO.md",
+      "kind": "todo",
+      "id": "todo:todo/01-set-up-ci",
+      "title": "Set up CI",
+      "status": "shipped",
+      "group": "todo-file:TODO.md",
+      "synopsis": null,
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "TODO.md",
+      "kind": "todo",
+      "id": "todo:todo/02-write-install-docs",
+      "title": "Write install docs",
+      "status": "backlog",
+      "group": "todo-file:TODO.md",
+      "synopsis": null,
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "docs/design/tokens.md",
+      "kind": "doc",
+      "id": "doc:docs/design/tokens",
+      "title": "Design tokens",
+      "status": "shipped",
+      "group": "folder:docs/design",
+      "synopsis": "Color tokens.",
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "docs/roadmap-notes.md",
+      "kind": "doc",
+      "id": "doc:docs/roadmap-notes",
+      "title": "Roadmap notes",
+      "status": "unknown",
+      "group": "folder:docs",
+      "synopsis": "Where we're heading.",
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "spec/drawing/epics/tools/stories/canvas-core.md",
+      "kind": "story",
+      "id": "story:canvas-core",
+      "title": "Canvas core",
+      "status": "shipped",
+      "group": "epic:drawing/tools",
+      "synopsis": "Core canvas surface with pan and zoom.",
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "spec/drawing/epics/tools/stories/snap-to-grid.md",
+      "kind": "story",
+      "id": "story:snap-to-grid",
+      "title": "Snap to grid",
+      "status": "building",
+      "group": "epic:drawing/tools",
+      "synopsis": "Dragging an object snaps its edges to the configured grid.",
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md",
+      "kind": "phase",
+      "id": "phase:widget-refactor/01-phase-1-extract-widget-core",
+      "title": "Phase 1: Extract widget core",
+      "status": "shipped",
+      "group": "ledger:widget-refactor",
+      "synopsis": null,
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md",
+      "kind": "phase",
+      "id": "phase:widget-refactor/02-phase-2-port-call-sites",
+      "title": "Phase 2: Port call sites",
+      "status": "building",
+      "group": "ledger:widget-refactor",
+      "synopsis": null,
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    },
+    {
+      "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md",
+      "kind": "phase",
+      "id": "phase:widget-refactor/03-phase-3-delete-legacy-shims",
+      "title": "Phase 3: Delete legacy shims",
+      "status": "backlog",
+      "group": "ledger:widget-refactor",
+      "synopsis": null,
+      "created": "2026-01-02T03:04:05Z",
+      "modified": "2026-01-02T03:04:05Z"
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "schema": 1,
+  "groups": [
+    {
+      "id": "capability:drawing",
+      "kind": "capability",
+      "title": "Drawing",
+      "parent": null,
+      "meta": {}
+    },
+    {
+      "id": "epic:drawing/tools",
+      "kind": "epic",
+      "title": "Drawing tools",
+      "parent": "capability:drawing",
+      "meta": {}
+    },
+    {
+      "id": "folder:docs",
+      "kind": "folder",
+      "title": "docs",
+      "parent": null,
+      "meta": {}
+    },
+    {
+      "id": "folder:docs/design",
+      "kind": "folder",
+      "title": "docs/design",
+      "parent": null,
+      "meta": {}
+    },
+    {
+      "id": "ledger:widget-refactor",
+      "kind": "ledger",
+      "title": "Widget Refactor",
+      "parent": null,
+      "meta": {
+        "goal": "Ship the widget refactor with zero regressions.",
+        "open_questions": 1,
+        "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"
+      }
+    },
+    {
+      "id": "todo-file:TODO.md",
+      "kind": "folder",
+      "title": "TODO.md",
+      "parent": null,
+      "meta": {}
+    }
+  ],
+  "items": [
+    {
+      "id": "doc:docs/design/tokens",
+      "title": "Design tokens",
+      "one_liner": "Color tokens.",
+      "status": "shipped",
+      "release": null,
+      "wave": null,
+      "group": "folder:docs/design",
+      "deps": [],
+      "appetite": null,
+      "flags": [
+        "reference"
+      ],
+      "source": {
+        "adapter": "loose_docs",
+        "path": "docs/design/tokens.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 1,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "doc:docs/roadmap-notes",
+      "title": "Roadmap notes",
+      "one_liner": "Where we're heading.",
+      "status": "unknown",
+      "release": null,
+      "wave": null,
+      "group": "folder:docs",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "loose_docs",
+        "path": "docs/roadmap-notes.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "phase:widget-refactor/01-phase-1-extract-widget-core",
+      "title": "Phase 1: Extract widget core",
+      "one_liner": null,
+      "status": "shipped",
+      "release": null,
+      "wave": null,
+      "group": "ledger:widget-refactor",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "ledgers",
+        "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "phase:widget-refactor/02-phase-2-port-call-sites",
+      "title": "Phase 2: Port call sites",
+      "one_liner": null,
+      "status": "building",
+      "release": null,
+      "wave": null,
+      "group": "ledger:widget-refactor",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "ledgers",
+        "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "phase:widget-refactor/03-phase-3-delete-legacy-shims",
+      "title": "Phase 3: Delete legacy shims",
+      "one_liner": null,
+      "status": "backlog",
+      "release": null,
+      "wave": null,
+      "group": "ledger:widget-refactor",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "ledgers",
+        "path": "thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "story:canvas-core",
+      "title": "Canvas core",
+      "one_liner": "Core canvas surface with pan and zoom.",
+      "status": "shipped",
+      "release": "R0",
+      "wave": null,
+      "group": "epic:drawing/tools",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "spec_tree",
+        "path": "spec/drawing/epics/tools/stories/canvas-core.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "story:snap-to-grid",
+      "title": "Snap to grid",
+      "one_liner": "Dragging an object snaps its edges to the configured grid.",
+      "status": "building",
+      "release": "R0",
+      "wave": null,
+      "group": "epic:drawing/tools",
+      "deps": [
+        "story:canvas-core"
+      ],
+      "appetite": "medium",
+      "flags": [
+        "debt"
+      ],
+      "source": {
+        "adapter": "spec_tree",
+        "path": "spec/drawing/epics/tools/stories/snap-to-grid.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "todo:todo/01-set-up-ci",
+      "title": "Set up CI",
+      "one_liner": null,
+      "status": "shipped",
+      "release": null,
+      "wave": null,
+      "group": "todo-file:TODO.md",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "todos",
+        "path": "TODO.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    },
+    {
+      "id": "todo:todo/02-write-install-docs",
+      "title": "Write install docs",
+      "one_liner": null,
+      "status": "backlog",
+      "release": null,
+      "wave": null,
+      "group": "todo-file:TODO.md",
+      "deps": [],
+      "appetite": null,
+      "flags": [],
+      "source": {
+        "adapter": "todos",
+        "path": "TODO.md"
+      },
+      "activity": {
+        "commits": 1,
+        "mentions": 0,
+        "last_touched": 1767323045,
+        "created": "2026-01-02T03:04:05Z",
+        "modified": "2026-01-02T03:04:05Z"
+      }
+    }
+  ],
+  "conflicts": [],
+  "warnings": [],
+  "vocab": {
+    "statuses": [
+      {
+        "name": "idea",
+        "emoji": "💡",
+        "done": false
+      },
+      {
+        "name": "backlog",
+        "emoji": "📋",
+        "done": false
+      },
+      {
+        "name": "specced",
+        "emoji": "📝",
+        "done": false
+      },
+      {
+        "name": "ready",
+        "emoji": "🟢",
+        "done": false
+      },
+      {
+        "name": "building",
+        "emoji": "🔧",
+        "done": false
+      },
+      {
+        "name": "in-flight",
+        "emoji": "✈️",
+        "done": false
+      },
+      {
+        "name": "bug-gap",
+        "emoji": "🐛",
+        "done": false
+      },
+      {
+        "name": "shipped",
+        "emoji": "✅",
+        "done": true
+      },
+      {
+        "name": "verified",
+        "emoji": "🏁",
+        "done": true
+      },
+      {
+        "name": "parked",
+        "emoji": "⏸️",
+        "done": false
+      },
+      {
+        "name": "unknown",
+        "emoji": "❔",
+        "done": false
+      }
+    ]
+  }
+}

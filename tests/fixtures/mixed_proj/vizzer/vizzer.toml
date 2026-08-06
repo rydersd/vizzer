@@ -1,0 +1,17 @@
+[sources.spec_tree]
+enabled = true
+glob = "spec/*/epics/*/stories/*.md"
+levels = ["capability", "epic"]
+
+[sources.ledgers]
+enabled = true
+
+[sources.loose_docs]
+enabled = true
+globs = ["docs/**/*.md"]
+
+[sources.todos]
+enabled = true
+
+[reconcile]
+mention_globs = ["docs/**/*.md"]

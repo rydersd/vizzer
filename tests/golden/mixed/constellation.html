@@ -1,0 +1,368 @@
+<title>project — constellation</title>
+<style>
+:root{
+  --bg:#0B0D12; --bg2:#12151D; --panel:#141821ee; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
+  --shipped:#C9A96A; --active:#7FA6C9; --ready:#8FB89A; --buggap:#C27B6E;
+  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --accent:#C9A96A;
+}
+@media (prefers-color-scheme: light){:root{
+  --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
+  --shipped:#9C7C45; --active:#5B7FA0; --ready:#5F8A6D; --buggap:#A6594E;
+  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --accent:#9C7C45;}}
+:root[data-theme="dark"]{
+  --bg:#0B0D12; --bg2:#12151D; --panel:#141821ee; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
+  --shipped:#C9A96A; --active:#7FA6C9; --ready:#8FB89A; --buggap:#C27B6E;
+  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --accent:#C9A96A;}
+:root[data-theme="light"]{
+  --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
+  --shipped:#9C7C45; --active:#5B7FA0; --ready:#5F8A6D; --buggap:#A6594E;
+  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --accent:#9C7C45;}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
+#cv{position:fixed;inset:0;cursor:grab}
+#cv.drag{cursor:grabbing}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+#top{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:18px;padding:10px 16px;
+  background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
+#top>*{pointer-events:auto}
+#title{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+#title b{color:var(--ink);font-weight:600}
+#meter{display:flex;align-items:center;gap:8px}
+#meterbar{width:160px;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+#meterbar i{display:block;height:100%;background:var(--shipped)}
+#meterlab{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+#chips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.chip{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:20px;
+  border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:6px}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip.on{color:var(--ink);border-color:var(--mut)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.seg button{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.05em;padding:3px 11px;
+  border:none;border-right:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;touch-action:none}
+.seg button:last-child{border-right:none}
+.seg button.on{color:var(--ink);background:var(--bg2)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.clearx{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1;width:22px;height:22px;padding:0;
+  border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;align-self:center}
+.clearx:hover{color:var(--ink);border-color:var(--mut)}
+#rail{position:fixed;left:0;top:56px;bottom:0;width:236px;padding:8px 12px 20px;overflow-y:auto;z-index:4;
+  background:linear-gradient(to right,var(--bg) 55%,transparent)}
+.cap{padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+.cap:hover{background:var(--bg2)}
+.cap.on{border-color:var(--line);background:var(--bg2)}
+.cap h3{font-size:12px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.cap h3 span{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
+.capbar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
+.capbar i{height:100%;background:var(--shipped)}
+.capbar b{height:100%;background:var(--buggap)}
+#dossier{position:fixed;right:0;top:56px;bottom:0;width:320px;padding:16px;overflow-y:auto;z-index:6;
+  background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
+  transform:translateX(105%);transition:transform .22s ease}
+#dossier.open{transform:none}
+@media (prefers-reduced-motion:reduce){#dossier{transition:none}}
+#dossier h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:10px}
+.pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 10px;border-radius:20px;margin-bottom:12px;color:var(--bg);font-weight:600}
+.kv{font-size:12px;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:3px 10px;margin-bottom:14px}
+.kv b{color:var(--ink);font-weight:500}
+#dossier a.story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
+  border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0}
+#dossier a.story:hover{background:var(--accent);color:var(--bg)}
+#deps h4{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:10px 0 6px}
+#deps button{display:block;width:100%;text-align:left;font-size:12px;background:none;border:none;color:var(--ink);
+  padding:4px 6px;border-radius:5px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
+#deps button:hover{background:var(--bg2)}
+#deps button i{width:7px;height:7px;border-radius:50%;flex:none;align-self:center}
+#close{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--mut);font-size:18px;cursor:pointer}
+#tip{position:fixed;pointer-events:none;z-index:7;background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  padding:5px 10px;font-size:12px;max-width:280px;display:none;backdrop-filter:blur(6px)}
+#tip small{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;display:block}
+#hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em}
+@media (max-width:760px){#rail{display:none}#dossier{width:100%}}
+</style>
+<canvas id="cv"></canvas>
+<div id="top">
+  <div id="title"><b>project — constellation</b></div>
+  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
+  <div id="chips"></div>
+</div>
+<div id="rail"></div>
+<div id="dossier"><button id="close" aria-label="Close">×</button><div id="dbody"></div></div>
+<div id="tip"></div>
+<div id="hint">drag / two-finger orbit · pinch zoom · click node → story + dependencies</div>
+<script>
+const DATA={"nodes":[{"s":"tokens","t":"Design tokens","st":"shipped","c":"docs/design","e":"docs/design","r":"","p":"docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045},{"s":"roadmap-notes","t":"Roadmap notes","st":"unknown","c":"docs","e":"docs","r":"","p":"docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","st":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","st":"building","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","st":"backlog","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"canvas-core","t":"Canvas core","st":"shipped","c":"drawing","e":"Drawing tools","r":"R0","p":"spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"snap-to-grid","t":"Snap to grid","st":"building","c":"drawing","e":"Drawing tools","r":"R0","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045},{"s":"01-set-up-ci","t":"Set up CI","st":"shipped","c":"TODO.md","e":"TODO.md","r":"","p":"TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"02-write-install-docs","t":"Write install docs","st":"backlog","c":"TODO.md","e":"TODO.md","r":"","p":"TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045}],"edges":[[5,6]],"caps":{"docs/design":{"total":1,"shipped":1},"docs":{"total":1,"shipped":0},"widget-refactor":{"total":3,"shipped":1},"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"now":1767323045};
+
+const REPO = DATA.repo || '';
+const GROUPS = {shipped:'shipped', building:'active','in-flight':'active', ready:'ready','bug-gap':'buggap',
+  specced:'specced', backlog:'faint', idea:'faint', parked:'parked'};
+const GLAB = {shipped:'shipped', active:'building', ready:'ready', buggap:'bug-gap', specced:'specced', faint:'backlog/idea', parked:'parked'};
+const css = k => getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim();
+let C = {}, RGB = {};
+function rgbOf(col){ col=col.trim(); const m=col.match(/^#([0-9a-f]{6})\b/i);
+  if (m){ const v=parseInt(m[1],16); return [v>>16&255,(v>>8)&255,v&255]; }
+  const mm=col.match(/(\d+)[, ]+(\d+)[, ]+(\d+)/); return mm?[+mm[1],+mm[2],+mm[3]]:[128,128,128]; }
+const mixA = (a,b,t)=> a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const rgbCss = a => 'rgb('+a.join(',')+')';
+function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
+  RGB.fade = rgbOf(css('faint')); }
+recolor();
+new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>setTimeout(recolor,50));
+
+// ---- layout: capability clusters on a fibonacci sphere, nodes as gaussian blobs ----
+const caps = Object.keys(DATA.caps);
+const R = 340;
+const capPos = {};
+caps.forEach((c,i)=>{
+  const k = i + .5, phi = Math.acos(1 - 2*k/caps.length), th = Math.PI*(1+Math.sqrt(5))*k;
+  capPos[c] = [R*Math.cos(th)*Math.sin(phi), R*Math.sin(th)*Math.sin(phi), R*Math.cos(phi)];
+});
+let seed = 42; const rnd = ()=> (seed = (seed*1103515245+12345) & 0x7fffffff) / 0x7fffffff;
+const gauss = ()=> (rnd()+rnd()+rnd()-1.5)*1.1;
+DATA.nodes.forEach(n=>{
+  n.ox = gauss(); n.oy = gauss(); n.oz = gauss();
+  n.g = GROUPS[n.st] || 'specced';
+});
+// node size modes — 'time': where the hours went (spec-file commits + lane-doc mentions),
+// 'appetite': story complexity. Time mode spreads the clusters so larger circles keep room.
+let sizeMode = 'time', prog = false, recOn = true;
+function layout(){
+  const mul = sizeMode==='time' ? 1.6 : 1;
+  for (const n of DATA.nodes){
+    const cp = capPos[n.c], spread = (26 + 13*Math.sqrt(DATA.caps[n.c].total))*mul;
+    n.x = cp[0]+n.ox*spread; n.y = cp[1]+n.oy*spread; n.z = cp[2]+n.oz*spread;
+  }
+}
+layout();
+{ // activity weight (time mode), same units as the appetite weight n.w
+  const amax = Math.max(1, ...DATA.nodes.map(n=>n.ac+n.am));
+  // steeper curve + wider range so scale differences read at a glance (~4x radius min→max)
+  DATA.nodes.forEach(n=>{ n.tw = 0.6 + 2.8*Math.pow((n.ac+n.am)/amax, .75); });
+  // ledger-progression rank: q=1 most recently worked, 0 oldest (never-touched stays 0)
+  const touched = DATA.nodes.filter(n=>n.ts>0).sort((a,b)=>a.ts-b.ts);
+  touched.forEach((n,k)=>{ n.q = touched.length>1 ? k/(touched.length-1) : 1; });
+  DATA.nodes.forEach(n=>{ if (n.q===undefined) n.q = 0; });
+}
+// ---- state ----
+const filt = Object.fromEntries(Object.keys(GLAB).map(g=>[g,true]));
+const RELS = ['R0','R1','R2','R3','R?'];
+const rfilt = Object.fromEntries(RELS.map(r=>[r,true]));
+const relKey = n => RELS.includes(n.r) ? n.r : 'R?';
+let capFocus = null, sel = -1, hover = -1;
+// camera centre: eases toward the centroid of whatever is visible
+let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
+function visible(n){ return filt[n.g] && rfilt[relKey(n)] && (!capFocus || n.c===capFocus); }
+function retarget(){
+  let sx=0, sy=0, sz=0, k=0;
+  for (const n of DATA.nodes) if (visible(n)){ sx+=n.x; sy+=n.y; sz+=n.z; k++; }
+  const all = k===0 || (!capFocus && Object.values(filt).every(v=>v) && Object.values(rfilt).every(v=>v));
+  ct = all ? {x:0,y:0,z:0} : {x:sx/k, y:sy/k, z:sz/k};
+}
+const nbr = DATA.nodes.map(()=>({up:[],dn:[]}));
+DATA.edges.forEach(([a,b])=>{ nbr[b].up.push(a); nbr[a].dn.push(b); });
+
+// ---- top bar ----
+const shippedN = DATA.nodes.filter(n=>n.st==='shipped').length;
+document.getElementById('meterfill').style.width = (100*shippedN/DATA.nodes.length).toFixed(1)+'%';
+document.getElementById('meterlab').textContent = `${shippedN}/${DATA.nodes.length} shipped · ${(100*shippedN/DATA.nodes.length).toFixed(0)}%`;
+const chips = document.getElementById('chips');
+for (const g of Object.keys(GLAB)){
+  const b = document.createElement('button'); b.className='chip on'; b.innerHTML=`<i></i>${GLAB[g]}`;
+  const dot = b.querySelector('i');
+  if (g==='specced'){ dot.style.border = '1.5px solid '+C[g]; }
+  else dot.style.background = C[g];
+  b.onclick = ()=>{ filt[g]=!filt[g]; b.classList.toggle('on',filt[g]); retarget(); };
+  chips.appendChild(b);
+}
+// releases: segmented control (v0–v3 map to R0–R3, v? = unset) · click toggles ·
+// press-and-hold ~1s solos that version · × resets to all
+const rsep = document.createElement('span');
+rsep.style.cssText = 'width:1px;align-self:stretch;background:var(--line);margin:0 4px';
+chips.appendChild(rsep);
+const seg = document.createElement('div'); seg.className='seg';
+const segBtns = {};
+function syncSeg(){ for (const r of RELS) segBtns[r].classList.toggle('on', rfilt[r]); }
+for (const r of RELS){
+  const b = document.createElement('button'); b.className='on';
+  b.textContent = r.replace('R','v');
+  let holdT = null, held = false;
+  b.addEventListener('pointerdown', ()=>{ held = false;
+    holdT = setTimeout(()=>{ held = true;                       // hold ≈1s → solo this version
+      for (const k of RELS) rfilt[k] = (k===r);
+      syncSeg(); retarget(); }, 700); });
+  b.addEventListener('pointerup', ()=>{ clearTimeout(holdT);
+    if (!held){ rfilt[r] = !rfilt[r]; syncSeg(); retarget(); } });
+  b.addEventListener('pointerleave', ()=> clearTimeout(holdT));
+  segBtns[r] = b; seg.appendChild(b);
+}
+chips.appendChild(seg);
+const xb = document.createElement('button'); xb.className='clearx';
+xb.textContent = '×'; xb.title = 'reset version filter'; xb.setAttribute('aria-label','reset version filter');
+xb.onclick = ()=>{ for (const k of RELS) rfilt[k] = true; syncSeg(); retarget(); };
+chips.appendChild(xb);
+// size-mode chips (radio): time concentration vs story complexity
+chips.appendChild(rsep.cloneNode());
+const sizeChips = {};
+for (const m of ['time','appetite']){
+  const b = document.createElement('button'); b.className = 'chip'+(sizeMode===m?' on':'');
+  b.textContent = 'size: '+m;
+  b.onclick = ()=>{ if (sizeMode===m) return; sizeMode = m;
+    for (const k in sizeChips) sizeChips[k].classList.toggle('on', k===sizeMode);
+    layout(); retarget(); };
+  sizeChips[m] = b; chips.appendChild(b);
+}
+// progression: fade colour + lightness the further back a story was last worked
+chips.appendChild(rsep.cloneNode());
+const pb = document.createElement('button'); pb.className='chip'; pb.textContent='progression';
+pb.onclick = ()=>{ prog=!prog; pb.classList.toggle('on',prog); };
+chips.appendChild(pb);
+// ★ next: brighter-lightness highlight on the recommended next steps
+const nb = document.createElement('button'); nb.className='chip on'; nb.textContent='★ next';
+nb.onclick = ()=>{ recOn=!recOn; nb.classList.toggle('on',recOn); };
+chips.appendChild(nb);
+// ---- rail ----
+const rail = document.getElementById('rail');
+caps.sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total).forEach(c=>{
+  const v = DATA.caps[c];
+  const bg = DATA.nodes.filter(n=>n.c===c&&n.st==='bug-gap').length;
+  const d = document.createElement('div'); d.className='cap'; d.tabIndex=0;
+  d.innerHTML = `<h3>${c.replace(/-/g,' ')}<span>${v.shipped}/${v.total}</span></h3>
+    <div class="capbar"><i style="width:${100*v.shipped/v.total}%"></i><b style="width:${100*bg/v.total}%"></b></div>`;
+  d.onclick = ()=>{ capFocus = capFocus===c ? null : c;
+    rail.querySelectorAll('.cap').forEach(x=>x.classList.remove('on'));
+    if (capFocus) d.classList.add('on');
+    retarget(); };
+  rail.appendChild(d);
+});
+// ---- dossier ----
+const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody');
+document.getElementById('close').onclick = ()=>{ sel=-1; dossier.classList.remove('open'); };
+function openNode(i){
+  sel = i; const n = DATA.nodes[i];
+  const dep = (list,label)=> list.length ? `<h4>${label}</h4>`+list.map(j=>{
+    const m = DATA.nodes[j];
+    return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${m.t}</button>`;}).join('') : '';
+  const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
+  dbody.innerHTML = `<h2>${n.t}</h2>
+    <span class="pill" style="background:${C[n.g]}">${n.st}</span>${n.rec?' <span class="pill" style="background:var(--accent)">★ next step</span>':''}
+    <div class="kv"><span>area</span><b>${n.c.replace(/-/g,' ')}</b>
+      <span>epic</span><b>${n.e}</b><span>release</span><b>${n.r||'—'}</b>
+      <span>activity</span><b>${n.ac} spec commit${n.ac===1?'':'s'} · ${n.am} doc mention${n.am===1?'':'s'}</b>
+      <span>touched</span><b>${touched}</b></div>
+    ${DATA.root?`<a class="story" href="obsidian://open?path=${encodeURIComponent(DATA.root+'/'+n.p)}">obsidian</a>`:''}
+    ${REPO?`<a class="story" href="${REPO}${n.p}" target="_blank" rel="noopener">source ↗</a>`:''}
+    <div id="deps">${dep(nbr[i].up,'depends on')}${dep(nbr[i].dn,'unblocks')}</div>`;
+  dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
+  dossier.classList.add('open');
+}
+// ---- 3d render ----
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W,H,DPR; function size(){ DPR=Math.min(devicePixelRatio,2); W=innerWidth; H=innerHeight;
+  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);} size(); addEventListener('resize',size);
+let rx=-.35, ry=.6, zoom=1, vx=0, vy=0;
+const P = DATA.nodes.map(()=>({x:0,y:0,s:0,d:0,on:true}));
+function project(){
+  const cy=Math.cos(ry), sy=Math.sin(ry), cx=Math.cos(rx), sx=Math.sin(rx);
+  const F = 900*zoom, cxp=W/2+40, cyp=H/2;
+  DATA.nodes.forEach((n,i)=>{
+    const nx = n.x-cc.x, ny = n.y-cc.y, nz = n.z-cc.z;
+    const x1 = nx*cy + nz*sy, z1 = -nx*sy + nz*cy;
+    const y2 = ny*cx - z1*sx, z2 = ny*sx + z1*cx;
+    const w = F/(F+z2+520);
+    const p = P[i]; p.x = cxp + x1*w*zoom; p.y = cyp + y2*w*zoom; p.d = z2;
+    p.s = Math.max(1.6, 4.6*w*zoom);
+    p.on = visible(n);
+  });
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const selSet = new Set();
+  if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
+  // edges
+  ctx.lineWidth = 1;
+  for (const [a,b] of DATA.edges){
+    if (!P[a].on || !P[b].on) continue;
+    const lit = selSet.has(a) && selSet.has(b) && (a===sel||b===sel);
+    if (!lit) continue;
+    ctx.strokeStyle = lit ? C.shipped : css('line');
+    ctx.globalAlpha = lit ? .9 : .25;
+    ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  // nodes, painter-sorted
+  const order = DATA.nodes.map((_,i)=>i).sort((a,b)=>P[b].d-P[a].d);
+  for (const i of order){
+    const p = P[i]; if (!p.on) continue;
+    const n = DATA.nodes[i];
+    const dim = sel>=0 && !selSet.has(i);
+    // progression mode: attenuation by how far back this story was last worked
+    const av = (prog && !dim) ? .18 + .82*Math.pow(n.q,1.5) : 1;
+    let rgb = RGB[n.g];
+    if (prog && !dim) rgb = mixA(rgb, RGB.fade, .78*(1-n.q));
+    const rec = recOn && n.rec && !dim;
+    if (rec) rgb = mixA(rgb, [255,255,255], .55); // ★ next: brighter lightness
+    const col = rgbCss(rgb);
+    ctx.globalAlpha = (dim ? .12 : (n.g==='faint'||n.g==='parked' ? .5 : .95)) * av;
+    const wgt = sizeMode==='time' ? n.tw : (n.w||1); // time concentration vs Appetite
+    const rr = p.s*wgt*(i===hover||i===sel?1.7:1);
+    if (n.g==='specced'){ // unbuilt-but-specced: an empty vessel, outline only
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, rr*.32);
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*.85,0,7); ctx.stroke();
+    } else {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,7); ctx.fill();
+    }
+    if (rec){ // recommended-next: soft glow + bright ring so it pops off the muted field
+      ctx.globalAlpha = .16;
+      ctx.fillStyle = rgbCss(mixA(rgb,[255,255,255],.5));
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*2.6,0,7); ctx.fill();
+      ctx.globalAlpha = Math.min(1, .95*av + .05);
+      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
+    }
+    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.14*av; ctx.fillStyle=col;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.s*2.6,0,7); ctx.fill(); }
+    if (n.g==='buggap' && !dim){ ctx.globalAlpha=.8*av; ctx.strokeStyle=col; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.s*2,0,7); ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+}
+const snapCam = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
+  const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
+  cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
+  project(); draw(); requestAnimationFrame(frame); }
+// ---- input ----
+let drag=false, lx=0, ly=0;
+cv.addEventListener('pointerdown',e=>{ drag=true; lx=e.clientX; ly=e.clientY; cv.classList.add('drag'); cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove',e=>{
+  if (drag){ ry += (e.clientX-lx)*.005; rx += (e.clientY-ly)*.005; vy=0; lx=e.clientX; ly=e.clientY; }
+  else {
+    let best=-1, bd=144;
+    for (let i=0;i<P.length;i++){ const p=P[i]; if(!p.on) continue;
+      const dx=p.x-e.clientX, dy=p.y-e.clientY, d=dx*dx+dy*dy; if (d<bd){bd=d;best=i;} }
+    hover = best;
+    const tip = document.getElementById('tip');
+    if (best>=0){ const n=DATA.nodes[best];
+      tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+10)+'px';
+      tip.innerHTML = `${n.rec?'★ ':''}${n.t}<small>${n.st} · ${n.c.replace(/-/g,' ')} · activity ${n.ac+n.am}</small>`;
+      cv.style.cursor='pointer';
+    } else { tip.style.display='none'; cv.style.cursor='grab'; }
+  }
+});
+cv.addEventListener('pointerup',e=>{ drag=false; cv.classList.remove('drag');
+  if (hover>=0 && Math.abs(e.clientX-lx)<4 && Math.abs(e.clientY-ly)<4) openNode(hover);
+  else if (hover<0 && sel>=0 && Math.abs(e.clientX-lx)<4){ sel=-1; dossier.classList.remove('open'); }
+});
+cv.addEventListener('wheel',e=>{ e.preventDefault();
+  if (e.ctrlKey || e.metaKey){ // pinch (trackpad pinch arrives as ctrl+wheel)
+    zoom = Math.min(3.4, Math.max(.45, zoom * (e.deltaY<0?1.06:.94)));
+  } else { // two-finger scroll orbits
+    ry += e.deltaX*.0035; rx += e.deltaY*.0035;
+  }
+},{passive:false});
+frame();
+</script>
