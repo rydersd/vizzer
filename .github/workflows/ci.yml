@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install pytest
+      - name: Configure git identity (fixture commits)
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+      - run: python -m pytest tests/ -v
+
+  pyz:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/build_pyz.py vizzer.pyz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vizzer.pyz
+          path: vizzer.pyz
