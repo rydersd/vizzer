@@ -120,7 +120,7 @@ def test_defaults():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/ryders/Developer/GitHub/project_vizzer && python3 -m pytest tests/test_model.py -v`
+Run (from the repo root): `python3 -m pytest tests/test_model.py -v`
 Expected: FAIL / collection error — `ModuleNotFoundError: vizzer`
 
 - [ ] **Step 3: Write the scaffold + implementation**
