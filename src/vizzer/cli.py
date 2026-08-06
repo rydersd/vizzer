@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 from .adapters import get_adapters
@@ -166,11 +167,6 @@ def _archive(root: Path, confirmed: bool) -> int:
     return 0
 
 
-def _stub(_args: argparse.Namespace) -> int:
-    print("not yet implemented")
-    return 2
-
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vizzer")
     subparsers = parser.add_subparsers(dest="command")
@@ -194,9 +190,33 @@ def _parser() -> argparse.ArgumentParser:
     archive.add_argument("--yes", action="store_true")
     archive.set_defaults(handler=lambda args: _archive(Path(args.root), args.yes))
 
-    for name in ("install", "update"):
-        stub = subparsers.add_parser(name)
-        stub.set_defaults(handler=_stub)
+    install_parser = subparsers.add_parser("install")
+    install_parser.add_argument("path")
+    install_parser.add_argument("--claude-skill", action="store_true")
+    install_parser.add_argument(
+        "--harness", choices=("auto", "claude", "agents"), default="auto"
+    )
+
+    def install_handler(args: argparse.Namespace) -> int:
+        from .install import install
+
+        return install(
+            Path(args.path),
+            claude_skill=args.claude_skill,
+            harness=args.harness,
+        )
+
+    install_parser.set_defaults(handler=install_handler)
+
+    update_parser = subparsers.add_parser("update")
+    update_parser.add_argument("path")
+
+    def update_handler(args: argparse.Namespace) -> int:
+        from .install import update
+
+        return update(Path(args.path))
+
+    update_parser.set_defaults(handler=update_handler)
 
     return parser
 
@@ -204,6 +224,17 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run the vizzer CLI and return a process exit code."""
     parser = _parser()
+    if argv is None and not sys.argv[1:]:
+        from .install import detect, install
+
+        target_text = input("Project path [.]: ").strip()
+        target = Path(target_text or ".")
+        print(json.dumps(detect(target), indent=2, sort_keys=True))
+        if input("Install vizzer? [y/N] ").strip().lower() not in {"y", "yes"}:
+            print("install: cancelled")
+            return 1
+        return install(target)
+
     args = parser.parse_args(argv)
     if not hasattr(args, "handler"):
         parser.print_help()
