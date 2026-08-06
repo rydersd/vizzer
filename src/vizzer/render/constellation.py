@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
 from ..config import Config
 from ..model import Graph
 
-TEMPLATE = Path(__file__).parent / "constellation_template.html"
+TEMPLATE_NAME = "constellation_template.html"
+
+
+def _template_text() -> str:
+    """Read the template through the resources API so it works inside a zipapp too."""
+    return (files(__package__) / TEMPLATE_NAME).read_text(encoding="utf-8")
 
 # story complexity → node radius weight, from the item's appetite field
 APPETITE_W = {"small": 1.0, "medium": 1.9, "large": 2.9}
@@ -83,7 +89,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         data["repo"] = repo_url
 
     title = cfg.get("render.title", "") or f"{cfg.get('project.name', 'project')} — constellation"
-    html = TEMPLATE.read_text(encoding="utf-8")
+    html = _template_text()
     html = html.replace("__TITLE__", title)
     html = html.replace("__DATA__", json.dumps(data, separators=(",", ":"), ensure_ascii=False))
     return {"constellation.html": html}

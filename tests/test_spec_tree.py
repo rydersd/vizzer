@@ -37,3 +37,24 @@ def test_dag_import_emits_parallel_items():
 def test_registry_orders_by_precedence():
     c = cfg()
     assert [name for name, _ in get_adapters(c)] == ["spec_tree"]
+
+
+def test_dep_slugs_normalize_markdown_links_and_backticks():
+    """Real specs write deps as markdown links or code spans; both must resolve."""
+    from vizzer.adapters.spec_tree import _dep_ids
+    assert _dep_ids("[typed-anchor-model](typed-anchor-model.md)", "story") == \
+        ["story:typed-anchor-model"]
+    assert _dep_ids("[interaction-handle-chrome](../../other/stories/interaction-handle-chrome.md)",
+                    "story") == ["story:interaction-handle-chrome"]
+    assert _dep_ids("`non-destructive-chamfer-bevel`", "story") == \
+        ["story:non-destructive-chamfer-bevel"]
+    assert _dep_ids("`a-slug`, [b-slug](b-slug.md)", "story") == \
+        ["story:a-slug", "story:b-slug"]
+
+
+def test_dep_prose_is_discarded_not_turned_into_fake_slugs():
+    """Prose in a Deps: line must be dropped, not emitted as a bogus dependency."""
+    from vizzer.adapters.spec_tree import _dep_ids
+    assert _dep_ids("assembler parameterization + slider atoms named · both real", "story") == []
+    assert _dep_ids("[] (no story-slug deps; layers on the shipped launch path)", "story") == []
+    assert _dep_ids("proof-panel shipped", "story") == []

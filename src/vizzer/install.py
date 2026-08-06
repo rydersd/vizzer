@@ -1,8 +1,11 @@
 """Install a self-contained copy of vizzer into another project."""
 from __future__ import annotations
 
+import json
+import os
 import re
 import shutil
+import zipfile
 from pathlib import Path
 
 
@@ -34,6 +37,8 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
 # How deep below the project root a `.../stories/<item>.md` tree may sit and still be
 # auto-detected. Deeper trees are still usable — the user points `glob` at them by hand.
 _MAX_SPEC_DEPTH = 10
+_MAX_DAG_DEPTH = 10
+_MAX_DAG_BYTES = 50 * 1024 * 1024
 
 
 def _matches(root: Path, pattern: str) -> bool:
@@ -88,13 +93,63 @@ def _spec_tree(root: Path) -> dict:
     return {"glob": "/".join(glob_parts), "levels": levels}
 
 
+def _looks_like_dag(data) -> bool:
+    if not isinstance(data, dict) or not isinstance(data.get("capabilities"), list):
+        return False
+    for capability in data["capabilities"]:
+        if not isinstance(capability, dict):
+            continue
+        epics = capability.get("epics")
+        if not isinstance(epics, list):
+            continue
+        for epic in epics:
+            if isinstance(epic, dict) and isinstance(epic.get("stories"), list):
+                return True
+    return False
+
+
+def _dag_import(root: Path) -> str:
+    matches = []
+    skipped_dirs = {"vizzer", "node_modules", ".git"}
+    for directory, dirnames, filenames in os.walk(root):
+        path = Path(directory)
+        try:
+            depth = len(path.relative_to(root).parts)
+        except ValueError:
+            continue
+        dirnames[:] = sorted(name for name in dirnames
+                             if name not in skipped_dirs and depth < _MAX_DAG_DEPTH)
+        if depth > _MAX_DAG_DEPTH:
+            continue
+
+        for filename in sorted(filenames):
+            if not filename.endswith(".json"):
+                continue
+            candidate = path / filename
+            try:
+                if candidate.stat().st_size > _MAX_DAG_BYTES:
+                    continue
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
+                continue
+            if _looks_like_dag(data):
+                matches.append(candidate.relative_to(root))
+
+    if not matches:
+        return ""
+    preferred = ".shape-spec-dag.json"
+    return min(matches, key=lambda path: (path.name != preferred, path.as_posix())).as_posix()
+
+
 def detect(root: Path) -> dict:
     """Detect supported work-item sources below *root*."""
     root = Path(root)
     loose_docs = [pattern for pattern in ("docs/**/*.md", "wiki/**/*.md")
                   if _matches(root, pattern)]
+    spec_tree = _spec_tree(root)
+    spec_tree["dag_import"] = _dag_import(root)
     return {
-        "spec_tree": _spec_tree(root),
+        "spec_tree": spec_tree,
         "ledgers": _matches(root, "thoughts/ledgers/CONTINUITY_*.md"),
         "loose_docs": loose_docs,
         "todos": ["TODO.md"] if (root / "TODO.md").is_file() else [],
@@ -105,7 +160,10 @@ def _detection_summary(found: dict) -> str:
     """Human-readable scan result — silent non-detection is a support burden."""
     lines = []
     glob = found["spec_tree"]["glob"]
+    dag_import = found["spec_tree"].get("dag_import", "")
     lines.append(f"  spec_tree:  {glob}" if glob else "  spec_tree:  none found")
+    if dag_import:
+        lines.append(f"  dag_import: {dag_import}")
     lines.append("  ledgers:    thoughts/ledgers/CONTINUITY_*.md"
                  if found["ledgers"] else "  ledgers:    none found")
     lines.append(f"  loose_docs: {', '.join(found['loose_docs'])}"
@@ -113,7 +171,8 @@ def _detection_summary(found: dict) -> str:
     lines.append(f"  todos:      {', '.join(found['todos'])}"
                  if found["todos"] else "  todos:      none found")
     header = "install: detected sources"
-    if not (glob or found["ledgers"] or found["loose_docs"] or found["todos"]):
+    if not (glob or dag_import or found["ledgers"] or found["loose_docs"] or
+            found["todos"]):
         header = ("install: no sources detected — edit vizzer/vizzer.toml to point "
                   "vizzer at your work-tracking files")
     return "\n".join([header, *lines])
@@ -143,8 +202,8 @@ glob = "{spec_tree["glob"]}"
 levels = {_string_array(spec_tree["levels"])}
 # Kind prefix used for story item identifiers.
 item_kind = "story"
-# Optional legacy DAG import path.
-dag_import = ""
+# Import dependency edges from an existing DAG file when one was detected.
+dag_import = "{spec_tree.get("dag_import", "")}"
 
 [sources.ledgers]
 # Scan continuity ledgers when matching files were detected.
@@ -191,15 +250,35 @@ adapters = ["todos"]
 
 
 def _vendor(engine: Path) -> None:
+    """Copy this package into *engine*, whether we run from disk or from a .pyz.
+
+    The published distributable is a zipapp, so `vizzer.__file__` may point inside a
+    zip archive where copytree cannot reach; zipimport exposes the archive path on the
+    loader, and the package's files are extracted from there instead.
+    """
     import vizzer
 
-    package_dir = Path(vizzer.__file__).parent
     engine.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(
-        package_dir,
-        engine / "vizzer",
-        ignore=shutil.ignore_patterns("__pycache__"),
-    )
+    archive = getattr(getattr(vizzer, "__loader__", None), "archive", None)
+
+    if archive:
+        with zipfile.ZipFile(archive) as zf:
+            for name in zf.namelist():
+                if not name.startswith("vizzer/") or name.endswith("/"):
+                    continue
+                if "__pycache__" in name:
+                    continue
+                dest = engine / name
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(name) as src, open(dest, "wb") as out:
+                    shutil.copyfileobj(src, out)
+    else:
+        shutil.copytree(
+            Path(vizzer.__file__).parent,
+            engine / "vizzer",
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
+
     (engine / "__main__.py").write_text(_ENGINE_MAIN, encoding="utf-8")
 
 

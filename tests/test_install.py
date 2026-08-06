@@ -78,3 +78,19 @@ def test_managed_block_upsert_prefers_existing_claude_md(tmp_path, make_repo):
     assert not (repo / "AGENTS.md").exists()
     assert main(["update", str(repo)]) == 0
     assert (repo / "CLAUDE.md").read_text().count("vizzer:begin") == 1   # idempotent
+
+
+def test_detect_finds_dag_json_for_migration(tmp_path):
+    """A repo whose deps live in a DAG JSON must get dag_import wired automatically."""
+    import json
+    from vizzer.install import detect
+
+    stories = tmp_path / "spec" / "capabilities" / "draw" / "epics" / "tools" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text("# Story: A\n")
+    dag = tmp_path / "spec-ops" / "shaping" / ".shape-spec-dag.json"
+    dag.parent.mkdir(parents=True)
+    dag.write_text(json.dumps({"capabilities": [
+        {"id": "CAP-draw", "epics": [{"id": "EPIC-tools", "stories": [
+            {"slug": "a", "deps": ["b"]}]}]}]}))
+    assert detect(tmp_path)["spec_tree"]["dag_import"] == "spec-ops/shaping/.shape-spec-dag.json"

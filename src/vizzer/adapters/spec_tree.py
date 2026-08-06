@@ -11,6 +11,10 @@ from . import ScanResult
 
 _H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 _LABEL_RE = re.compile(r"^\w+:\s*")
+_MARKDOWN_LINK_RE = re.compile(r"^\[([^\]\r\n]+)\]\([^\r\n]*\)$")
+_CODE_SPAN_RE = re.compile(r"^(`+)(.*?)\1$", re.DOTALL)
+_KIND_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+:")
+_DEP_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _front_matter(text: str) -> tuple[dict, str]:
@@ -112,11 +116,22 @@ def _dep_ids(value, item_kind: str) -> list[str]:
 
     deps = []
     for raw in slugs:
-        slug = str(raw).strip()
-        if not slug or slug in {"-", "—"}:
+        entry = str(raw).strip()
+        if not entry or entry in {"-", "—"}:
             continue
-        deps.append(slug if slug.startswith(f"{item_kind}:")
-                    else f"{item_kind}:{slug}")
+
+        link = _MARKDOWN_LINK_RE.fullmatch(entry)
+        if link:
+            entry = link.group(1)
+
+        entry = entry.strip()
+        code_span = _CODE_SPAN_RE.fullmatch(entry)
+        if code_span:
+            entry = code_span.group(2).strip()
+        entry = _KIND_PREFIX_RE.sub("", entry, count=1)
+
+        if _DEP_SLUG_RE.fullmatch(entry):
+            deps.append(f"{item_kind}:{entry}")
     return deps
 
 
