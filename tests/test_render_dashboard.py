@@ -1,3 +1,4 @@
+from pathlib import Path
 from vizzer.config import Config, DEFAULTS, deep_merge
 from vizzer.model import Graph, Group, Item
 from vizzer.render import render_all
@@ -39,3 +40,28 @@ def test_completion_sheet(tmp_path):
     assert "| Debt (flagged items) | 1 |" in c
     assert "story:debty" not in c                  # links use id tails, not raw ids
     assert "[debty](../../s/d.md)" in c
+
+
+def test_in_progress_excludes_statuses_outside_the_vocabulary():
+    """Prose statuses from doc headers must not be reported as active work.
+
+    Real repos carry docs with `> Status: APPROVED` / `Diagnosis` / `PR`. The configured
+    vocabulary is the lifecycle contract; an unrecognized string cannot be asserted active.
+    """
+    from vizzer.config import Config, DEFAULTS
+    from vizzer.model import Graph, Item
+    from vizzer.render import render_all
+
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="story:real", title="Real", status="building", release="R0",
+             source={"adapter": "spec_tree", "path": "s/real.md"}),
+        Item(id="doc:noise", title="Noise", status="APPROVED",
+             source={"adapter": "loose_docs", "path": "d/noise.md"}),
+        Item(id="doc:noise2", title="Noise2", status="Diagnosis",
+             source={"adapter": "loose_docs", "path": "d/noise2.md"}),
+    ])
+    section = render_all(graph, cfg, Path("."), only={"dashboard"})["dashboard.md"]
+    inprog = section.split("## In progress")[1].split("##")[0]
+    assert "real" in inprog
+    assert "noise" not in inprog and "Diagnosis" not in inprog
