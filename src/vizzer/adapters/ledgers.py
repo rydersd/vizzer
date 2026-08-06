@@ -5,16 +5,10 @@ import re
 from pathlib import Path
 
 from ..model import Group, Item
-from . import ScanResult
+from . import ScanResult, slugify
 
 
 _CHECKBOX_RE = re.compile(r"^\s*- \[(x|→|->| )\]\s+(.+?)\s*$", re.MULTILINE)
-
-
-def slugify(text: str) -> str:
-    """Return a lowercase, hyphenated identifier fragment up to 40 chars."""
-    normalized = "".join(char if char.isalnum() else "-" for char in text.lower())
-    return re.sub(r"-+", "-", normalized).strip("-")[:40]
 
 
 def _ledger_slug(path: Path) -> str:

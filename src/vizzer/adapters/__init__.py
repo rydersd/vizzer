@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from dataclasses import dataclass, field
 from types import ModuleType
 
@@ -11,6 +12,12 @@ class ScanResult:
     groups: list = field(default_factory=list)
     items: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
+
+
+def slugify(text: str) -> str:
+    """Return a lowercase, hyphenated identifier fragment up to 40 chars."""
+    normalized = "".join(char if char.isalnum() else "-" for char in text.lower())
+    return re.sub(r"-+", "-", normalized).strip("-")[:40]
 
 
 def get_adapters(cfg) -> list[tuple[str, ModuleType]]:
