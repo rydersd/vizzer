@@ -1,0 +1,28 @@
+{
+  "capabilities": [
+    {
+      "epics": [
+        {
+          "stories": [
+            {
+              "slug": "snap-to-grid",
+              "title": "Snap to grid",
+              "oneLiner": "Dragging an object snaps its edges to the configured grid.",
+              "deps": ["canvas-core"],
+              "release": "R0",
+              "status": "specced"
+            },
+            {
+              "slug": "canvas-core",
+              "title": "Canvas core",
+              "oneLiner": "Core canvas surface with pan and zoom.",
+              "deps": [],
+              "release": "R0",
+              "status": "shipped"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
