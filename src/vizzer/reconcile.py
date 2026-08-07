@@ -29,6 +29,38 @@ def _empty(value) -> bool:
     return value is None or value == "" or value == "unknown"
 
 
+def _dependency_cycles(items_by_id):
+    """Every dependency cycle, each reported once as a canonical rotation.
+
+    A cycle cannot be topologically ordered, so the roadmap falls back to id order
+    within it — which reads exactly like a real ordering. Saying so is the point.
+    """
+    deps = {i: [d for d in it.deps if d in items_by_id] for i, it in items_by_id.items()}
+    WHITE, GREY, BLACK = 0, 1, 2
+    color = {}
+    found = set()
+
+    def visit(node, stack):
+        color[node] = GREY
+        stack.append(node)
+        for target in deps.get(node, []):
+            state = color.get(target, WHITE)
+            if state == GREY:
+                loop = stack[stack.index(target):]
+                # rotate to a stable starting point so one cycle is reported once
+                start = loop.index(min(loop))
+                found.add(tuple(loop[start:] + loop[:start]))
+            elif state == WHITE:
+                visit(target, stack)
+        stack.pop()
+        color[node] = BLACK
+
+    for node in sorted(deps):
+        if color.get(node, WHITE) == WHITE:
+            visit(node, [])
+    return [list(c) + [c[0]] for c in sorted(found)]
+
+
 def build_graph(
     cfg: Config,
     root: Path,
@@ -115,6 +147,10 @@ def build_graph(
             else:
                 warnings.add(f"dangling dep {item.id} → {dep} (edge dropped)")
         item.deps = kept_deps
+
+    for cycle in _dependency_cycles(items_by_id):
+        warnings.add("dependency cycle: " + " → ".join(cycle)
+                     + " (roadmap order within the cycle is arbitrary)")
 
     meta, git_warnings = gitmeta.collect(
         root,

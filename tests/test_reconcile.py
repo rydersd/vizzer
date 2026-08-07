@@ -79,3 +79,29 @@ def test_cross_adapter_same_id_is_the_merge_path_not_a_duplicate(tmp_path):
     g = build_graph(Config(data=DEFAULTS), tmp_path, scans)
     assert not any("duplicate id" in w for w in g.warnings), g.warnings
     assert g.item_map()["story:a"].release == "R1"    # still merged
+
+
+def test_dependency_cycles_are_reported(tmp_path):
+    """A cycle cannot be topologically ordered, so the roadmap order becomes arbitrary.
+
+    Found in the field: two stories declared each other as dependencies. The roadmap
+    silently emitted them in id order, which reads exactly like a correct ordering.
+    The project's own DAG tracked the cycle; vizzer said nothing.
+    """
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS
+    from vizzer.model import Item
+
+    scans = [("spec_tree", ScanResult(items=[
+        Item(id="story:a", title="A", deps=["story:b"],
+             source={"adapter": "spec_tree", "path": "s/a.md"}),
+        Item(id="story:b", title="B", deps=["story:a"],
+             source={"adapter": "spec_tree", "path": "s/b.md"}),
+        Item(id="story:c", title="C", deps=["story:a"],
+             source={"adapter": "spec_tree", "path": "s/c.md"}),
+    ]))]
+    g = build_graph(Config(data=DEFAULTS), tmp_path, scans)
+    cyc = [w for w in g.warnings if "cycle" in w.lower()]
+    assert len(cyc) == 1, g.warnings
+    assert "story:a" in cyc[0] and "story:b" in cyc[0]
+    assert "story:c" not in cyc[0]      # only the cycle members
