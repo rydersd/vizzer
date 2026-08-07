@@ -56,3 +56,46 @@ def test_titles_cannot_inject_html_or_break_out_of_the_script_block(tmp_path):
     # the payload must still parse and preserve the original text
     data = _data(html)
     assert data["nodes"][0]["t"] == "</script><script>alert(1)</script>"
+
+
+def test_placeholder_in_config_cannot_smuggle_the_payload_into_html(tmp_path):
+    """Substitutions must be single-pass: replaced text must never be re-scanned.
+
+    Escaping the title and then replacing __DATA__ meant a title containing the
+    literal string `__DATA__` had the JSON payload injected into the HTML body,
+    where node titles are not HTML-escaped — reintroducing live markup.
+    """
+    from vizzer.config import deep_merge
+    from vizzer.model import Item as I
+
+    cfg = Config(data=deep_merge(DEFAULTS, {"render": {"title": "x__DATA__y"}}))
+    graph = Graph(vocab=Config(data=DEFAULTS).vocab, items=[
+        I(id="story:a", title="<img src=x onerror=alert(7)>",
+          source={"adapter": "spec_tree", "path": "s/a.md"},
+          activity={"commits": 0, "mentions": 0, "last_touched": 0})])
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})["constellation.html"]
+
+    # the payload belongs in the script element and nowhere else
+    assert html.count('"nodes":') == 1
+    head, _, tail = html.partition('id="title"')
+    title_region = tail[:200]
+    assert "x__DATA__y" in title_region          # the literal title, escaped
+    assert '"nodes":' not in title_region        # not the smuggled payload
+    # the value survives intact inside the data block
+    assert _data(html)["nodes"][0]["t"] == "<img src=x onerror=alert(7)>"
+
+
+def test_non_numeric_activity_values_cannot_reach_the_page_as_markup(tmp_path):
+    """A hand-edited graph can carry junk in activity; the page must not interpolate it raw."""
+    from vizzer.model import Item as I
+
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(vocab=cfg.vocab, items=[
+        I(id="story:a", title="A", source={"adapter": "spec_tree", "path": "s/a.md"},
+          activity={"commits": "<img src=x onerror=alert(8)>", "mentions": None,
+                    "last_touched": "not-a-number"})])
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})["constellation.html"]
+    assert "onerror=alert(8)" not in html
+    node = _data(html)["nodes"][0]
+    assert isinstance(node["ac"], int) and isinstance(node["am"], int)
+    assert isinstance(node["ts"], int)

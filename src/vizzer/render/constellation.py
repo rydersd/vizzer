@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from importlib.resources import files
 from pathlib import Path
 
@@ -19,6 +20,14 @@ def _template_text() -> str:
 # story complexity → node radius weight, from the item's appetite field
 APPETITE_W = {"small": 1.0, "medium": 1.9, "large": 2.9}
 DEFAULT_W = 1.4
+
+
+def _int(value) -> int:
+    """Best-effort integer for a value that reached us from a hand-editable file."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _top_group(graph: Graph, group_id: str | None) -> tuple[str, str]:
@@ -51,9 +60,11 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "r": it.release or "",
             "p": it.source.get("path", ""),
             "w": round(0.72 + 0.36 * w, 2),
-            "ac": it.activity.get("commits", 0),
-            "am": it.activity.get("mentions", 0),
-            "ts": it.activity.get("last_touched", 0),
+            # Activity comes from a checked-in file a human may have edited, and these
+            # values are interpolated into the page — coerce to ints, never pass through.
+            "ac": _int(it.activity.get("commits")),
+            "am": _int(it.activity.get("mentions")),
+            "ts": _int(it.activity.get("last_touched")),
         }
         if it.id in recommended:
             node["rec"] = 1
@@ -90,13 +101,20 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         data["repo"] = repo_url
 
     title = cfg.get("render.title", "") or f"{cfg.get('project.name', 'project')} — constellation"
-    rendered = _template_text()
-    rendered = rendered.replace("__TITLE__", html.escape(title, quote=True))
     payload = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
     payload = (
         payload.replace("</", "<\\/")
         .replace("\u2028", "\\u2028")
         .replace("\u2029", "\\u2029")
     )
-    rendered = rendered.replace("__DATA__", payload)
+    # Substitute in ONE pass. Replacing sequentially lets the first substitution's
+    # output be re-scanned by the second: a title containing the literal "__DATA__"
+    # smuggled the whole JSON payload into the HTML body, outside the script element,
+    # where node titles are not HTML-escaped.
+    substitutions = {"__TITLE__": html.escape(title, quote=True), "__DATA__": payload}
+    rendered = re.sub(
+        "|".join(re.escape(token) for token in substitutions),
+        lambda match: substitutions[match.group(0)],
+        _template_text(),
+    )
     return {"constellation.html": rendered}
