@@ -94,3 +94,19 @@ def test_detect_finds_dag_json_for_migration(tmp_path):
         {"id": "CAP-draw", "epics": [{"id": "EPIC-tools", "stories": [
             {"slug": "a", "deps": ["b"]}]}]}]}))
     assert detect(tmp_path)["spec_tree"]["dag_import"] == "spec-ops/shaping/.shape-spec-dag.json"
+
+
+def test_dag_only_project_enables_the_adapter(tmp_path):
+    """A repo whose work lives only in a DAG must get spec_tree enabled, not disabled."""
+    import json
+    from vizzer.install import _config_text, detect
+
+    dag = tmp_path / ".shape-spec-dag.json"
+    dag.write_text(json.dumps({"capabilities": [
+        {"id": "CAP-a", "epics": [{"id": "EPIC-b", "stories": [{"slug": "s", "deps": []}]}]}]}))
+    found = detect(tmp_path)
+    assert found["spec_tree"]["glob"] == ""
+    assert found["spec_tree"]["dag_import"] == ".shape-spec-dag.json"
+    text = _config_text(tmp_path, found)
+    spec_section = text.split("[sources.spec_tree]")[1].split("[sources.")[0]
+    assert "enabled = true" in spec_section

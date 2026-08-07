@@ -31,3 +31,21 @@ def test_collect_degrades_without_git(tmp_path):
     meta, warnings = collect(tmp_path, [])
     assert meta.commits("x") == 0 and meta.created("x") is None
     assert warnings == ["git history unavailable — dates/activity omitted"]
+
+
+def test_non_ascii_paths_are_found_regardless_of_quotepath(tmp_path):
+    """git quotes non-ASCII paths unless told not to; identical repos must yield identical graphs."""
+    import os
+    from vizzer.gitmeta import collect
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "core.quotePath", "true")     # git's default
+    (repo / "café.md").write_text("accented")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-m", "one", date="2026-01-01T00:00:00Z")
+
+    meta, warnings = collect(repo, [])
+    assert meta.commits("café.md") == 1, "non-ASCII path lost to quoting"
+    assert meta.created("café.md") is not None

@@ -99,3 +99,36 @@ def test_checkbox_style_still_wins_when_both_present(tmp_path):
     cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"ledgers": {"enabled": True}}}))
     res = led.scan(cfg, tmp_path)
     assert [i.title for i in res.items] == ["Phase one", "Phase two"]
+
+
+PHASE_TABLE = """# CONTINUITY: ship-feature — widget
+
+## Goal
+Ship the widget.
+
+## Current phase
+**`[→] 2 — Build`**
+
+| # | Phase | State |
+|---|-------|-------|
+| 1 | Plan | `[x]` |
+| 2 | Build | `[→]` |
+| 3 | Merge + closeout | `[ ]` |
+
+## Open Questions
+- UNCONFIRMED: nothing
+"""
+
+
+def test_phase_table_ledgers_are_parsed(tmp_path):
+    """`/ship-feature`-style ledgers track phases in a table whose cells carry checkbox tokens."""
+    from vizzer.adapters import ledgers as led
+    from vizzer.config import Config, DEFAULTS, deep_merge
+
+    d = tmp_path / "thoughts" / "ledgers"
+    d.mkdir(parents=True)
+    (d / "CONTINUITY_CLAUDE-ship-widget.md").write_text(PHASE_TABLE)
+    cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"ledgers": {"enabled": True}}}))
+    res = led.scan(cfg, tmp_path)
+    assert [i.title for i in res.items] == ["Plan", "Build", "Merge + closeout"]
+    assert [i.status for i in res.items] == ["shipped", "building", "backlog"]

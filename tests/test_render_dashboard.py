@@ -65,3 +65,26 @@ def test_in_progress_excludes_statuses_outside_the_vocabulary():
     inprog = section.split("## In progress")[1].split("##")[0]
     assert "real" in inprog
     assert "noise" not in inprog and "Diagnosis" not in inprog
+
+
+def test_parked_items_never_enter_the_ready_queue_and_done_items_leave_gates():
+    """Parked work is deliberately on hold; completed work is not decision-blocked."""
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Graph, Item
+    from vizzer.render import render_all
+
+    cfg = Config(data=deep_merge(DEFAULTS, {"gates": [
+        {"item": "story:finished", "reason": "historical gate"}]}))
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="story:parked", title="Parked", status="parked", release="R0",
+             source={"adapter": "spec_tree", "path": "s/p.md"}),
+        Item(id="story:finished", title="Finished", status="shipped", release="R0",
+             source={"adapter": "spec_tree", "path": "s/f.md"}),
+        Item(id="story:open", title="Open", status="specced", release="R0",
+             source={"adapter": "spec_tree", "path": "s/o.md"}),
+    ])
+    out = render_all(graph, cfg, Path("."), only={"dashboard"})["dashboard.md"]
+    ready = out.split("## Ready queue")[1].split("##")[0]
+    assert "[open]" in ready and "parked" not in ready
+    blocked = out.split("## Blocked on decisions")[1].split("##")[0]
+    assert "finished" not in blocked

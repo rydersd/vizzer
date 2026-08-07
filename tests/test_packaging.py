@@ -41,3 +41,28 @@ def test_install_from_pyz(tmp_path):
     r2 = subprocess.run([sys.executable, "vizzer/engine", "check", "--structural"],
                         cwd=project, capture_output=True, text=True)
     assert r2.returncode == 0, r2.stdout + r2.stderr
+
+
+def test_pyz_build_is_reproducible(tmp_path):
+    """Every entry must carry a fixed timestamp, so releases are byte-verifiable.
+
+    Comparing two consecutive builds is not sufficient: ZIP stores mtimes with
+    two-second granularity, so fast successive builds can match by luck.
+    """
+    import hashlib
+    import zipfile
+
+    out = tmp_path / "a.pyz"
+    r = subprocess.run([sys.executable, str(ROOT / "scripts" / "build_pyz.py"), str(out)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    with zipfile.ZipFile(out) as z:
+        stamps = {i.date_time for i in z.infolist()}
+    assert len(stamps) == 1, f"entries carry varying timestamps: {sorted(stamps)}"
+
+    # and the archive must be stable across a rebuild from identical sources
+    out2 = tmp_path / "b.pyz"
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "build_pyz.py"), str(out2)],
+                   capture_output=True, text=True, check=True)
+    assert hashlib.sha256(out.read_bytes()).hexdigest() == \
+        hashlib.sha256(out2.read_bytes()).hexdigest()

@@ -58,3 +58,48 @@ def test_dep_prose_is_discarded_not_turned_into_fake_slugs():
     assert _dep_ids("assembler parameterization + slider atoms named · both real", "story") == []
     assert _dep_ids("[] (no story-slug deps; layers on the shipped launch path)", "story") == []
     assert _dep_ids("proof-panel shipped", "story") == []
+
+
+def test_front_matter_release_is_honored(tmp_path):
+    """README documents front-matter `release`; it must not be body-only."""
+    from vizzer.adapters import spec_tree as st
+    from vizzer.config import Config, DEFAULTS, deep_merge
+
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text("---\nstatus: specced\nrelease: R2\nwave: W1\n---\n# Story: A\n")
+    cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True, "glob": "spec/*/epics/*/stories/*.md",
+        "levels": ["capability", "epic"]}}}))
+    [item] = [i for i in st.scan(cfg, tmp_path).items if i.id == "story:a"]
+    assert item.release == "R2"
+    assert item.wave == "W1"
+
+
+def test_undecodable_file_degrades_with_warning(tmp_path):
+    """A file that is not valid UTF-8 must warn, never raise."""
+    from vizzer.adapters import spec_tree as st
+    from vizzer.config import Config, DEFAULTS, deep_merge
+
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "ok.md").write_text("# Story: OK\n\n> Status: specced\n")
+    (stories / "bad.md").write_bytes(b"\xff\xfe\x00binary garbage\n")
+    cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True, "glob": "spec/*/epics/*/stories/*.md",
+        "levels": ["capability", "epic"]}}}))
+    res = st.scan(cfg, tmp_path)
+    assert any(i.id == "story:ok" for i in res.items)
+    assert any("bad.md" in w for w in res.warnings)
+
+
+def test_absolute_glob_does_not_raise(tmp_path):
+    """An absolute pattern in config must degrade to a warning, not NotImplementedError."""
+    from vizzer.adapters import spec_tree as st
+    from vizzer.config import Config, DEFAULTS, deep_merge
+
+    cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True, "glob": "/absolute/*/stories/*.md", "levels": ["capability"]}}}))
+    res = st.scan(cfg, tmp_path)
+    assert res.items == []
+    assert res.warnings

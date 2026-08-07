@@ -41,3 +41,20 @@ def test_groups_first_writer_wins_and_vocab_attached(tmp_path):
     g = build_graph(_cfg(), tmp_path, scans)
     assert [gr.title for gr in g.groups] == ["One"]
     assert any(s["name"] == "shipped" for s in g.vocab["statuses"])
+
+
+def test_duplicate_ids_from_different_files_are_reported(tmp_path):
+    """Two distinct files yielding one id silently lose data today; that must be visible."""
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS
+    from vizzer.model import Item
+
+    scans = [("spec_tree", ScanResult(items=[
+        Item(id="story:dup", title="First", status="specced",
+             source={"adapter": "spec_tree", "path": "a/stories/dup.md"}),
+        Item(id="story:dup", title="Second", status="specced",
+             source={"adapter": "spec_tree", "path": "b/stories/dup.md"}),
+    ]))]
+    g = build_graph(Config(data=DEFAULTS), tmp_path, scans)
+    assert len([i for i in g.items if i.id == "story:dup"]) == 1
+    assert any("dup" in w and "b/stories/dup.md" in w for w in g.warnings), g.warnings
