@@ -58,3 +58,24 @@ def test_duplicate_ids_from_different_files_are_reported(tmp_path):
     g = build_graph(Config(data=DEFAULTS), tmp_path, scans)
     assert len([i for i in g.items if i.id == "story:dup"]) == 1
     assert any("dup" in w and "b/stories/dup.md" in w for w in g.warnings), g.warnings
+
+
+def test_cross_adapter_same_id_is_the_merge_path_not_a_duplicate(tmp_path):
+    """dag_import deliberately re-states story ids; that is reconciliation, not data loss.
+
+    Warning on it produced 524 false positives on a real repo — one per story — which
+    drowns the genuine same-adapter duplicates the check exists to surface.
+    """
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS
+    from vizzer.model import Item
+
+    scans = [("spec_tree", ScanResult(items=[
+        Item(id="story:a", title="A", status="building",
+             source={"adapter": "spec_tree", "path": "spec/a.md"}),
+        Item(id="story:a", title="A", status="building", release="R1",
+             source={"adapter": "dag_import", "path": "shaping/dag.json"}),
+    ]))]
+    g = build_graph(Config(data=DEFAULTS), tmp_path, scans)
+    assert not any("duplicate id" in w for w in g.warnings), g.warnings
+    assert g.item_map()["story:a"].release == "R1"    # still merged

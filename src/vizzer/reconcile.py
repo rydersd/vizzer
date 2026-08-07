@@ -53,7 +53,12 @@ def build_graph(
         path = _source_path(newcomer)
         keeper = items_by_id.get(newcomer.id)
         keeper_path = _source_path(keeper) if keeper is not None else None
-        if keeper_path and path and keeper_path != path:
+        # Two files under ONE adapter yielding one id means data is silently lost.
+        # The same id arriving from a DIFFERENT adapter is the designed merge path
+        # (a dag_import restates every story id on purpose), so it is not a duplicate —
+        # any real disagreement between them is already reported as a conflict below.
+        if (keeper_path and path and keeper_path != path
+                and _adapter(keeper) == _adapter(newcomer)):
             warnings.add(
                 f"duplicate id {newcomer.id} — kept {keeper_path}, ignored {path}"
             )
