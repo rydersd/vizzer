@@ -34,13 +34,17 @@ def _belongs_to(item: Item, top_id: str, groups: dict[str, Group]) -> bool:
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     del root
     done_statuses = cfg.done_statuses()
+    known_statuses = {status["name"] for status in cfg.vocab["statuses"]}
     planned = [item for item in graph.items if _planned(item)]
     item_map = graph.item_map()
     all_deps = {item.id: item.deps for item in graph.items}
 
+    # Custom lifecycle states belong in [[status]] so they are classifiable here.
     in_progress = sorted(
         (item for item in planned
-         if item.status not in done_statuses and item.status not in _NOT_STARTED),
+         if item.status in known_statuses
+         and item.status not in done_statuses
+         and item.status not in _NOT_STARTED),
         key=lambda item: item.id,
     )
 

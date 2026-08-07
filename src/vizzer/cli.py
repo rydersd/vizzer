@@ -155,15 +155,61 @@ def _archive(root: Path, confirmed: bool) -> int:
         print("archived files leave git tracking")
         return 1
 
-    moved = 0
+    resolved_root = root.resolve()
+    archive_root = resolved_root / "vizzer" / "archive"
+    moved = skipped = 0
     for relpath in relpaths:
-        source = root / relpath
-        if not source.exists():
+        source = (resolved_root / relpath).resolve()
+        if not source.is_relative_to(resolved_root):
+            print(f"warning: archive path is outside the project: {relpath.as_posix()}")
+            skipped += 1
             continue
-        destination = root / "vizzer" / "archive" / relpath
-        os.renames(source, destination)
+        if not source.exists():
+            skipped += 1
+            continue
+        if not source.is_file():
+            print(f"warning: archive source is not a file: {relpath.as_posix()}")
+            skipped += 1
+            continue
+
+        source_relpath = source.relative_to(resolved_root)
+        destination = archive_root / source_relpath
+        resolved_destination = destination.resolve()
+        if (
+            not resolved_destination.is_relative_to(archive_root)
+            or not resolved_destination.is_relative_to(resolved_root)
+        ):
+            print(f"warning: archive destination is outside the project: {relpath.as_posix()}")
+            skipped += 1
+            continue
+        if destination.exists() or destination.is_symlink():
+            print(f"warning: archive destination already exists: {destination}")
+            skipped += 1
+            continue
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(source, destination)
+        except FileExistsError:
+            print(f"warning: archive destination already exists: {destination}")
+            skipped += 1
+            continue
+        try:
+            source.unlink()
+        except OSError:
+            destination.unlink(missing_ok=True)
+            raise
+
+        parent = source.parent
+        while parent != resolved_root:
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
         moved += 1
     print(f"archive: moved {moved} files")
+    print(f"archive: skipped {skipped} files")
     return 0
 
 

@@ -9,6 +9,12 @@ from . import ScanResult, slugify
 
 
 _CHECKBOX_RE = re.compile(r"^\s*- \[(x|→|->| )\]\s+(.+?)\s*$", re.MULTILINE)
+_PHASE_HEADING_RE = re.compile(
+    r"^##[ \t]+(Done|Now|Next|Remaining)(?:[ \t]+.*?)?[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_H2_RE = re.compile(r"^##[ \t]+", re.MULTILINE)
+_LIST_ENTRY_RE = re.compile(r"^\s*(?:-\s+|\d+[.)]\s+)(.+?)\s*$", re.MULTILINE)
 
 
 def _ledger_slug(path: Path) -> str:
@@ -35,6 +41,25 @@ def _goal(text: str) -> str:
         if stripped:
             return " ".join(stripped.split())
     return ""
+
+
+def _heading_phases(text: str) -> list[tuple[str, str]]:
+    status_map = {"done": "shipped", "now": "building",
+                  "next": "backlog", "remaining": "backlog"}
+    phases = []
+    for heading in _PHASE_HEADING_RE.finditer(text):
+        next_heading = _H2_RE.search(text, heading.end())
+        end = next_heading.start() if next_heading else len(text)
+        section = text[heading.end():end]
+        entries = [match.group(1) for match in _LIST_ENTRY_RE.finditer(section)]
+        status = status_map[heading.group(1).lower()]
+        phases.extend((status, title) for title in entries)
+
+        if status == "building" and not entries:
+            prose = " ".join(section.split())
+            if prose:
+                phases.append((status, prose[:120]))
+    return phases
 
 
 def scan(cfg, root: Path) -> ScanResult:
@@ -77,15 +102,21 @@ def scan(cfg, root: Path) -> ScanResult:
             },
         ))
 
-        status_map = {"x": "shipped", "→": "building", "->": "building",
-                      " ": "backlog"}
-        for index, match in enumerate(_CHECKBOX_RE.finditer(text), 1):
-            marker, title = match.groups()
+        checkbox_matches = list(_CHECKBOX_RE.finditer(text))
+        if checkbox_matches:
+            status_map = {"x": "shipped", "→": "building", "->": "building",
+                          " ": "backlog"}
+            phases = [(status_map[match.group(1)], match.group(2))
+                      for match in checkbox_matches]
+        else:
+            phases = _heading_phases(text)
+
+        for index, (status, title) in enumerate(phases, 1):
             items.append(Item(
                 id=(f"phase:{ledger_slug}/{index:02d}-"
                     f"{slugify(title)}"),
                 title=title,
-                status=status_map[marker],
+                status=status,
                 group=group_id,
                 source={"adapter": "ledgers", "path": relpath},
             ))

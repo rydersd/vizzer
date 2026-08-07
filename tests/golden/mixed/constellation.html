@@ -94,6 +94,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 <div id="hint">drag / two-finger orbit · pinch zoom · click node → story + dependencies</div>
 <script>
 const DATA={"nodes":[{"s":"tokens","t":"Design tokens","st":"shipped","c":"docs/design","e":"docs/design","r":"","p":"docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045},{"s":"roadmap-notes","t":"Roadmap notes","st":"unknown","c":"docs","e":"docs","r":"","p":"docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","st":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","st":"building","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","st":"backlog","c":"widget-refactor","e":"Widget Refactor","r":"","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"canvas-core","t":"Canvas core","st":"shipped","c":"drawing","e":"Drawing tools","r":"R0","p":"spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"snap-to-grid","t":"Snap to grid","st":"building","c":"drawing","e":"Drawing tools","r":"R0","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045},{"s":"01-set-up-ci","t":"Set up CI","st":"shipped","c":"TODO.md","e":"TODO.md","r":"","p":"TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045},{"s":"02-write-install-docs","t":"Write install docs","st":"backlog","c":"TODO.md","e":"TODO.md","r":"","p":"TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045}],"edges":[[5,6]],"caps":{"docs/design":{"total":1,"shipped":1},"docs":{"total":1,"shipped":0},"widget-refactor":{"total":3,"shipped":1},"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"now":1767323045};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const REPO = DATA.repo || '';
 const GROUPS = {shipped:'shipped', building:'active','in-flight':'active', ready:'ready','bug-gap':'buggap',
@@ -229,7 +230,7 @@ caps.sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total).forEach(c=>{
   const v = DATA.caps[c];
   const bg = DATA.nodes.filter(n=>n.c===c&&n.st==='bug-gap').length;
   const d = document.createElement('div'); d.className='cap'; d.tabIndex=0;
-  d.innerHTML = `<h3>${c.replace(/-/g,' ')}<span>${v.shipped}/${v.total}</span></h3>
+  d.innerHTML = `<h3>${esc(c.replace(/-/g,' '))}<span>${v.shipped}/${v.total}</span></h3>
     <div class="capbar"><i style="width:${100*v.shipped/v.total}%"></i><b style="width:${100*bg/v.total}%"></b></div>`;
   d.onclick = ()=>{ capFocus = capFocus===c ? null : c;
     rail.querySelectorAll('.cap').forEach(x=>x.classList.remove('on'));
@@ -242,18 +243,18 @@ const dossier = document.getElementById('dossier'), dbody = document.getElementB
 document.getElementById('close').onclick = ()=>{ sel=-1; dossier.classList.remove('open'); };
 function openNode(i){
   sel = i; const n = DATA.nodes[i];
-  const dep = (list,label)=> list.length ? `<h4>${label}</h4>`+list.map(j=>{
+  const dep = (list,label)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(j=>{
     const m = DATA.nodes[j];
-    return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${m.t}</button>`;}).join('') : '';
+    return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${esc(m.t)}</button>`;}).join('') : '';
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
-  dbody.innerHTML = `<h2>${n.t}</h2>
-    <span class="pill" style="background:${C[n.g]}">${n.st}</span>${n.rec?' <span class="pill" style="background:var(--accent)">★ next step</span>':''}
-    <div class="kv"><span>area</span><b>${n.c.replace(/-/g,' ')}</b>
-      <span>epic</span><b>${n.e}</b><span>release</span><b>${n.r||'—'}</b>
+  dbody.innerHTML = `<h2>${esc(n.t)}</h2>
+    <span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?' <span class="pill" style="background:var(--accent)">★ next step</span>':''}
+    <div class="kv"><span>area</span><b>${esc(n.c.replace(/-/g,' '))}</b>
+      <span>epic</span><b>${esc(n.e)}</b><span>release</span><b>${esc(n.r||'—')}</b>
       <span>activity</span><b>${n.ac} spec commit${n.ac===1?'':'s'} · ${n.am} doc mention${n.am===1?'':'s'}</b>
       <span>touched</span><b>${touched}</b></div>
-    ${DATA.root?`<a class="story" href="obsidian://open?path=${encodeURIComponent(DATA.root+'/'+n.p)}">obsidian</a>`:''}
-    ${REPO?`<a class="story" href="${REPO}${n.p}" target="_blank" rel="noopener">source ↗</a>`:''}
+    ${DATA.root?`<a class="story" href="obsidian://open?path=${esc(encodeURIComponent(DATA.root+'/'+n.p))}">obsidian</a>`:''}
+    ${REPO?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ↗</a>`:''}
     <div id="deps">${dep(nbr[i].up,'depends on')}${dep(nbr[i].dn,'unblocks')}</div>`;
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dossier.classList.add('open');
@@ -348,7 +349,7 @@ cv.addEventListener('pointermove',e=>{
     const tip = document.getElementById('tip');
     if (best>=0){ const n=DATA.nodes[best];
       tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+10)+'px';
-      tip.innerHTML = `${n.rec?'★ ':''}${n.t}<small>${n.st} · ${n.c.replace(/-/g,' ')} · activity ${n.ac+n.am}</small>`;
+      tip.innerHTML = `${n.rec?'★ ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))} · activity ${n.ac+n.am}</small>`;
       cv.style.cursor='pointer';
     } else { tip.style.display='none'; cv.style.cursor='grab'; }
   }

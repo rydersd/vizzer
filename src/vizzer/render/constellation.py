@@ -1,6 +1,7 @@
 """Interactive 3D constellation: inject graph data into the self-contained template."""
 from __future__ import annotations
 
+import html
 import json
 from importlib.resources import files
 from pathlib import Path
@@ -89,7 +90,13 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         data["repo"] = repo_url
 
     title = cfg.get("render.title", "") or f"{cfg.get('project.name', 'project')} — constellation"
-    html = _template_text()
-    html = html.replace("__TITLE__", title)
-    html = html.replace("__DATA__", json.dumps(data, separators=(",", ":"), ensure_ascii=False))
-    return {"constellation.html": html}
+    rendered = _template_text()
+    rendered = rendered.replace("__TITLE__", html.escape(title, quote=True))
+    payload = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+    payload = (
+        payload.replace("</", "<\\/")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+    rendered = rendered.replace("__DATA__", payload)
+    return {"constellation.html": rendered}
