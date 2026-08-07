@@ -1,9 +1,8 @@
 # Vizzer — Portable Work-Graph Views — Design
 
 > Status: approved (owner, 2026-08-06)
-> Origin: abstraction of the source project's `wiki/spec-ops/views` system
-> (spec-views.py, spec-dashboard.py, gen-completion-sheet.py,
-> gen-spec-constellation.py, gen-spec-manifest.py, spec-refresh.sh) into a
+> Origin: generalization of a private, single-project set of spec-view generator
+> scripts (roadmap, dashboard, completion sheet, constellation, manifest) into a
 > public, project-agnostic tool.
 
 ## Purpose
@@ -21,8 +20,8 @@ Success criteria:
 
 1. `install → sync → render` works on a repo vizzer has never seen, with zero
    dependencies beyond system `python3` (≥3.10).
-2. The generated views on a real project are as useful as the source project's originals
-   (which this design ports), without any the source project-specific content in code.
+2. The generated views on a real project are as useful as the single-project
+   originals this design generalizes, with no project-specific content in code.
 3. An agent session opening a vizzer-enabled project knows the tool exists,
    where the graph is, and when to refresh it — from the managed
    CLAUDE.md/AGENTS.md block alone.
@@ -36,7 +35,7 @@ Success criteria:
 | v1 adapters | spec-tree markdown, continuity ledgers, loose docs + front-matter, TODO/checkbox files. |
 | Write-back | Opt-in only: `archive` moves fully-ingested source files into a gitignored subdirectory. Requires `--yes`; warns that archived files leave git tracking. Never a default, never a delete. |
 | Architecture | Adapter → normalized graph → renderer pipeline — one parser, one vocabulary, one refresh cadence by construction (see "Defects fixed" for everything this structure eliminates). |
-| Repo visibility | Public. MIT license. Synthetic test fixtures only — no the source project or personal content in code, fixtures, or default output. |
+| Repo visibility | Public. MIT license. Synthetic test fixtures only — no private-project or personal content in code, fixtures, or default output. |
 | In-project directory name | `vizzer/` at project root (visible, not hidden). |
 
 ## In-project footprint
@@ -71,8 +70,8 @@ Vendored engine (`python3 vizzer/engine …`):
   warning + conflict summary.
 - **`render [--only view,…]`** — regenerate views from the graph only (never
   re-parses sources).
-- **`check`** — exit 1 if graph or views are stale vs sources. Two modes like
-  the the source project precedent: full, and `--structural` (ignores git-date fields;
+- **`check`** — exit 1 if graph or views are stale vs sources. Two modes, following the
+  prior art: full, and `--structural` (ignores git-date fields;
   pre-commit-safe).
 - **`archive --yes`** — move fully-ingested originals to `vizzer/archive/`.
 
@@ -138,7 +137,7 @@ adapters (GitHub issues, Linear, …) touch nothing else.
    front-matter), `> Status:`, `Release:`, `Wave:`, `Appetite:`, `> Debt:`,
    `## Intent` one-liner. Deps come from a `> Deps:` line or front-matter
    `deps:` list in the item file. A config key may point at an existing
-   external DAG JSON to import deps/status (the source project migration path).
+   external DAG JSON to import deps/status (migration path for projects whose deps already live in a DAG file).
 2. **`ledgers`** — `CONTINUITY_*.md`. Ledger → group (carries Goal); each
    phase checkbox → item (`[x]` → done-status, `[→]` → in-progress, `[ ]` →
    pending); open-questions count as metadata.
@@ -166,12 +165,12 @@ Pure functions over the graph; they cannot disagree with each other.
 
 1. **roadmap.md** — dependency-ordered (topo-sorted) waves per release;
    release names/labels from config; cycle-tolerant (falls through with the
-   remainder appended, per the the source project precedent).
+   remainder appended, following the prior art).
 2. **feature-index.md** — Cmd-F behavior table grouped by top two group
    levels.
 3. **dashboard.md** — in-progress first, dependency-satisfied ready queue,
    blocked items with the blocking gate named. Decision gates are a
-   `[gates]` table in `vizzer.toml` (the source project had them hardcoded in source).
+   `[gates]` table in `vizzer.toml` (the originals hardcoded them in source).
 4. **completion-sheet.md** — status counts overall / by group / by wave, debt
    tally, verified-rate; vocabulary + done-semantics from config.
 5. **ledger-table.md** *(new)* — one row per ledger: goal, current `[→]`
@@ -205,7 +204,7 @@ it reads files and git history only.
   (`install → sync → render → check` into a fixture repo); `.pyz` release
   build.
 
-## Defects fixed relative to the the source project originals
+## Defects fixed relative to the originals
 
 1. Four independent parsers with divergent conventions → one loader.
 2. Status vocabulary inconsistencies (emoji maps missing statuses; dashboard
@@ -227,13 +226,13 @@ it reads files and git history only.
   beyond opt-in archiving.
 - Non-filesystem adapters (GitHub issues, Linear) — the adapter contract is
   the extension point.
-- The source project itself migrating to vizzer — that is an the source project spec-ops story to
-  propose separately, never a silent swap.
+- The originating project migrating onto vizzer — that is a story to propose in
+  that project's own spec, never a silent swap.
 
 ## Relationship to source material
 
 The topo sort, ready-queue logic, completion aggregation, manifest
 check-modes, and the constellation template are ports from
-the source project `scripts/dev/` (same owner), rewritten against the
-normalized graph. No the source project content (paths, statuses, decision tables,
-fixtures) ships in this repo.
+the author's own prior single-project scripts, rewritten against the
+normalized graph. No content from that project (paths, statuses, decision
+tables, fixtures) ships in this repo.
