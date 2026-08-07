@@ -15,6 +15,8 @@ _MARKDOWN_LINK_RE = re.compile(r"^\[([^\]\r\n]+)\]\([^\r\n]*\)$")
 _CODE_SPAN_RE = re.compile(r"^(`+)(.*?)\1$", re.DOTALL)
 _KIND_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+:")
 _DEP_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_MAX_DAG_JSON_DEPTH = 8
+_MAX_DAG_JSON_NODES = 20_000
 
 
 def _front_matter(text: str) -> tuple[dict, str]:
@@ -220,53 +222,56 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
 def _dag_items(root: Path, dag_relpath: str, item_kind: str,
                warnings: list[str]) -> list[Item]:
     path = root / dag_relpath
+    relpath = Path(dag_relpath).as_posix()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        warnings.append(f"{Path(dag_relpath).as_posix()}: unreadable or malformed DAG")
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
+        warnings.append(f"{relpath}: unreadable or malformed DAG")
         return []
 
-    capabilities = data.get("capabilities", []) if isinstance(data, dict) else []
-    if not isinstance(capabilities, list):
-        warnings.append(f"{Path(dag_relpath).as_posix()}: malformed DAG entries ignored")
-        return []
     items = []
-    malformed = not isinstance(data, dict)
-    for capability in capabilities:
-        if not isinstance(capability, dict):
-            malformed = True
-            continue
-        epics = capability.get("epics", [])
-        if not isinstance(epics, list):
-            malformed = True
-            continue
-        for epic in epics:
-            if not isinstance(epic, dict):
-                malformed = True
-                continue
-            stories = epic.get("stories", [])
-            if not isinstance(stories, list):
-                malformed = True
-                continue
-            for story in stories:
-                if not isinstance(story, dict) or not story.get("slug"):
-                    malformed = True
-                    continue
-                slug = str(story["slug"])
+    seen_slugs = set()
+    visited = 0
+
+    def walk(node, depth: int) -> None:
+        nonlocal visited
+        if visited >= _MAX_DAG_JSON_NODES:
+            return
+        visited += 1
+
+        if isinstance(node, dict):
+            slug = node.get("slug")
+            if isinstance(slug, str) and slug not in seen_slugs:
+                seen_slugs.add(slug)
                 items.append(Item(
                     id=f"{item_kind}:{slug}",
-                    title=str(story.get("title") or slug),
-                    one_liner=(str(story["oneLiner"])
-                               if story.get("oneLiner") is not None else None),
-                    status=str(story.get("status") or "unknown"),
-                    release=(str(story["release"])
-                             if story.get("release") is not None else None),
-                    deps=_dep_ids(story.get("deps", []), item_kind),
-                    source={"adapter": "dag_import",
-                            "path": Path(dag_relpath).as_posix()},
+                    title=str(node.get("title") or slug),
+                    one_liner=(str(node["oneLiner"])
+                               if node.get("oneLiner") is not None else None),
+                    status=str(node.get("status") or "unknown"),
+                    release=(str(node["release"])
+                             if node.get("release") is not None else None),
+                    wave=(str(node["wave"])
+                          if node.get("wave") is not None else None),
+                    deps=_dep_ids(node.get("deps", []), item_kind),
+                    source={"adapter": "dag_import", "path": relpath},
                 ))
-    if malformed:
-        warnings.append(f"{Path(dag_relpath).as_posix()}: malformed DAG entries ignored")
+            children = node.values()
+        elif isinstance(node, list):
+            children = node
+        else:
+            return
+
+        if depth < _MAX_DAG_JSON_DEPTH:
+            for child in children:
+                walk(child, depth + 1)
+                if visited >= _MAX_DAG_JSON_NODES:
+                    break
+
+    walk(data, 0)
+
+    if not items:
+        warnings.append(f"{relpath}: malformed DAG entries ignored")
     return sorted(items, key=lambda item: item.id)
 
 

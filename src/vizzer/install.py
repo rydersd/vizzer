@@ -39,6 +39,8 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
 _MAX_SPEC_DEPTH = 10
 _MAX_DAG_DEPTH = 10
 _MAX_DAG_BYTES = 50 * 1024 * 1024
+_MAX_DAG_JSON_DEPTH = 8
+_MAX_DAG_JSON_NODES = 20_000
 
 
 def _matches(root: Path, pattern: str) -> bool:
@@ -94,18 +96,35 @@ def _spec_tree(root: Path) -> dict:
 
 
 def _looks_like_dag(data) -> bool:
-    if not isinstance(data, dict) or not isinstance(data.get("capabilities"), list):
-        return False
-    for capability in data["capabilities"]:
-        if not isinstance(capability, dict):
-            continue
-        epics = capability.get("epics")
-        if not isinstance(epics, list):
-            continue
-        for epic in epics:
-            if isinstance(epic, dict) and isinstance(epic.get("stories"), list):
+    visited = 0
+
+    def walk(node, depth: int, parent_is_list: bool = False) -> bool:
+        nonlocal visited
+        if visited >= _MAX_DAG_JSON_NODES:
+            return False
+        visited += 1
+
+        if (parent_is_list and isinstance(node, dict)
+                and isinstance(node.get("slug"), str)):
+            return True
+        if depth >= _MAX_DAG_JSON_DEPTH:
+            return False
+
+        if isinstance(node, list):
+            children = node
+        elif isinstance(node, dict):
+            children = node.values()
+        else:
+            return False
+
+        for child in children:
+            if walk(child, depth + 1, isinstance(node, list)):
                 return True
-    return False
+            if visited >= _MAX_DAG_JSON_NODES:
+                break
+        return False
+
+    return walk(data, 0)
 
 
 def _dag_import(root: Path) -> str:
