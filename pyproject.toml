@@ -7,7 +7,7 @@ name = "vizzer"
 version = "0.1.0"
 description = "Portable work-graph views: normalize a project's specs/ledgers/docs into one graph and render roadmap, dashboard, and a 3D constellation."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 
 [project.scripts]

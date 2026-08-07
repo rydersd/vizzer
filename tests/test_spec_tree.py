@@ -103,3 +103,33 @@ def test_absolute_glob_does_not_raise(tmp_path):
     res = st.scan(cfg, tmp_path)
     assert res.items == []
     assert res.warnings
+
+
+def test_dag_import_walks_slug_keyed_collections(tmp_path):
+    """Real DAGs key capabilities and epics by slug (dicts), not as lists.
+
+    Assuming lists made the importer skip every story, so a project with 27 of 43
+    stories carrying dependencies produced a flat, non-dependency-aware queue.
+    """
+    import json
+    from vizzer.adapters import spec_tree as st
+    from vizzer.config import Config, DEFAULTS, deep_merge
+
+    (tmp_path / "wiki").mkdir()
+    (tmp_path / "wiki" / "dag.json").write_text(json.dumps({
+        "capabilities": {
+            "billing": {"title": "Billing", "wave": "R0", "epics": {
+                "ui": {"stories": [
+                    {"slug": "billable-fields-ui", "deps": [], "status": "specced",
+                     "wave": "R0"},
+                    {"slug": "weekly-summary", "deps": ["billable-fields-ui"],
+                     "status": "specced", "wave": "R0"},
+                ]}}}}}))
+    cfg = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True, "glob": "", "dag_import": "wiki/dag.json"}}}))
+    res = st.scan(cfg, tmp_path)
+    by_id = {i.id: i for i in res.items}
+    assert set(by_id) == {"story:billable-fields-ui", "story:weekly-summary"}
+    assert by_id["story:weekly-summary"].deps == ["story:billable-fields-ui"]
+    assert by_id["story:weekly-summary"].wave == "R0"
+    assert by_id["story:billable-fields-ui"].status == "specced"

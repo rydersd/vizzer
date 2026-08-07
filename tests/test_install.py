@@ -110,3 +110,78 @@ def test_dag_only_project_enables_the_adapter(tmp_path):
     text = _config_text(tmp_path, found)
     spec_section = text.split("[sources.spec_tree]")[1].split("[sources.")[0]
     assert "enabled = true" in spec_section
+
+
+def test_loose_docs_is_a_fallback_not_an_always_on_source(tmp_path):
+    """Docs are corpus, not work items.
+
+    Auto-enabling them alongside a real spec tree drowned the views on two real
+    repos (111 of 154 items on one, 738 of 1498 on another) and produced
+    meaningless progress rows like `wiki/concepts 0/18`. loose_docs is the floor
+    for repos that have nothing else — not an always-on adapter.
+    """
+    from vizzer.install import _config_text, detect
+
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text("# Story: A\n\n> Status: specced\n")
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "note.md").write_text("# Note\n")
+
+    found = detect(tmp_path)
+    assert found["spec_tree"]["glob"], "precondition: spec tree detected"
+    section = _config_text(tmp_path, found).split(
+        "[sources.loose_docs]")[1].split("[sources.")[0]
+    assert "enabled = false" in section
+
+    # with no spec tree, todos or ledgers, docs remain the useful fallback
+    bare = tmp_path / "bare"
+    (bare / "docs").mkdir(parents=True)
+    (bare / "docs" / "n.md").write_text("# N\n")
+    found_bare = detect(bare)
+    bare_section = _config_text(bare, found_bare).split(
+        "[sources.loose_docs]")[1].split("[sources.")[0]
+    assert "enabled = true" in bare_section
+
+
+def test_dag_detection_tolerates_alternative_nestings(tmp_path):
+    """A DAG is recognized by story-like records, not by one exact key path.
+
+    The first implementation matched only capabilities → epics → stories, so a real
+    project whose DAG nested differently was silently missed and its ready queue came
+    out flat and non-dependency-aware.
+    """
+    import json
+    from vizzer.install import detect
+
+    shapes = {
+        # the real shape that was missed in the field: collections keyed by slug
+        "dict_keyed": {"capabilities": {"billing": {"title": "Billing", "epics": {
+            "ui": {"stories": [{"slug": "a", "deps": [], "status": "specced"}]}}}}},
+        "epics_omitted": {"capabilities": [{"id": "C", "stories": [
+            {"slug": "a", "deps": []}]}]},
+        "top_level_stories": {"stories": [{"slug": "a", "deps": ["b"]},
+                                          {"slug": "b", "deps": []}]},
+        "wrapped": {"dag": {"capabilities": [{"epics": [{"stories": [
+            {"slug": "a", "deps": []}]}]}]}},
+    }
+    for name, payload in shapes.items():
+        root = tmp_path / name
+        (root / "spec-ops").mkdir(parents=True)
+        (root / "spec-ops" / ".shape-spec-dag.json").write_text(json.dumps(payload))
+        found = detect(root)["spec_tree"]["dag_import"]
+        assert found == "spec-ops/.shape-spec-dag.json", f"{name}: not detected"
+
+
+def test_unrelated_json_is_not_mistaken_for_a_dag(tmp_path):
+    """Shape tolerance must not turn lockfiles and configs into work-item sources."""
+    import json
+    from vizzer.install import detect
+
+    (tmp_path / "package-lock.json").write_text(json.dumps(
+        {"name": "x", "lockfileVersion": 3,
+         "packages": {"": {"dependencies": {"left-pad": "^1.0.0"}}}}))
+    (tmp_path / "tsconfig.json").write_text(json.dumps(
+        {"compilerOptions": {"strict": True}, "include": ["src"]}))
+    assert detect(tmp_path)["spec_tree"]["dag_import"] == ""

@@ -137,3 +137,37 @@ def test_source_links_resolve_from_a_deeper_output_dir(tmp_path, make_repo):
     target = link.split("](")[1].split(")")[0]
     resolved = (repo / "vizzer" / "views" / "deep" / target).resolve()
     assert resolved.exists(), f"broken link {target!r} from a deeper output dir"
+
+
+def test_sync_hints_when_a_spec_tree_yields_no_dependency_edges(tmp_path, make_repo, capsys):
+    """Zero edges across many items almost always means deps live in a DAG file.
+
+    Two real deployments silently produced a flat, non-dependency-aware ready queue
+    because dag_import was never set; nothing in the output said so.
+    """
+    repo = make_repo(tmp_path, "spec_proj")
+    (repo / "vizzer").mkdir(parents=True, exist_ok=True)
+    (repo / "vizzer" / "vizzer.toml").write_text(
+        '[sources.spec_tree]\nenabled = true\n'
+        'glob = "spec/*/epics/*/stories/*.md"\nlevels = ["capability", "epic"]\n')
+    # strip the Deps: line so the tree has items but no edges
+    story = repo / "spec/drawing/epics/tools/stories/snap-to-grid.md"
+    story.write_text("\n".join(l for l in story.read_text().splitlines()
+                               if not l.startswith("> Deps:")))
+    # the hint only fires above a small-project threshold, so add a few more stories
+    stories_dir = repo / "spec/drawing/epics/tools/stories"
+    for n in range(4):
+        (stories_dir / f"extra-{n}.md").write_text(
+            f"# Story: Extra {n}\n\n> Status: specced · Release: R0\n")
+    assert main(["sync", "--root", str(repo)]) == 0
+    out = capsys.readouterr().out.lower()
+    assert "dag_import" in out and "dependenc" in out
+
+
+def test_sync_warns_when_a_source_directory_is_gitignored(tmp_path, make_repo, capsys):
+    """Views derived from ignored files cannot be reproduced by CI or teammates."""
+    repo = make_repo(tmp_path, "mixed_proj")
+    (repo / ".gitignore").write_text("thoughts/\n")
+    assert main(["sync", "--root", str(repo)]) == 0
+    out = capsys.readouterr().out.lower()
+    assert "gitignore" in out and "thoughts" in out

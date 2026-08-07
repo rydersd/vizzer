@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +24,49 @@ def _build(cfg: Config, root: Path) -> Graph:
         for name, adapter in get_adapters(cfg)
     ]
     return build_graph(cfg, root, scans)
+
+
+def _gitignored_source_directories(graph: Graph, root: Path) -> list[str]:
+    directories = set()
+    for item in graph.items:
+        source_path = item.source.get("path")
+        if not source_path:
+            continue
+        path = Path(source_path)
+        if path.is_absolute() or len(path.parts) < 2 or path.parts[0] in (".", ".."):
+            continue
+        directories.add(path.parts[0])
+
+    ignored = []
+    for directory in sorted(directories):
+        try:
+            result = subprocess.run(
+                [
+                    "git", "-C", str(root), "check-ignore", "--no-index", "-q",
+                    directory,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except OSError:
+            continue
+        if result.returncode == 0:
+            ignored.append(directory)
+    return ignored
+
+
+def _print_sync_hints(cfg: Config, graph: Graph) -> None:
+    item_kind = cfg.get("sources.spec_tree.item_kind", "story")
+    kind_prefix = f"{item_kind}:"
+    item_count = sum(item.id.startswith(kind_prefix) for item in graph.items)
+    edge_count = sum(len(item.deps) for item in graph.items)
+    if item_count >= 5 and edge_count == 0:
+        print(
+            f"hint: {item_count} items, 0 dependency edges — if your dependencies "
+            "live in a DAG file,\n"
+            "      set sources.spec_tree.dag_import in vizzer/vizzer.toml"
+        )
 
 
 def _read_graph(root: Path) -> Graph | None:
@@ -78,6 +122,12 @@ def _sync(root: Path) -> int:
         )
     for warning in graph.warnings:
         print(f"warning: {warning}")
+    _print_sync_hints(cfg, graph)
+    for directory in _gitignored_source_directories(graph, root):
+        print(
+            f"warning: {directory} is gitignored — views derived from it cannot be "
+            "reproduced by CI or teammates"
+        )
     return 0
 
 

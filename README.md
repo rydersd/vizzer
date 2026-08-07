@@ -99,7 +99,7 @@ decision, surfaced on the dashboard instead of the ready queue).
 
 Config is parsed by a small built-in TOML subset (sections, table-arrays,
 strings/bools/ints/string-arrays) so the engine stays stdlib-only on
-Python ≥ 3.10.
+Python ≥ 3.9.
 
 ## Archiving (opt-in, off by default)
 

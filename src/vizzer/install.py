@@ -161,13 +161,19 @@ def _detection_summary(found: dict) -> str:
     lines = []
     glob = found["spec_tree"]["glob"]
     dag_import = found["spec_tree"].get("dag_import", "")
+    has_structured_sources = bool(
+        glob or dag_import or found["ledgers"] or found["todos"]
+    )
     lines.append(f"  spec_tree:  {glob}" if glob else "  spec_tree:  none found")
     if dag_import:
         lines.append(f"  dag_import: {dag_import}")
     lines.append("  ledgers:    thoughts/ledgers/CONTINUITY_*.md"
                  if found["ledgers"] else "  ledgers:    none found")
-    lines.append(f"  loose_docs: {', '.join(found['loose_docs'])}"
-                 if found["loose_docs"] else "  loose_docs: none found")
+    if found["loose_docs"]:
+        suffix = " (disabled — fallback only)" if has_structured_sources else ""
+        lines.append(f"  loose_docs: {', '.join(found['loose_docs'])}{suffix}")
+    else:
+        lines.append("  loose_docs: none found")
     lines.append(f"  todos:      {', '.join(found['todos'])}"
                  if found["todos"] else "  todos:      none found")
     header = "install: detected sources"
@@ -187,6 +193,9 @@ def _config_text(target: Path, found: dict) -> str:
     spec_tree_enabled = bool(spec_tree["glob"] or spec_tree.get("dag_import", ""))
     loose_docs = found["loose_docs"]
     todos = found["todos"]
+    loose_docs_enabled = bool(loose_docs) and not (
+        spec_tree_enabled or found["ledgers"] or todos
+    )
     project_name = target.resolve().name.replace('"', "'")
     return f"""# Vizzer configuration. Re-run detection manually before changing source globs.
 
@@ -213,8 +222,8 @@ enabled = {str(found["ledgers"]).lower()}
 glob = "thoughts/ledgers/CONTINUITY_*.md"
 
 [sources.loose_docs]
-# Scan Markdown documentation when matching files were detected.
-enabled = {str(bool(loose_docs)).lower()}
+# Fallback for repos with no structured sources; when enabled, docs also appear in manifest.json.
+enabled = {str(loose_docs_enabled).lower()}
 # Repository-relative documentation patterns.
 globs = {_string_array(loose_docs)}
 
