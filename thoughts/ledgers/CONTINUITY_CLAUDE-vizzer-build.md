@@ -9,7 +9,7 @@ cross-vendor review passed, repo ready for public GitHub push.
 ## Constraints
 - Spec: docs/superpowers/specs/2026-08-06-vizzer-portable-spec-views-design.md (approved)
 - Plan: docs/superpowers/plans/2026-08-06-vizzer-implementation.md (tasks T1-T15, test code is the contract)
-- Python ≥3.10 stdlib-only runtime; deterministic outputs; no the source project/personal content (public repo, MIT)
+- Python ≥3.10 stdlib-only runtime; deterministic outputs; no private-project/personal content (public repo, MIT)
 - Delegation: codex implements marked lanes; Claude verifies artifacts + commits; cross-vendor review before done
 - Test runner: .venv/bin/python -m pytest tests/ -q (venv is py3.12 via uv; system python3 is 3.9 — too old)
 
@@ -26,7 +26,7 @@ cross-vendor review passed, repo ready for public GitHub push.
   - [x] T1 model  [x] T2 config  [x] T3 gitmeta+conftest  [x] T4 spec_tree
   - [x] T5 ledgers  [x] T6 loose_docs  [x] T7 todos  [x] T8 reconciler
   - [x] T9 registry+roadmap+feature-index  [x] T10 dashboard+completion-sheet
-  - [x] T11 ledger-table+manifest  [x] T12 constellation (Claude port, zero the source project refs)
+  - [x] T11 ledger-table+manifest  [x] T12 constellation (Claude port, zero source-project refs)
   - [x] T13 CLI+mixed fixture+goldens (goldens eyeballed)  [x] T15 pyz+CI+README
 - Now: [→] T14 installer — codex RETRY in flight (first attempt died with zero artifacts;
   one-retry-then-reroute rule active: if retry fails, implement inline from plan's test contract)
