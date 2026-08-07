@@ -171,3 +171,71 @@ def test_sync_warns_when_a_source_directory_is_gitignored(tmp_path, make_repo, c
     assert main(["sync", "--root", str(repo)]) == 0
     out = capsys.readouterr().out.lower()
     assert "gitignore" in out and "thoughts" in out
+
+
+def test_render_rejects_cyclic_group_graph_without_traceback(tmp_path, make_repo, capsys):
+    repo = make_repo(tmp_path, "mixed_proj")
+    graph_path = repo / "vizzer" / "vizzer-graph.json"
+    graph_path.parent.mkdir(parents=True, exist_ok=True)
+    graph_path.write_text(json.dumps({
+        "schema": 1,
+        "groups": [
+            {"id": "epic:a", "kind": "epic", "title": "A", "parent": "epic:b"},
+            {"id": "epic:b", "kind": "epic", "title": "B", "parent": "epic:a"},
+        ],
+        "items": [],
+    }))
+
+    assert main(["render", "--root", str(repo)]) != 0
+    captured = capsys.readouterr()
+    assert "cycle" in captured.out.lower()
+    assert "traceback" not in (captured.out + captured.err).lower()
+
+
+def test_archive_refuses_symlink_archive_directory(tmp_path, make_repo, capsys):
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    outside = tmp_path / "outside-archive"
+    outside.mkdir()
+    archive = repo / "vizzer" / "archive"
+    archive.symlink_to(outside, target_is_directory=True)
+
+    assert main(["archive", "--root", str(repo), "--yes"]) != 0
+
+    assert (repo / "TODO.md").is_file()
+    assert list(outside.iterdir()) == []
+    assert "symlink" in capsys.readouterr().out.lower()
+
+
+def test_archive_fallback_rechecks_for_symlink_swap(
+    tmp_path, make_repo, capsys, monkeypatch
+):
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    archive = repo / "vizzer" / "archive"
+    outside = tmp_path / "outside-fallback"
+    outside.mkdir()
+    real_islink = cli.os.path.islink
+    archive_checks = 0
+
+    def swap_before_final_check(path):
+        nonlocal archive_checks
+        if Path(path) == archive:
+            archive_checks += 1
+            if archive_checks == 3:
+                archive.rmdir()
+                archive.symlink_to(outside, target_is_directory=True)
+        return real_islink(path)
+
+    monkeypatch.setattr(cli, "_archive_dir_fd_supported", lambda: False)
+    monkeypatch.setattr(cli.os.path, "islink", swap_before_final_check)
+
+    main(["archive", "--root", str(repo), "--yes"])
+
+    assert (repo / "TODO.md").is_file()
+    assert list(outside.iterdir()) == []
+    assert "warning" in capsys.readouterr().out.lower()

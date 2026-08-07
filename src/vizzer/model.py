@@ -5,6 +5,15 @@ import json
 from dataclasses import dataclass, field, asdict
 
 SCHEMA = 1
+_ACTIVITY_TEXT_FIELDS = {"created", "modified"}
+
+
+def _validate_id(value: str, subject: str) -> None:
+    prefix, separator, suffix = value.partition(":")
+    if not separator or not prefix.strip() or not suffix.strip():
+        raise ValueError(
+            f"graph {subject} id must contain non-empty kind and slug separated by ':'"
+        )
 
 
 @dataclass
@@ -36,6 +45,7 @@ def _group_from_dict(data: dict) -> Group:
     group = Group(**data)
     if not all(isinstance(value, str) for value in (group.id, group.kind, group.title)):
         raise ValueError("graph group id, kind, and title must be strings")
+    _validate_id(group.id, "group")
     if group.parent is not None and not isinstance(group.parent, str):
         raise ValueError("graph group parent must be a string or null")
     if not isinstance(group.meta, dict):
@@ -47,6 +57,7 @@ def _item_from_dict(data: dict) -> Item:
     item = Item(**data)
     if not isinstance(item.id, str) or not isinstance(item.title, str):
         raise ValueError("graph item id and title must be strings")
+    _validate_id(item.id, "item")
     if not isinstance(item.status, str):
         raise ValueError("graph item status must be a string")
     optional_strings = (
@@ -72,7 +83,33 @@ def _item_from_dict(data: dict) -> Item:
         value = item.source.get(field_name)
         if value is not None and not isinstance(value, str):
             raise ValueError(f"graph item source {field_name} must be a string or null")
+    for field_name, value in item.activity.items():
+        if field_name in _ACTIVITY_TEXT_FIELDS:
+            if value is not None and not isinstance(value, str):
+                raise ValueError(
+                    f"graph item activity {field_name} must be a string or null"
+                )
+        elif value is not None and (
+            isinstance(value, bool) or not isinstance(value, (int, float))
+        ):
+            raise ValueError(
+                f"graph item activity {field_name} must be numeric or null"
+            )
     return item
+
+
+def _validate_group_parents(groups: list[Group]) -> None:
+    parents = {group.id: group.parent for group in groups}
+    complete = set()
+    for group in groups:
+        current = group.id
+        path = set()
+        while current in parents and current not in complete:
+            if current in path:
+                raise ValueError("graph group parent cycle detected")
+            path.add(current)
+            current = parents[current]
+        complete.update(path)
 
 
 @dataclass
@@ -132,9 +169,13 @@ class Graph:
         ):
             raise ValueError("graph vocab statuses must be named objects")
 
+        parsed_groups = [_group_from_dict(g) for g in groups if isinstance(g, dict)]
+        parsed_items = [_item_from_dict(i) for i in items if isinstance(i, dict)]
+        _validate_group_parents(parsed_groups)
+
         return cls(
-            groups=[_group_from_dict(g) for g in groups if isinstance(g, dict)],
-            items=[_item_from_dict(i) for i in items if isinstance(i, dict)],
+            groups=parsed_groups,
+            items=parsed_items,
             conflicts=list(conflicts),
             warnings=list(warnings),
             vocab=dict(vocab),

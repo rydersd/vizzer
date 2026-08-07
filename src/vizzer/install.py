@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import warnings
 import zipfile
 from pathlib import Path
 
@@ -41,6 +42,7 @@ _MAX_DAG_DEPTH = 10
 _MAX_DAG_BYTES = 50 * 1024 * 1024
 _MAX_DAG_JSON_DEPTH = 8
 _MAX_DAG_JSON_NODES = 20_000
+_WORK_ITEM_KEYS = {"deps", "status", "release", "wave"}
 
 
 def _matches(root: Path, pattern: str) -> bool:
@@ -97,34 +99,40 @@ def _spec_tree(root: Path) -> dict:
 
 def _looks_like_dag(data) -> bool:
     visited = 0
+    slug_records = 0
+    has_work_record = False
 
-    def walk(node, depth: int, parent_is_list: bool = False) -> bool:
-        nonlocal visited
+    def walk(node, depth: int) -> None:
+        nonlocal visited, slug_records, has_work_record
         if visited >= _MAX_DAG_JSON_NODES:
-            return False
+            return
         visited += 1
 
-        if (parent_is_list and isinstance(node, dict)
-                and isinstance(node.get("slug"), str)):
-            return True
+        if (isinstance(node, dict) and isinstance(node.get("slug"), str)
+                and node["slug"].strip()):
+            slug_records += 1
+            if _WORK_ITEM_KEYS.intersection(node):
+                has_work_record = True
         if depth >= _MAX_DAG_JSON_DEPTH:
-            return False
+            return
 
         if isinstance(node, list):
             children = node
         elif isinstance(node, dict):
             children = node.values()
         else:
-            return False
+            return
 
         for child in children:
-            if walk(child, depth + 1, isinstance(node, list)):
-                return True
+            walk(child, depth + 1)
             if visited >= _MAX_DAG_JSON_NODES:
                 break
-        return False
 
-    return walk(data, 0)
+    walk(data, 0)
+    # The work-item signal alone is the discriminator: a content manifest carries
+    # slugs but never deps/status/release/wave. Counting records instead would
+    # wrongly reject a small but legitimate DAG.
+    return slug_records > 0 and has_work_record
 
 
 def _dag_import(root: Path) -> str:
@@ -149,7 +157,15 @@ def _dag_import(root: Path) -> str:
                 if candidate.stat().st_size > _MAX_DAG_BYTES:
                     continue
                 data = json.loads(candidate.read_text(encoding="utf-8"))
-            except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
+            except json.JSONDecodeError:
+                continue
+            except ValueError as exc:
+                warnings.warn(
+                    f"{candidate.relative_to(root).as_posix()}: unusable DAG: {exc}",
+                    RuntimeWarning,
+                )
+                continue
+            except (OSError, UnicodeError, RecursionError):
                 continue
             if _looks_like_dag(data):
                 matches.append(candidate.relative_to(root))

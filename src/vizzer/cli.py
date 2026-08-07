@@ -220,6 +220,50 @@ def _check(root: Path, structural: bool) -> int:
     return 0
 
 
+def _archive_dir_fd_supported() -> bool:
+    functions = (os.open, os.mkdir, os.link, os.unlink)
+    return (
+        hasattr(os, "O_DIRECTORY")
+        and hasattr(os, "O_NOFOLLOW")
+        and all(function in os.supports_dir_fd for function in functions)
+        and os.link in os.supports_follow_symlinks
+    )
+
+
+def _directory_open_flags() -> int:
+    return os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+
+
+def _open_archive_parent(archive_fd: int, parent: Path) -> int:
+    """Open/create *parent* below archive_fd without following symlinks."""
+    current_fd = os.dup(archive_fd)
+    try:
+        for part in parent.parts:
+            if part in {"", ".", ".."}:
+                raise OSError(f"unsafe archive directory component: {part!r}")
+            try:
+                os.mkdir(part, dir_fd=current_fd)
+            except FileExistsError:
+                pass
+            next_fd = os.open(part, _directory_open_flags(), dir_fd=current_fd)
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
+
+
+def _remove_empty_source_parents(source: Path, root: Path) -> None:
+    parent = source.parent
+    while parent != root:
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+
+
 def _archive(root: Path, confirmed: bool) -> int:
     graph = _read_graph(root)
     if graph is None:
@@ -243,6 +287,7 @@ def _archive(root: Path, confirmed: bool) -> int:
     resolved_root = root.resolve()
     archive_root = resolved_root / "vizzer" / "archive"
     moved = skipped = 0
+    candidates = []
     for relpath in relpaths:
         source = (resolved_root / relpath).resolve()
         if not source.is_relative_to(resolved_root):
@@ -258,41 +303,108 @@ def _archive(root: Path, confirmed: bool) -> int:
             continue
 
         source_relpath = source.relative_to(resolved_root)
-        destination = archive_root / source_relpath
-        resolved_destination = destination.resolve()
-        if (
-            not resolved_destination.is_relative_to(archive_root)
-            or not resolved_destination.is_relative_to(resolved_root)
-        ):
-            print(f"warning: archive destination is outside the project: {relpath.as_posix()}")
-            skipped += 1
-            continue
-        if destination.exists() or destination.is_symlink():
-            print(f"warning: archive destination already exists: {destination}")
-            skipped += 1
-            continue
+        candidates.append((relpath, source, source_relpath))
 
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            os.link(source, destination)
-        except FileExistsError:
-            print(f"warning: archive destination already exists: {destination}")
-            skipped += 1
-            continue
-        try:
-            source.unlink()
-        except OSError:
-            destination.unlink(missing_ok=True)
-            raise
+    if os.path.islink(archive_root):
+        print(f"warning: archive directory is a symlink: {archive_root}")
+        return 2
+    if archive_root.exists() and not archive_root.is_dir():
+        print(f"warning: archive path is not a directory: {archive_root}")
+        return 2
+    try:
+        resolved_archive_root = archive_root.resolve()
+    except OSError as exc:
+        print(f"warning: archive directory is unavailable: {exc}")
+        return 2
+    if not resolved_archive_root.is_relative_to(resolved_root):
+        print(f"warning: archive directory is outside the project: {archive_root}")
+        return 2
 
-        parent = source.parent
-        while parent != resolved_root:
+    if candidates:
+        archive_root.mkdir(parents=True, exist_ok=True)
+
+    if candidates and _archive_dir_fd_supported():
+        root_fd = archive_fd = None
+        try:
+            root_fd = os.open(resolved_root, _directory_open_flags())
+            archive_fd = os.open(archive_root, _directory_open_flags())
+        except OSError as exc:
+            if archive_fd is not None:
+                os.close(archive_fd)
+            if root_fd is not None:
+                os.close(root_fd)
+            print(f"warning: archive directory is unsafe or unavailable: {exc}")
+            return 2
+
+        try:
+            for relpath, source, source_relpath in candidates:
+                destination = archive_root / source_relpath
+                try:
+                    parent_fd = _open_archive_parent(archive_fd, source_relpath.parent)
+                except OSError as exc:
+                    print(f"warning: archive destination is unsafe: {destination}: {exc}")
+                    skipped += 1
+                    continue
+                try:
+                    try:
+                        os.link(
+                            source_relpath.as_posix(),
+                            source_relpath.name,
+                            src_dir_fd=root_fd,
+                            dst_dir_fd=parent_fd,
+                            follow_symlinks=False,
+                        )
+                    except FileExistsError:
+                        print(f"warning: archive destination already exists: {destination}")
+                        skipped += 1
+                        continue
+                    except OSError as exc:
+                        print(f"warning: could not archive {relpath.as_posix()}: {exc}")
+                        skipped += 1
+                        continue
+                    try:
+                        os.unlink(source_relpath.as_posix(), dir_fd=root_fd)
+                    except OSError:
+                        os.unlink(source_relpath.name, dir_fd=parent_fd)
+                        raise
+                finally:
+                    os.close(parent_fd)
+                _remove_empty_source_parents(source, resolved_root)
+                moved += 1
+        finally:
+            os.close(archive_fd)
+            os.close(root_fd)
+    else:
+        for relpath, source, source_relpath in candidates:
+            destination = archive_root / source_relpath
+            if os.path.islink(archive_root) or not archive_root.is_dir():
+                print(f"warning: archive directory changed before move: {relpath.as_posix()}")
+                skipped += 1
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            resolved_destination = destination.resolve()
+            if (
+                os.path.islink(archive_root)
+                or not archive_root.is_dir()
+                or not resolved_destination.is_relative_to(archive_root.resolve())
+                or not resolved_destination.is_relative_to(resolved_root)
+            ):
+                print(f"warning: archive destination is outside the project: {relpath.as_posix()}")
+                skipped += 1
+                continue
             try:
-                parent.rmdir()
+                os.link(source, destination)
+            except FileExistsError:
+                print(f"warning: archive destination already exists: {destination}")
+                skipped += 1
+                continue
+            try:
+                source.unlink()
             except OSError:
-                break
-            parent = parent.parent
-        moved += 1
+                destination.unlink(missing_ok=True)
+                raise
+            _remove_empty_source_parents(source, resolved_root)
+            moved += 1
     print(f"archive: moved {moved} files")
     print(f"archive: skipped {skipped} files")
     return 0

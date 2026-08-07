@@ -1,3 +1,4 @@
+import pytest
 import subprocess
 import sys
 from pathlib import Path
@@ -185,3 +186,31 @@ def test_unrelated_json_is_not_mistaken_for_a_dag(tmp_path):
     (tmp_path / "tsconfig.json").write_text(json.dumps(
         {"compilerOptions": {"strict": True}, "include": ["src"]}))
     assert detect(tmp_path)["spec_tree"]["dag_import"] == ""
+
+
+def test_content_manifest_with_three_slugs_is_not_mistaken_for_a_dag(tmp_path):
+    import json
+    from vizzer.install import detect
+
+    (tmp_path / "content.json").write_text(json.dumps({
+        "pages": [{"slug": "a"}, {"slug": "b"}, {"slug": "c"}],
+    }))
+
+    assert detect(tmp_path)["spec_tree"]["dag_import"] == ""
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11),
+                    reason="int digit limit only exists on 3.11+")
+def test_dag_detection_skips_oversized_json_integer(tmp_path, recwarn):
+    from vizzer.install import detect
+
+    (tmp_path / "hostile.json").write_text(
+        '{"stories": ['
+        '{"slug": "a", "status": "ready"},'
+        '{"slug": "b", "status": "ready"},'
+        '{"slug": "c", "status": "ready"}'
+        '], "hostile": ' + ("9" * 5000) + "}"
+    )
+
+    assert detect(tmp_path)["spec_tree"]["dag_import"] == ""
+    assert any("hostile.json" in str(warning.message) for warning in recwarn)

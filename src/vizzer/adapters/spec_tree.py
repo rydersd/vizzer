@@ -17,6 +17,7 @@ _KIND_PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]+:")
 _DEP_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _MAX_DAG_JSON_DEPTH = 8
 _MAX_DAG_JSON_NODES = 20_000
+_WORK_ITEM_KEYS = {"deps", "status", "release", "wave"}
 
 
 def _front_matter(text: str) -> tuple[dict, str]:
@@ -163,7 +164,7 @@ def _group_chain(root: Path, rel: Path, pattern: str, levels: list[str],
             if overview.is_file():
                 try:
                     title = _display_title(overview.read_text(encoding="utf-8")) or title
-                except OSError:
+                except (OSError, UnicodeError):
                     warnings.append(f"{overview.relative_to(root).as_posix()}: unreadable")
             groups[group_id] = Group(id=group_id, kind=level, title=title,
                                      parent=parent)
@@ -225,50 +226,70 @@ def _dag_items(root: Path, dag_relpath: str, item_kind: str,
     relpath = Path(dag_relpath).as_posix()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError):
+    except (OSError, UnicodeError, ValueError, RecursionError):
         warnings.append(f"{relpath}: unreadable or malformed DAG")
         return []
 
-    items = []
-    seen_slugs = set()
+    work_records = []
+    story_records = []
     visited = 0
+    found_stories_container = False
 
-    def walk(node, depth: int) -> None:
-        nonlocal visited
+    def walk(node, depth: int, inside_stories: bool = False) -> None:
+        nonlocal visited, found_stories_container
         if visited >= _MAX_DAG_JSON_NODES:
             return
         visited += 1
 
         if isinstance(node, dict):
             slug = node.get("slug")
-            if isinstance(slug, str) and slug not in seen_slugs:
-                seen_slugs.add(slug)
-                items.append(Item(
-                    id=f"{item_kind}:{slug}",
-                    title=str(node.get("title") or slug),
-                    one_liner=(str(node["oneLiner"])
-                               if node.get("oneLiner") is not None else None),
-                    status=str(node.get("status") or "unknown"),
-                    release=(str(node["release"])
-                             if node.get("release") is not None else None),
-                    wave=(str(node["wave"])
-                          if node.get("wave") is not None else None),
-                    deps=_dep_ids(node.get("deps", []), item_kind),
-                    source={"adapter": "dag_import", "path": relpath},
-                ))
-            children = node.values()
+            if (isinstance(slug, str) and slug.strip()
+                    and _WORK_ITEM_KEYS.intersection(node)):
+                work_records.append(node)
+                if inside_stories:
+                    story_records.append(node)
+            children = []
+            for key, child in node.items():
+                is_stories_container = (
+                    key == "stories" and isinstance(child, (dict, list))
+                )
+                if is_stories_container:
+                    found_stories_container = True
+                children.append((child, inside_stories or is_stories_container))
         elif isinstance(node, list):
-            children = node
+            children = [(child, inside_stories) for child in node]
         else:
             return
 
         if depth < _MAX_DAG_JSON_DEPTH:
-            for child in children:
-                walk(child, depth + 1)
+            for child, child_inside_stories in children:
+                walk(child, depth + 1, child_inside_stories)
                 if visited >= _MAX_DAG_JSON_NODES:
                     break
 
     walk(data, 0)
+
+    items = []
+    seen_slugs = set()
+    records = story_records if found_stories_container else work_records
+    for node in records:
+        slug = node["slug"]
+        if slug in seen_slugs:
+            continue
+        seen_slugs.add(slug)
+        items.append(Item(
+            id=f"{item_kind}:{slug}",
+            title=str(node.get("title") or slug),
+            one_liner=(str(node["oneLiner"])
+                       if node.get("oneLiner") is not None else None),
+            status=str(node.get("status") or "unknown"),
+            release=(str(node["release"])
+                     if node.get("release") is not None else None),
+            wave=(str(node["wave"])
+                  if node.get("wave") is not None else None),
+            deps=_dep_ids(node.get("deps", []), item_kind),
+            source={"adapter": "dag_import", "path": relpath},
+        ))
 
     if not items:
         warnings.append(f"{relpath}: malformed DAG entries ignored")

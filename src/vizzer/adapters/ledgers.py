@@ -53,6 +53,11 @@ def _heading_phases(text: str) -> list[tuple[str, str]]:
         next_heading = _H2_RE.search(text, heading.end())
         end = next_heading.start() if next_heading else len(text)
         section = text[heading.end():end]
+        checkbox_phases = _checkbox_phases(section)
+        if checkbox_phases:
+            phases.extend(checkbox_phases)
+            continue
+
         entries = [match.group(1) for match in _LIST_ENTRY_RE.finditer(section)]
         status = status_map[heading.group(1).lower()]
         phases.extend((status, title) for title in entries)
@@ -62,6 +67,18 @@ def _heading_phases(text: str) -> list[tuple[str, str]]:
             if prose:
                 phases.append((status, prose[:120]))
     return phases
+
+
+def _outside_phase_sections(text: str) -> str:
+    """Return content not owned by a recognized phase heading."""
+    pieces = []
+    cursor = 0
+    for heading in _PHASE_HEADING_RE.finditer(text):
+        pieces.append(text[cursor:heading.start()])
+        next_heading = _H2_RE.search(text, heading.end())
+        cursor = next_heading.start() if next_heading else len(text)
+    pieces.append(text[cursor:])
+    return "".join(pieces)
 
 
 def _checkbox_phases(text: str) -> list[tuple[str, str]]:
@@ -86,6 +103,37 @@ def _checkbox_phases(text: str) -> list[tuple[str, str]]:
         if state_index is None:
             continue
 
+        title = next(
+            (cell.strip("`").strip() for index, cell in enumerate(cells)
+             if index != state_index
+             and cell.strip("`").strip()
+             and not cell.strip("`").strip().isdigit()
+             and not _TABLE_SEPARATOR_RE.fullmatch(cell.strip("`").strip())),
+            "",
+        )
+        if title:
+            state = _TABLE_CHECKBOX_RE.fullmatch(cells[state_index])
+            phases.append((status_map[state.group(1)], title))
+    return phases
+
+
+def _table_phases(text: str) -> list[tuple[str, str]]:
+    """Parse checkbox phase tables without admitting ordinary checkboxes."""
+    status_map = {"x": "shipped", "→": "building", "->": "building",
+                  " ": "backlog"}
+    phases = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if "|" not in stripped:
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        state_index = next(
+            (index for index, cell in enumerate(cells)
+             if _TABLE_CHECKBOX_RE.fullmatch(cell)),
+            None,
+        )
+        if state_index is None:
+            continue
         title = next(
             (cell.strip("`").strip() for index, cell in enumerate(cells)
              if index != state_index
@@ -140,9 +188,11 @@ def scan(cfg, root: Path) -> ScanResult:
             },
         ))
 
-        phases = _checkbox_phases(text)
-        if not phases:
+        if _PHASE_HEADING_RE.search(text):
             phases = _heading_phases(text)
+            phases.extend(_table_phases(_outside_phase_sections(text)))
+        else:
+            phases = _checkbox_phases(text)
 
         for index, (status, title) in enumerate(phases, 1):
             items.append(Item(

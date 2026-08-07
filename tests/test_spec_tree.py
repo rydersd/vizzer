@@ -1,3 +1,5 @@
+import sys
+import pytest
 from pathlib import Path
 from vizzer.adapters import spec_tree, get_adapters
 from vizzer.config import Config, DEFAULTS, deep_merge
@@ -133,3 +135,51 @@ def test_dag_import_walks_slug_keyed_collections(tmp_path):
     assert by_id["story:weekly-summary"].deps == ["story:billable-fields-ui"]
     assert by_id["story:weekly-summary"].wave == "R0"
     assert by_id["story:billable-fields-ui"].status == "specced"
+
+
+def test_dag_import_emits_stories_not_slugged_wrappers(tmp_path):
+    import json
+
+    (tmp_path / "dag.json").write_text(json.dumps({
+        "capabilities": [{
+            "slug": "drawing",
+            "epics": [{
+                "slug": "tools",
+                "stories": [{"slug": "snap", "status": "ready"}],
+            }],
+        }],
+    }))
+
+    res = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
+
+    assert [item.id for item in res.items] == ["story:snap"]
+
+
+def test_non_utf8_group_overview_warns_and_uses_fallback_title(tmp_path):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "story.md").write_text("# Story: Story\n\n> Status: ready\n")
+    (tmp_path / "spec" / "cap" / "cap.md").write_bytes(b"\xff\xfe")
+
+    res = spec_tree.scan(cfg(), tmp_path)
+
+    assert [item.id for item in res.items] == ["story:story"]
+    assert any("cap.md" in warning for warning in res.warnings)
+    assert {group.title for group in res.groups} >= {"Cap"}
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11),
+                    reason="int digit limit only exists on 3.11+")
+def test_dag_import_skips_oversized_json_integer(tmp_path):
+    (tmp_path / "dag.json").write_text(
+        '{"stories": ['
+        '{"slug": "a", "status": "ready"},'
+        '{"slug": "b", "status": "ready"},'
+        '{"slug": "c", "status": "ready"}'
+        '], "hostile": ' + ("9" * 5000) + "}"
+    )
+
+    res = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
+
+    assert res.items == []
+    assert any("dag.json" in warning for warning in res.warnings)

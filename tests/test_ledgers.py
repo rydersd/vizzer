@@ -132,3 +132,30 @@ def test_phase_table_ledgers_are_parsed(tmp_path):
     res = led.scan(cfg, tmp_path)
     assert [i.title for i in res.items] == ["Plan", "Build", "Merge + closeout"]
     assert [i.status for i in res.items] == ["shipped", "building", "backlog"]
+
+
+def test_checkbox_outside_phase_sections_does_not_hide_real_phases(tmp_path):
+    """An acceptance checkbox elsewhere must not suppress heading-style phases."""
+    d = tmp_path / "thoughts" / "ledgers"
+    d.mkdir(parents=True)
+    (d / "CONTINUITY_CLAUDE-section-scoped.md").write_text(
+        "# Continuity — section scoped\n\n"
+        "## Done\n\n- Audited the parser.\n- Added regression coverage.\n\n"
+        "## Now\n\nImplementing the section-scoped precedence rule.\n\n"
+        "## Next\n\n1. Run focused tests.\n2. Run the full suite.\n\n"
+        "## Working set\n\n- [ ] CI is green\n"
+    )
+    cfg = Config(data=deep_merge(
+        DEFAULTS, {"sources": {"ledgers": {"enabled": True}}}
+    ))
+
+    res = ledgers.scan(cfg, tmp_path)
+
+    assert [item.title for item in res.items] == [
+        "Audited the parser.",
+        "Added regression coverage.",
+        "Implementing the section-scoped precedence rule.",
+        "Run focused tests.",
+        "Run the full suite.",
+    ]
+    assert "CI is green" not in {item.title for item in res.items}

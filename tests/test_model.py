@@ -37,3 +37,47 @@ def test_defaults():
     it = Item(id="x", title="X")
     assert it.status == "unknown" and it.deps == [] and it.activity == {}
     assert Group(id="g", kind="epic", title="T").meta == {}
+
+
+def test_from_dict_rejects_group_parent_cycle():
+    data = _graph().to_dict()
+    data["groups"] = [
+        {"id": "epic:a", "kind": "epic", "title": "A", "parent": "epic:b"},
+        {"id": "epic:b", "kind": "epic", "title": "B", "parent": "epic:a"},
+    ]
+
+    try:
+        Graph.from_dict(data)
+    except ValueError as exc:
+        assert "cycle" in str(exc).lower()
+    else:
+        raise AssertionError("cyclic group parents were accepted")
+
+
+def test_from_dict_rejects_ids_without_nonempty_kind_and_slug():
+    for collection, bad_id in (
+        ("items", "story"),
+        ("groups", ":orphan"),
+        ("groups", "epic:"),
+    ):
+        data = _graph().to_dict()
+        data[collection][0]["id"] = bad_id
+
+        try:
+            Graph.from_dict(data)
+        except ValueError as exc:
+            assert "id" in str(exc).lower()
+        else:
+            raise AssertionError(f"malformed {collection} id {bad_id!r} was accepted")
+
+
+def test_from_dict_rejects_non_numeric_activity_metrics():
+    data = _graph().to_dict()
+    data["items"][0]["activity"] = {"commits": "many", "mentions": None}
+
+    try:
+        Graph.from_dict(data)
+    except ValueError as exc:
+        assert "activity" in str(exc).lower()
+    else:
+        raise AssertionError("non-numeric activity was accepted")
