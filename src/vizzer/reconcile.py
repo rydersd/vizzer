@@ -47,16 +47,23 @@ def build_graph(
     items_by_id: dict[str, Item] = {}
     claimed_paths: dict[str, tuple[str, set[str]]] = {}
     conflicts: list[dict] = []
+    warnings = {warning for _, scan in scans for warning in scan.warnings}
 
     for newcomer in all_items:
         path = _source_path(newcomer)
+        keeper = items_by_id.get(newcomer.id)
+        keeper_path = _source_path(keeper) if keeper is not None else None
+        if keeper_path and path and keeper_path != path:
+            warnings.add(
+                f"duplicate id {newcomer.id} — kept {keeper_path}, ignored {path}"
+            )
+
         claim = claimed_paths.get(path) if path else None
         if claim is not None:
             owner_adapter, owner_ids = claim
             if newcomer.id not in owner_ids and _adapter(newcomer) != owner_adapter:
                 continue
 
-        keeper = items_by_id.get(newcomer.id)
         if keeper is None:
             keeper = copy.deepcopy(newcomer)
             items_by_id[newcomer.id] = keeper
@@ -94,7 +101,6 @@ def build_graph(
             if group.id not in groups_by_id:
                 groups_by_id[group.id] = copy.deepcopy(group)
 
-    warnings = {warning for _, scan in scans for warning in scan.warnings}
     known_ids = set(items_by_id)
     for item in items_by_id.values():
         kept_deps = []

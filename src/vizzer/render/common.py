@@ -1,6 +1,8 @@
 """Shared deterministic helpers for rendered views."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..config import Config
 from ..model import Item
 
@@ -17,10 +19,18 @@ def _id_tail(item_id: str) -> str:
     return item_id.split(":", 1)[-1].split("/")[-1]
 
 
-def item_link(item: Item) -> str:
+def source_link_prefix(cfg: Config, root: Path) -> str:
+    project_root = root.resolve()
+    configured = Path(cfg.get("render.output_dir", "vizzer/views"))
+    output_dir = (project_root / configured).resolve()
+    relative_output = output_dir.relative_to(project_root)
+    return "../" * len(relative_output.parts)
+
+
+def item_link(item: Item, prefix: str) -> str:
     tail = _id_tail(item.id)
     path = item.source.get("path")
-    return f"[{tail}](../../{path})" if path else tail
+    return f"[{tail}]({prefix}{path})" if path else tail
 
 
 def bar(done: int, total: int, width: int = 12) -> str:

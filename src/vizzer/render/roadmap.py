@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..model import Graph, Item
-from .common import item_link, status_cell, topo
+from .common import item_link, source_link_prefix, status_cell, topo
 
 
 def _planned(item: Item) -> bool:
@@ -27,6 +27,7 @@ def _section(
     graph: Graph,
     cfg: Config,
     group_titles: dict[str, str],
+    prefix: str,
 ) -> list[str]:
     lines = [f"## {title}", "", "| # | Status | Item | Group | Deps |",
              "|---:|---|---|---|---|"]
@@ -34,7 +35,7 @@ def _section(
     for number, item in enumerate(topo(items, all_deps), 1):
         group = group_titles.get(item.group or "", "—")
         lines.append(
-            f"| {number} | {status_cell(cfg, item.status)} | {item_link(item)} "
+            f"| {number} | {status_cell(cfg, item.status)} | {item_link(item, prefix)} "
             f"| {group} | {_deps_cell(item)} |"
         )
     lines.append("")
@@ -42,7 +43,7 @@ def _section(
 
 
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
-    del root
+    prefix = source_link_prefix(cfg, root)
     vocab = graph.vocab.get("statuses", cfg.vocab["statuses"])
     legend = " · ".join(f"{status.get('emoji', '❔')} {status.get('name', 'unknown')}"
                         for status in vocab)
@@ -61,9 +62,13 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     for release in releases:
         release_items = [item for item in planned if item.release == release]
         if release_items:
-            lines.extend(_section(release, release_items, graph, cfg, group_titles))
+            lines.extend(
+                _section(release, release_items, graph, cfg, group_titles, prefix)
+            )
 
     configured = set(releases)
     unscheduled = [item for item in planned if item.release not in configured]
-    lines.extend(_section("Unscheduled", unscheduled, graph, cfg, group_titles))
+    lines.extend(
+        _section("Unscheduled", unscheduled, graph, cfg, group_titles, prefix)
+    )
     return {"roadmap.md": "\n".join(lines)}

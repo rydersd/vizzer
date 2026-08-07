@@ -5,18 +5,22 @@ from pathlib import Path
 
 from ..config import Config
 from ..model import Graph, Group, Item
-from .common import bar, item_link, status_cell, topo
+from .common import bar, item_link, source_link_prefix, status_cell, topo
 
 
 _NOT_STARTED = {"idea", "backlog", "specced", "ready", "parked", "unknown"}
+_READY = _NOT_STARTED - {"parked"}
 
 
 def _planned(item: Item) -> bool:
     return not item.id.startswith(("phase:", "todo:"))
 
 
-def _item_line(item: Item, cfg: Config) -> str:
-    return f"- {status_cell(cfg, item.status)} {item_link(item)} — {item.one_liner or item.title}"
+def _item_line(item: Item, cfg: Config, prefix: str) -> str:
+    return (
+        f"- {status_cell(cfg, item.status)} {item_link(item, prefix)} — "
+        f"{item.one_liner or item.title}"
+    )
 
 
 def _belongs_to(item: Item, top_id: str, groups: dict[str, Group]) -> bool:
@@ -32,7 +36,7 @@ def _belongs_to(item: Item, top_id: str, groups: dict[str, Group]) -> bool:
 
 
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
-    del root
+    prefix = source_link_prefix(cfg, root)
     done_statuses = cfg.done_statuses()
     known_statuses = {status["name"] for status in cfg.vocab["statuses"]}
     planned = [item for item in graph.items if _planned(item)]
@@ -61,7 +65,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         ready = [
             item for item in planned
             if item.release == active_release
-            and item.status in _NOT_STARTED
+            and item.status in _READY
             and item.id not in gates
             and all(item_map.get(dep) is None or item_map[dep].status in done_statuses
                     for dep in item.deps)
@@ -69,16 +73,19 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         ready = topo(ready, all_deps)
 
     gated = sorted(
-        (item for item in planned if item.id in gates),
+        (item for item in planned
+         if item.id in gates and item.status not in done_statuses),
         key=lambda item: item.id,
     )
 
     lines = ["# Dashboard — what to work on", "", "## In progress", ""]
-    lines.extend(_item_line(item, cfg) for item in in_progress)
+    lines.extend(_item_line(item, cfg, prefix) for item in in_progress)
     lines.extend(["", "## Ready queue", ""])
-    lines.extend(_item_line(item, cfg) for item in ready)
+    lines.extend(_item_line(item, cfg, prefix) for item in ready)
     lines.extend(["", "## Blocked on decisions", ""])
-    lines.extend(f"- {item_link(item)} — {gates[item.id]}" for item in gated)
+    lines.extend(
+        f"- {item_link(item, prefix)} — {gates[item.id]}" for item in gated
+    )
     lines.extend(["", "## Progress", ""])
 
     for release in release_order:

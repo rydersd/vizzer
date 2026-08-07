@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..model import Graph, Group, Item
-from .common import item_link
+from .common import item_link, source_link_prefix
 
 
 def _belongs_to(item: Item, top_id: str, groups: dict[str, Group]) -> bool:
@@ -22,7 +22,7 @@ def _belongs_to(item: Item, top_id: str, groups: dict[str, Group]) -> bool:
 
 
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
-    del root
+    prefix = source_link_prefix(cfg, root)
     vocab = graph.vocab.get("statuses", cfg.vocab["statuses"])
     status_names = [status.get("name", "unknown") for status in vocab]
     known_statuses = set(status_names)
@@ -87,7 +87,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         group = group_titles.get(item.group or "", "—")
         debt_cell = "yes" if "debt" in item.flags else ""
         lines.append(
-            f"| {group} | {item_link(item)} | {item.status} | {item.release or '—'} "
+            f"| {group} | {item_link(item, prefix)} | {item.status} | {item.release or '—'} "
             f"| {item.wave or '—'} | {debt_cell} |"
         )
 

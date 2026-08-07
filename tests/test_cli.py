@@ -99,8 +99,7 @@ def test_output_dir_cannot_escape_the_project(tmp_path, make_repo, capsys):
     """render must refuse an output_dir outside the project, per the documented safety claim."""
     repo = make_repo(tmp_path, "mixed_proj")
     cfg = repo / "vizzer" / "vizzer.toml"
-    cfg.write_text(cfg.read_text().replace(
-        'output_dir = "vizzer/views"', 'output_dir = "../escaped"'))
+    cfg.write_text(cfg.read_text() + '\n[render]\noutput_dir = "../escaped"\n')
     assert main(["sync", "--root", str(repo)]) == 0
     code = main(["render", "--root", str(repo)])
     assert code != 0
@@ -130,8 +129,7 @@ def test_source_links_resolve_from_a_deeper_output_dir(tmp_path, make_repo):
     """Link depth must follow output_dir, not a hardcoded two levels."""
     repo = make_repo(tmp_path, "mixed_proj")
     cfg = repo / "vizzer" / "vizzer.toml"
-    cfg.write_text(cfg.read_text().replace(
-        'output_dir = "vizzer/views"', 'output_dir = "vizzer/views/deep"'))
+    cfg.write_text(cfg.read_text() + '\n[render]\noutput_dir = "vizzer/views/deep"\n')
     assert main(["sync", "--root", str(repo)]) == 0
     assert main(["render", "--root", str(repo)]) == 0
     roadmap = (repo / "vizzer" / "views" / "deep" / "roadmap.md").read_text()

@@ -31,8 +31,30 @@ def _read_graph(root: Path) -> Graph | None:
         return None
     try:
         return Graph.from_dict(json.loads(path.read_text(encoding="utf-8")))
-    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+    except (
+        OSError,
+        UnicodeError,
+        json.JSONDecodeError,
+        TypeError,
+        AttributeError,
+        ValueError,
+    ) as exc:
+        print(f"graph: could not load {path}: {exc}; re-run 'sync'")
         return None
+
+
+def _output_dir(cfg: Config, root: Path) -> Path | None:
+    value = cfg.get("render.output_dir", "vizzer/views")
+    try:
+        resolved_root = root.resolve()
+        resolved_output = (resolved_root / Path(value)).resolve()
+    except (OSError, TypeError, ValueError):
+        print(f"render: invalid output_dir {value!r}")
+        return None
+    if not resolved_output.is_relative_to(resolved_root):
+        print(f"render: output_dir {value!r} is outside the project")
+        return None
+    return resolved_output
 
 
 def _sync(root: Path) -> int:
@@ -66,6 +88,9 @@ def _render(root: Path, only_value: str | None) -> int:
         return 2
 
     cfg = Config.load(root)
+    output_dir = _output_dir(cfg, root)
+    if output_dir is None:
+        return 2
     only = None
     if only_value is not None:
         only = {name.strip() for name in only_value.split(",") if name.strip()}
@@ -75,7 +100,6 @@ def _render(root: Path, only_value: str | None) -> int:
         print(f"render: {exc}")
         return 2
 
-    output_dir = root / cfg.get("render.output_dir", "vizzer/views")
     output_dir.mkdir(parents=True, exist_ok=True)
     for filename, content in rendered.items():
         (output_dir / filename).write_text(content, encoding="utf-8")
@@ -95,6 +119,11 @@ def _structural_graph(data: dict) -> dict:
 
 
 def _check(root: Path, structural: bool) -> int:
+    disk_graph = _read_graph(root)
+    if disk_graph is None:
+        print("check: run 'sync' first")
+        return 2
+
     cfg = Config.load(root)
     expected_graph = _build(cfg, root)
     expected_views = render_all(expected_graph, cfg, root)
@@ -108,14 +137,20 @@ def _check(root: Path, structural: bool) -> int:
         stale.add(GRAPH_RELPATH.as_posix())
     else:
         if structural:
-            if _structural_graph(expected_graph.to_dict()) != _structural_graph(disk_data):
+            if _structural_graph(expected_graph.to_dict()) != _structural_graph(
+                disk_graph.to_dict()
+            ):
                 stale.add(GRAPH_RELPATH.as_posix())
         elif expected_graph.dumps() != disk_text:
             stale.add(GRAPH_RELPATH.as_posix())
 
     output_relpath = Path(cfg.get("render.output_dir", "vizzer/views"))
     for filename, expected in expected_views.items():
-        if structural and filename == "manifest.json":
+        if structural and filename in {
+            "manifest.json",
+            "constellation.html",
+            "ledger-table.md",
+        }:
             continue
         path = root / output_relpath / filename
         try:
