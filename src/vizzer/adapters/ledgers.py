@@ -9,6 +9,8 @@ from . import ScanResult, slugify
 
 
 _CHECKBOX_RE = re.compile(r"^\s*- \[(x|→|->| )\]\s+(.+?)\s*$", re.MULTILINE)
+_TABLE_CHECKBOX_RE = re.compile(r"^`?\[(x|→|->| )\]`?$")
+_TABLE_SEPARATOR_RE = re.compile(r"^:?-{3,}:?$")
 _PHASE_HEADING_RE = re.compile(
     r"^##[ \t]+(Done|Now|Next|Remaining)(?:[ \t]+.*?)?[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
@@ -62,6 +64,42 @@ def _heading_phases(text: str) -> list[tuple[str, str]]:
     return phases
 
 
+def _checkbox_phases(text: str) -> list[tuple[str, str]]:
+    status_map = {"x": "shipped", "→": "building", "->": "building",
+                  " ": "backlog"}
+    phases = []
+    for line in text.splitlines():
+        checkbox = _CHECKBOX_RE.fullmatch(line)
+        if checkbox:
+            phases.append((status_map[checkbox.group(1)], checkbox.group(2)))
+            continue
+
+        stripped = line.strip()
+        if "|" not in stripped:
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        state_index = next(
+            (index for index, cell in enumerate(cells)
+             if _TABLE_CHECKBOX_RE.fullmatch(cell)),
+            None,
+        )
+        if state_index is None:
+            continue
+
+        title = next(
+            (cell.strip("`").strip() for index, cell in enumerate(cells)
+             if index != state_index
+             and cell.strip("`").strip()
+             and not cell.strip("`").strip().isdigit()
+             and not _TABLE_SEPARATOR_RE.fullmatch(cell.strip("`").strip())),
+            "",
+        )
+        if title:
+            state = _TABLE_CHECKBOX_RE.fullmatch(cells[state_index])
+            phases.append((status_map[state.group(1)], title))
+    return phases
+
+
 def scan(cfg, root: Path) -> ScanResult:
     """Scan configured continuity ledgers into groups and phase items."""
     root = Path(root)
@@ -102,13 +140,8 @@ def scan(cfg, root: Path) -> ScanResult:
             },
         ))
 
-        checkbox_matches = list(_CHECKBOX_RE.finditer(text))
-        if checkbox_matches:
-            status_map = {"x": "shipped", "→": "building", "->": "building",
-                          " ": "backlog"}
-            phases = [(status_map[match.group(1)], match.group(2))
-                      for match in checkbox_matches]
-        else:
+        phases = _checkbox_phases(text)
+        if not phases:
             phases = _heading_phases(text)
 
         for index, (status, title) in enumerate(phases, 1):

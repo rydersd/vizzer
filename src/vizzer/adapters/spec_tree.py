@@ -192,8 +192,12 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
         status = "unknown"
         warnings.append(f"{relpath}: no status")
 
-    release = _match_value(r"Release:\s*([A-Za-z0-9.?]+)", body)
-    wave = _match_value(r"Wave:\s*([A-Za-z0-9]+)", body)
+    release = front.get("release")
+    if not isinstance(release, str) or not release:
+        release = _match_value(r"Release:\s*([A-Za-z0-9.?]+)", body)
+    wave = front.get("wave")
+    if not isinstance(wave, str) or not wave:
+        wave = _match_value(r"Wave:\s*([A-Za-z0-9]+)", body)
     appetite = _match_value(r"[Aa]ppetite:\s*\**\s*([a-z-]+)", body)
     deps_value = front["deps"] if "deps" in front else _body_deps(body)
     flags = ["debt"] if re.search(r"^>\s*Debt:", body, re.MULTILINE) else []
@@ -279,8 +283,8 @@ def scan(cfg, root: Path) -> ScanResult:
     if pattern:
         try:
             paths = sorted(root.glob(pattern), key=lambda path: path.as_posix())
-        except (OSError, ValueError) as exc:
-            warnings.append(f"spec tree glob unavailable: {exc}")
+        except (NotImplementedError, ValueError, OSError):
+            warnings.append(f"spec tree glob unusable: {pattern}")
             paths = []
         for path in paths:
             if path.name.startswith("_") or not path.is_file():

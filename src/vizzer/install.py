@@ -184,6 +184,7 @@ def _string_array(values: list[str]) -> str:
 
 def _config_text(target: Path, found: dict) -> str:
     spec_tree = found["spec_tree"]
+    spec_tree_enabled = bool(spec_tree["glob"] or spec_tree.get("dag_import", ""))
     loose_docs = found["loose_docs"]
     todos = found["todos"]
     project_name = target.resolve().name.replace('"', "'")
@@ -195,7 +196,7 @@ name = "{project_name}"
 
 [sources.spec_tree]
 # Scan hierarchical story specifications when a matching tree was detected.
-enabled = {str(bool(spec_tree["glob"])).lower()}
+enabled = {str(spec_tree_enabled).lower()}
 # Repository-relative story file pattern.
 glob = "{spec_tree["glob"]}"
 # Group names captured by each directory wildcard.
