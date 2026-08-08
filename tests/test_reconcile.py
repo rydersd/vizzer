@@ -105,3 +105,56 @@ def test_dependency_cycles_are_reported(tmp_path):
     assert len(cyc) == 1, g.warnings
     assert "story:a" in cyc[0] and "story:b" in cyc[0]
     assert "story:c" not in cyc[0]      # only the cycle members
+
+
+def test_config_declared_groups_create_a_parent_level(tmp_path):
+    """Express a level the directory tree does not encode, without moving any files.
+
+    A monorepo whose capabilities each belong to one product should get product
+    rollups from config alone — the filesystem must not be the only schema.
+    """
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group, Item
+
+    cfg = Config(data=deep_merge(DEFAULTS, {"group": [
+        {"id": "product:time", "title": "Time",
+         "contains": ["capability:billing", "capability:first-session"]},
+        {"id": "product:core", "title": "Core", "contains": ["capability:core-platform"]},
+    ]}))
+    scans = [("spec_tree", ScanResult(
+        groups=[Group(id="capability:billing", kind="capability", title="Billing"),
+                Group(id="capability:first-session", kind="capability", title="First session"),
+                Group(id="capability:core-platform", kind="capability", title="Core platform"),
+                Group(id="epic:billing/ui", kind="epic", title="UI",
+                      parent="capability:billing")],
+        items=[Item(id="story:a", title="A", group="epic:billing/ui", status="shipped",
+                    source={"adapter": "spec_tree", "path": "s/a.md"}),
+               Item(id="story:b", title="B", group="capability:core-platform",
+                    status="specced", source={"adapter": "spec_tree", "path": "s/b.md"})]))]
+    g = build_graph(cfg, tmp_path, scans)
+    by_id = {gr.id: gr for gr in g.groups}
+
+    # the declared groups exist and sit at the top
+    assert by_id["product:time"].title == "Time"
+    assert by_id["product:time"].parent is None
+    assert by_id["product:time"].kind == "product"
+    # the named capabilities now hang beneath them
+    assert by_id["capability:billing"].parent == "product:time"
+    assert by_id["capability:core-platform"].parent == "product:core"
+    # deeper levels are untouched, so the chain still walks up to the product
+    assert by_id["epic:billing/ui"].parent == "capability:billing"
+
+
+def test_config_declared_group_naming_an_unknown_child_warns(tmp_path):
+    """A typo in the mapping must be visible, not silently produce an empty product."""
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group
+
+    cfg = Config(data=deep_merge(DEFAULTS, {"group": [
+        {"id": "product:time", "title": "Time", "contains": ["capability:typo"]}]}))
+    scans = [("spec_tree", ScanResult(groups=[
+        Group(id="capability:billing", kind="capability", title="Billing")]))]
+    g = build_graph(cfg, tmp_path, scans)
+    assert any("capability:typo" in w for w in g.warnings), g.warnings

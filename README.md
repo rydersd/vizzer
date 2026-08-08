@@ -93,9 +93,22 @@ The one file you edit. Keys and defaults:
 | `reconcile.staleness_days` | `14` | Ledger staleness threshold. |
 | `archive.adapters` | `["todos"]` | Which adapters' files `archive` may move. |
 
-Two table-arrays: `[[status]]` (replace the status vocabulary — `name`,
-`emoji`, `done`) and `[[gates]]` (`item`, `reason` — items blocked on a
-decision, surfaced on the dashboard instead of the ready queue).
+Three table-arrays: `[[status]]` replaces the status vocabulary (`name`,
+`emoji`, `done`); `[[gates]]` marks items blocked on a decision (`item`,
+`reason`); and repeatable `[[group]]` entries add a hierarchy level that the
+directory tree does not encode, such as product or team. A group entry has an
+`id`, an optional `title` (derived from the id when omitted), and `contains`, a
+list of existing group or item ids:
+
+```toml
+[[group]]
+id = "product:time"
+title = "Time"
+contains = ["capability:billing", "capability:first-session"]
+```
+
+The named children are re-parented in the generated graph; no source files or
+cross-links need to move.
 
 Config is parsed by a small built-in TOML subset (sections, table-arrays,
 strings/bools/ints/string-arrays) so the engine stays stdlib-only on

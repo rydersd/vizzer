@@ -291,6 +291,12 @@ staleness_days = 14
 [archive]
 # Source adapters whose files may be archived.
 adapters = ["todos"]
+
+# Add a hierarchy level the directory tree does not encode, without moving files.
+# [[group]]
+# id = "product:time"
+# title = "Time"
+# contains = ["capability:billing", "capability:first-session"]
 """
 
 

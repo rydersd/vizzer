@@ -61,6 +61,96 @@ def _dependency_cycles(items_by_id):
     return [list(c) + [c[0]] for c in sorted(found)]
 
 
+def _declared_groups(cfg: Config):
+    """Normalize declarations into a stable order without mutating config data."""
+    declarations = []
+    for entry in cfg.groups():
+        group_id = entry.get("id")
+        if not isinstance(group_id, str) or not group_id.strip():
+            continue
+        title = entry.get("title")
+        if not isinstance(title, str) or not title:
+            slug = group_id.split(":", 1)[-1]
+            title = slug.replace("-", " ").title()
+        contains = entry.get("contains", [])
+        if not isinstance(contains, list):
+            contains = []
+        child_ids = tuple(sorted({
+            child_id for child_id in contains
+            if isinstance(child_id, str) and child_id
+        }))
+        declarations.append((group_id, title, child_ids))
+    return sorted(declarations)
+
+
+def _would_create_group_cycle(groups_by_id, child_id: str, parent_id: str) -> bool:
+    """Return whether assigning child_id beneath parent_id would close a loop."""
+    current = parent_id
+    seen = set()
+    while current is not None and current not in seen:
+        if current == child_id:
+            return True
+        seen.add(current)
+        group = groups_by_id.get(current)
+        current = group.parent if group is not None else None
+    return current is not None
+
+
+def _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
+    declarations = _declared_groups(cfg)
+    scanned_group_ids = set(groups_by_id)
+
+    # Materialize every parent first so declarations can refer to one another
+    # regardless of their order in the config file.
+    for group_id, title, _ in declarations:
+        if group_id in scanned_group_ids:
+            warnings.add(
+                f"declared group {group_id} collides with a scanned group "
+                "(scanned group kept)"
+            )
+        elif group_id not in groups_by_id:
+            groups_by_id[group_id] = Group(
+                id=group_id,
+                kind=group_id.split(":", 1)[0],
+                title=title,
+                parent=None,
+            )
+
+    for parent_id, _, child_ids in declarations:
+        for child_id in child_ids:
+            child_group = groups_by_id.get(child_id)
+            child_item = items_by_id.get(child_id)
+            if child_group is None and child_item is None:
+                warnings.add(
+                    f"declared group {parent_id} contains unknown child {child_id}"
+                )
+                continue
+
+            if child_group is not None:
+                previous_parent = child_group.parent
+                if _would_create_group_cycle(groups_by_id, child_id, parent_id):
+                    warnings.add(
+                        f"declared group {parent_id} cannot contain group {child_id}: "
+                        "cycle (re-parenting skipped)"
+                    )
+                else:
+                    if previous_parent is not None and previous_parent != parent_id:
+                        warnings.add(
+                            f"declared group {parent_id} re-parented group {child_id} "
+                            f"from {previous_parent}"
+                        )
+                    child_group.parent = parent_id
+
+            if child_item is not None:
+                previous_group = child_item.group
+                if previous_group is not None and previous_group != parent_id:
+                    warnings.add(
+                        f"declared group {parent_id} re-parented item {child_id} "
+                        f"from {previous_group}"
+                    )
+                child_item.group = parent_id
+
+
 def build_graph(
     cfg: Config,
     root: Path,
@@ -137,6 +227,8 @@ def build_graph(
         for group in scan.groups:
             if group.id not in groups_by_id:
                 groups_by_id[group.id] = copy.deepcopy(group)
+
+    _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings)
 
     known_ids = set(items_by_id)
     for item in items_by_id.values():

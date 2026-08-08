@@ -160,6 +160,12 @@ class Config:
         return {g["item"]: g.get("reason", "") for g in self.data.get("gates", [])
                 if isinstance(g, dict) and g.get("item")}
 
+    def groups(self) -> list[dict]:
+        groups = self.data.get("group", [])
+        if not isinstance(groups, list):
+            return []
+        return [dict(group) for group in groups if isinstance(group, dict)]
+
     @classmethod
     def load(cls, root: Path) -> "Config":
         path = Path(root) / "vizzer" / "vizzer.toml"
