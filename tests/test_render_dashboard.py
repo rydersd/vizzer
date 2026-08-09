@@ -210,3 +210,22 @@ def test_dashboard_progress_excludes_relation_only_foundation_groups(tmp_path):
     out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
 
     assert "Geometry" not in out
+
+
+def test_dashboard_strips_source_trailing_whitespace(tmp_path):
+    """Generated Markdown hygiene cannot depend on source hard-break whitespace."""
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(
+            id="story:spaced",
+            title="Spaced",
+            one_liner="A useful story with accidental trailing space   ",
+            status="building",
+            release="R0",
+            source={"adapter": "spec_tree", "path": "s/spaced.md"},
+        ),
+    ])
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert not any(line.endswith((" ", "\t")) for line in out.splitlines())

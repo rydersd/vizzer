@@ -25,7 +25,7 @@ self-hash cannot be stable.
 | `b0898e41f8f14c532a26da83fa2b9468e136579d7f4959c7dbef4889e6d57535` | `src/vizzer/render/common.py` |
 | `44321d07d6d0e0b4ec48b3a2b8df19ee144d7c9584dc932c4c3284a0001bd612` | `src/vizzer/render/constellation.py` |
 | `ef785554d2460b24bea40aba86cfd6b0d511d7c1eb705ebda2062947598dddd7` | `src/vizzer/render/constellation_template.html` |
-| `144ac6e5ed88aae1ae8c391ccf71473ce183a32dbd50c6ada94eab3958d8f8c5` | `src/vizzer/render/dashboard.py` |
+| `94621f5cf1680752f496e8e9ff97b48f255ab1619a2500047062e13d5f541e30` | `src/vizzer/render/dashboard.py` |
 | `3a114cd2f891237b4195b66767959fea4214c67268014327b0b4b84ef78c5f99` | `tests/golden/mixed/constellation.html` |
 | `32332ce731dd3b60e8dfaa9086b82bae89f8664e26fb66a957bab8583572c14f` | `tests/golden/mixed/dashboard.md` |
 | `6425d4179907cdb9fb734c197ad78b8513f3f99591d07683d2eff09f1e44a8ba` | `tests/golden/mixed/vizzer-graph.json` |
@@ -41,10 +41,10 @@ self-hash cannot be stable.
 | `53b3b617a35cf52d2391f6f326e8e5ee0d99a221c16852d0b00276af8b78ef69` | `tests/test_progress_history.py` |
 | `f89378c061dba81e7e78f17449c6aab9387ee47ba68f83e2224120b669b628b7` | `tests/test_reconcile.py` |
 | `ba30911345d59bc51f13148ee378b89edd700757df68f487fad3ad0364486e43` | `tests/test_render_constellation.py` |
-| `998db26d6c6f80e395f5b008711e3968cf9e4ec1f3fdf64e95f0a7be0a46998d` | `tests/test_render_dashboard.py` |
+| `e4800f7a7be8f61fd31d059652f8f2f96746135363faa19703d85e75051e8e6d` | `tests/test_render_dashboard.py` |
 | `3df2a75f9e29834cb191333d289d777d0eba18d364d5c5698d0b84d3fee7c30f` | `tests/test_spec_tree.py` |
 
-Verification: `182 passed`; generated constellation JavaScript parses with Node; elapsed time alone
+Verification: `183 passed`; generated constellation JavaScript parses with Node; elapsed time alone
 does not stale the generated graph; `git diff --check` is clean. Source base:
 `bc7ab060f0e3162ef2a651a0a61b371aca7e649f`.
 

@@ -13,9 +13,12 @@ def _planned(item: Item) -> bool:
 
 
 def _item_line(item: Item, cfg: Config, prefix: str) -> str:
+    # codex-sequence-2026-08-08: source prose may carry Markdown hard-break
+    # whitespace; generated dashboards must still pass repository diff hygiene.
+    summary = (item.one_liner or item.title).strip()
     return (
         f"- {status_cell(cfg, item.status)} {item_link(item, prefix)} — "
-        f"{item.one_liner or item.title}"
+        f"{summary}"
     )
 
 
