@@ -1,6 +1,6 @@
 from pathlib import Path
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import Graph, Group, Item
+from vizzer.model import ActiveWork, Graph, Group, Item, Milestone, MilestonePhase
 from vizzer.render import render_all
 
 def _graph():
@@ -88,3 +88,125 @@ def test_parked_items_never_enter_the_ready_queue_and_done_items_leave_gates():
     assert "[open]" in ready and "parked" not in ready
     blocked = out.split("## Blocked on decisions")[1].split("##")[0]
     assert "finished" not in blocked
+
+
+def test_dashboard_uses_configured_roles_and_renders_active_milestone(tmp_path):
+    """codex-sequence-2026-08-08: project lifecycle semantics stay configurable."""
+    statuses = [
+        {"name": "specced", "emoji": "📝", "done": False, "role": "ready"},
+        {"name": "building", "emoji": "🔧", "done": False, "role": "active"},
+        {"name": "bug-gap", "emoji": "🐛", "done": False, "role": "regression"},
+        {"name": "shipped", "emoji": "✅", "done": True, "role": "done"},
+    ]
+    cfg = Config(data=deep_merge(DEFAULTS, {"status": statuses}))
+    graph = Graph(
+        groups=[Group(id="capability:c", kind="capability", title="Cap")],
+        vocab=cfg.vocab,
+        items=[
+            Item(id="story:a", title="A", status="shipped", release="R0",
+                 group="capability:c", source={"adapter": "spec_tree", "path": "s/a.md"}),
+            Item(id="story:b", title="B", status="bug-gap", release="R0",
+                 group="capability:c", deps=["story:a"],
+                 source={"adapter": "spec_tree", "path": "s/b.md"}),
+            Item(id="story:c", title="C", status="building", release="R0",
+                 group="capability:c", source={"adapter": "spec_tree", "path": "s/c.md"}),
+        ],
+        milestones=[Milestone(
+            id="M1", title="Usable slice", goal="Prove the workflow.",
+            phases=[MilestonePhase(name="Floor", items=["story:a", "story:b"])],
+        )],
+    )
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+
+    milestone = out.split("## Milestone: Usable slice")[1].split("## In progress")[0]
+    assert "1/2" in milestone and "Next" in milestone and "[b]" in milestone
+    active = out.split("## In progress")[1].split("##")[0]
+    assert "[c]" in active and "[b]" not in active
+    regression = out.split("## Regression queue")[1].split("##")[0]
+    assert "[b]" in regression and "[c]" not in regression
+
+
+def test_nonblocking_relations_do_not_block_ready_queue(tmp_path):
+    from vizzer.model import Relation
+
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="story:old", title="Old", status="specced", release="R0"),
+        Item(id="story:new", title="New", status="specced", release="R0",
+             relations=[Relation(kind="revises", target="story:old")]),
+    ])
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+    ready = out.split("## Ready queue")[1].split("##")[0]
+    assert "new" in ready
+
+
+def test_dashboard_renders_persisted_priority_rationale(tmp_path):
+    graph = _graph()
+    graph.priority = {
+        "target_tier": "configured-items",
+        "recommendations": ["story:ready"],
+    }
+    graph.item_map()["story:ready"].priority = {
+        "rank": 1, "score": 940,
+        "rationale": "1 incomplete target dependent(s), depth 1, role ready",
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    section = out.split("## Recommended uptake")[1].split("##")[0]
+    assert "score 940" in section and "depth 1" in section
+
+
+def test_dashboard_renders_agent_checkpoint_evidence_without_fake_percent(tmp_path):
+    graph = _graph()
+    graph.active_work = [
+        ActiveWork(
+            story_id="story:wip", agent="Galileo", task="Implement tokens",
+            state="active", completed=2, total=5,
+            updated_at="2026-08-08T17:00:00Z",
+            stale_at="2026-08-08T19:00:00Z", checkpoint="renderer tests",
+        ),
+        ActiveWork(
+            story_id="story:ready", agent="Planck", task="Investigate",
+            state="paused", completed=0, total=0,
+            updated_at="2026-08-08T17:05:00Z",
+            stale_at="2026-08-08T19:05:00Z",
+        ),
+    ]
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+    section = out.split("## Agent work")[1].split("##")[0]
+
+    assert "[wip](../../s/wip.md)" in section
+    assert "2/5 checkpoints" in section and "now: renderer tests" in section
+    assert "0/0 checkpoints (not estimated)" in section
+    assert "%" not in section
+    assert "stale after `2026-08-08T19:00:00Z`" in section
+
+
+def test_dashboard_source_links_escape_markdown_path_delimiters(tmp_path):
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="story:linked", title="Linked", status="building", release="R0",
+             source={"adapter": "spec_tree", "path": "stories/a story#1(ready).md"}),
+    ])
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "[linked](../../stories/a%20story%231%28ready%29.md)" in out
+
+
+def test_dashboard_progress_excludes_relation_only_foundation_groups(tmp_path):
+    """codex-sequence-2026-08-08: structural roots are not 0/0 capabilities."""
+    cfg = _cfg()
+    graph = Graph(
+        vocab=cfg.vocab,
+        groups=[Group(id="foundation:geometry", kind="foundation", title="Geometry")],
+        items=[Item(id="story:a", title="A", status="specced", release="R0")],
+    )
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "Geometry" not in out

@@ -5,9 +5,11 @@ import copy
 from pathlib import Path
 
 from . import gitmeta
+from .activity import load_active_work
 from .adapters import ScanResult
 from .config import Config
 from .model import Graph, Group, Item
+from .priority import apply_priorities
 
 
 _MERGE_FIELDS = ("status", "release", "wave", "title", "one_liner", "appetite")
@@ -162,6 +164,7 @@ def build_graph(
     for index, adapter in enumerate(precedence):
         precedence_index.setdefault(adapter, index)
     lowest = len(precedence)
+    dependency_authority = cfg.get("reconcile.dependency_authority", "")
 
     all_items = [item for _, scan in scans for item in scan.items]
     all_items.sort(key=lambda item: (precedence_index.get(_adapter(item), lowest), item.id))
@@ -219,8 +222,26 @@ def build_graph(
                     "dropped": {"adapter": _adapter(newcomer), "value": dropped_value},
                 })
 
-        if not keeper.deps and newcomer.deps:
+        # codex-sequence-2026-08-08: dependency authority can migrate separately
+        # from title/status/source provenance. Explicit story `Deps: []` also
+        # remains data, not an invitation for a lower source to refill it.
+        keeper_adapter = _adapter(keeper)
+        newcomer_adapter = _adapter(newcomer)
+        deps_declared = bool(keeper.source.get("deps_declared"))
+        if dependency_authority and newcomer_adapter == dependency_authority:
             keeper.deps = copy.deepcopy(newcomer.deps)
+        elif dependency_authority and keeper_adapter == dependency_authority:
+            pass
+        elif not keeper.deps and newcomer.deps and not deps_declared:
+            keeper.deps = copy.deepcopy(newcomer.deps)
+
+        # Lineage is additive and nonblocking.  Do not overload dependency
+        # authority with it; explicitly sourced typed edges survive reconciliation.
+        relation_keys = {(relation.kind, relation.target) for relation in keeper.relations}
+        for relation in newcomer.relations:
+            if (relation.kind, relation.target) not in relation_keys:
+                keeper.relations.append(copy.deepcopy(relation))
+                relation_keys.add((relation.kind, relation.target))
 
     groups_by_id: dict[str, Group] = {}
     for _, scan in scans:
@@ -230,19 +251,51 @@ def build_graph(
 
     _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings)
 
-    known_ids = set(items_by_id)
+    # codex-sequence-2026-08-08: nonblocking relations may target synthetic groups
+    # such as foundation roots; hard prerequisites remain item-only.
+    item_ids = set(items_by_id)
+    relation_targets = item_ids | set(groups_by_id)
     for item in items_by_id.values():
         kept_deps = []
         for dep in item.deps:
-            if dep in known_ids:
+            if dep in item_ids:
                 kept_deps.append(dep)
             else:
                 warnings.add(f"dangling dep {item.id} → {dep} (edge dropped)")
         item.deps = kept_deps
+        kept_relations = []
+        for relation in sorted(item.relations, key=lambda rel: (rel.kind, rel.target)):
+            if relation.target in relation_targets:
+                kept_relations.append(relation)
+            else:
+                warnings.add(
+                    f"dangling relation {item.id} -[{relation.kind}]→ "
+                    f"{relation.target} (edge dropped)"
+                )
+        item.relations = kept_relations
 
     for cycle in _dependency_cycles(items_by_id):
         warnings.add("dependency cycle: " + " → ".join(cycle)
                      + " (roadmap order within the cycle is arbitrary)")
+
+    # codex-sequence-2026-08-08: milestone order and phase order are authored
+    # metadata; first configured source wins while dangling members stay visible.
+    milestones_by_id = {}
+    for _, scan in scans:
+        for milestone in scan.milestones:
+            milestones_by_id.setdefault(milestone.id, copy.deepcopy(milestone))
+    for milestone in milestones_by_id.values():
+        for phase in milestone.phases:
+            kept_items = []
+            for item_id in phase.items:
+                if item_id in item_ids:
+                    kept_items.append(item_id)
+                else:
+                    warnings.add(
+                        f"milestone {milestone.id} phase {phase.name} references "
+                        f"unknown item {item_id} (member dropped)"
+                    )
+            phase.items = kept_items
 
     meta, git_warnings = gitmeta.collect(
         root,
@@ -262,10 +315,16 @@ def build_graph(
             "modified": meta.modified(path),
         }
 
-    return Graph(
+    graph = Graph(
         groups=list(groups_by_id.values()),
         items=list(items_by_id.values()),
+        milestones=list(milestones_by_id.values()),
         conflicts=conflicts,
         warnings=sorted(warnings),
         vocab=cfg.vocab,
     )
+    # codex-sequence-2026-08-08: activity is a validated overlay. Loading it
+    # after reconciliation lets unknown ids fail visibly without affecting work truth.
+    graph.warnings = sorted(set(graph.warnings) | set(load_active_work(graph, cfg, root)))
+    apply_priorities(graph, cfg, root)
+    return graph

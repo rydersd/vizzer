@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import quote
 
 from ..config import Config
 from ..model import Item
@@ -30,7 +31,18 @@ def source_link_prefix(cfg: Config, root: Path) -> str:
 def item_link(item: Item, prefix: str) -> str:
     tail = _id_tail(item.id)
     path = item.source.get("path")
-    return f"[{tail}]({prefix}{path})" if path else tail
+    # codex-sequence-2026-08-08: generated Markdown links survive spaces, #,
+    # parentheses, and Unicode in canonical on-drive source paths.
+    return f"[{tail}]({quote(prefix + path, safe='/')})" if path else tail
+
+
+def priority_items(graph) -> list[Item]:
+    """Resolve the graph's persisted recommendation order without re-scoring."""
+    by_id = graph.item_map()
+    recommendations = graph.priority.get("recommendations", [])
+    if not isinstance(recommendations, list):
+        return []
+    return [by_id[item_id] for item_id in recommendations if item_id in by_id]
 
 
 def bar(done: int, total: int, width: int = 12) -> str:

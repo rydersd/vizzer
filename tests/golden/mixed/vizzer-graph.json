@@ -179,7 +179,8 @@
       "flags": [],
       "source": {
         "adapter": "spec_tree",
-        "path": "spec/drawing/epics/tools/stories/canvas-core.md"
+        "path": "spec/drawing/epics/tools/stories/canvas-core.md",
+        "deps_declared": true
       },
       "activity": {
         "commits": 1,
@@ -206,7 +207,8 @@
       ],
       "source": {
         "adapter": "spec_tree",
-        "path": "spec/drawing/epics/tools/stories/snap-to-grid.md"
+        "path": "spec/drawing/epics/tools/stories/snap-to-grid.md",
+        "deps_declared": true
       },
       "activity": {
         "commits": 1,
@@ -263,6 +265,7 @@
       }
     }
   ],
+  "milestones": [],
   "conflicts": [],
   "warnings": [],
   "vocab": {
@@ -270,57 +273,68 @@
       {
         "name": "idea",
         "emoji": "💡",
-        "done": false
+        "done": false,
+        "role": "ready"
       },
       {
         "name": "backlog",
         "emoji": "📋",
-        "done": false
+        "done": false,
+        "role": "ready"
       },
       {
         "name": "specced",
         "emoji": "📝",
-        "done": false
+        "done": false,
+        "role": "ready"
       },
       {
         "name": "ready",
         "emoji": "🟢",
-        "done": false
+        "done": false,
+        "role": "ready"
       },
       {
         "name": "building",
         "emoji": "🔧",
-        "done": false
+        "done": false,
+        "role": "active"
       },
       {
         "name": "in-flight",
         "emoji": "✈️",
-        "done": false
+        "done": false,
+        "role": "active"
       },
       {
         "name": "bug-gap",
         "emoji": "🐛",
-        "done": false
+        "done": false,
+        "role": "active"
       },
       {
         "name": "shipped",
         "emoji": "✅",
-        "done": true
+        "done": true,
+        "role": "done"
       },
       {
         "name": "verified",
         "emoji": "🏁",
-        "done": true
+        "done": true,
+        "role": "done"
       },
       {
         "name": "parked",
         "emoji": "⏸️",
-        "done": false
+        "done": false,
+        "role": "hold"
       },
       {
         "name": "unknown",
         "emoji": "❔",
-        "done": false
+        "done": false,
+        "role": "ready"
       }
     ]
   }

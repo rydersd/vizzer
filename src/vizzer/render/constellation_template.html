@@ -3,20 +3,20 @@
 :root{
   --bg:#0B0D12; --bg2:#12151D; --panel:#141821ee; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
   --shipped:#C9A96A; --active:#7FA6C9; --ready:#8FB89A; --buggap:#C27B6E;
-  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --accent:#C9A96A;
+  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;
 }
 @media (prefers-color-scheme: light){:root{
   --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
   --shipped:#9C7C45; --active:#5B7FA0; --ready:#5F8A6D; --buggap:#A6594E;
-  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --accent:#9C7C45;}}
+  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;}}
 :root[data-theme="dark"]{
   --bg:#0B0D12; --bg2:#12151D; --panel:#141821ee; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
   --shipped:#C9A96A; --active:#7FA6C9; --ready:#8FB89A; --buggap:#C27B6E;
-  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --accent:#C9A96A;}
+  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;}
 :root[data-theme="light"]{
   --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
   --shipped:#9C7C45; --active:#5B7FA0; --ready:#5F8A6D; --buggap:#A6594E;
-  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --accent:#9C7C45;}
+  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
@@ -47,7 +47,21 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .clearx{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1;width:22px;height:22px;padding:0;
   border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;align-self:center}
 .clearx:hover{color:var(--ink);border-color:var(--mut)}
-#rail{position:fixed;left:0;top:56px;bottom:0;width:236px;padding:8px 12px 20px;overflow-y:auto;z-index:4;
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+#search{position:fixed;left:12px;top:56px;width:218px;height:34px;z-index:5;display:grid;
+  grid-template-columns:1fr 24px;grid-template-rows:24px 10px;column-gap:4px;align-items:center}
+#searchinput{min-width:0;height:24px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);
+  padding:2px 8px;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;outline:none}
+#searchinput:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+#searchinput::placeholder{color:var(--mut)}
+#searchclear{grid-column:2;grid-row:1;width:24px;height:24px;border:1px solid var(--line);border-radius:50%;
+  background:var(--panel);color:var(--mut);cursor:pointer;font:13px/1 ui-monospace,"SF Mono",Menlo,monospace}
+#searchclear:hover:not(:disabled){color:var(--ink);border-color:var(--mut)}
+#searchclear:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#searchclear:disabled{opacity:.35;cursor:default}
+#searchcount{grid-column:1 / -1;grid-row:2;color:var(--mut);font:9px/1 ui-monospace,"SF Mono",Menlo,monospace;
+  font-variant-numeric:tabular-nums;padding-left:2px}
+#rail{position:fixed;left:0;top:98px;bottom:0;width:236px;padding:8px 12px 20px;overflow-y:auto;z-index:4;
   background:linear-gradient(to right,var(--bg) 55%,transparent)}
 .cap{padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent}
 .cap:hover{background:var(--bg2)}
@@ -61,15 +75,27 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
   transform:translateX(105%);transition:transform .22s ease}
 #dossier.open{transform:none}
-@media (prefers-reduced-motion:reduce){#dossier{transition:none}}
+@media (prefers-reduced-motion:reduce){#dossier{transition:none}.chip{scroll-behavior:auto}}
 #dossier h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:10px}
 .pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 10px;border-radius:20px;margin-bottom:12px;color:var(--bg);font-weight:600}
 .kv{font-size:12px;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:3px 10px;margin-bottom:14px}
 .kv b{color:var(--ink);font-weight:500}
-#dossier a.story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
-  border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0}
-#dossier a.story:hover{background:var(--accent);color:var(--bg)}
+#dossier .story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
+  border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0;background:transparent;cursor:pointer}
+#dossier .story:hover{background:var(--accent);color:var(--bg)}
+#dossier .story:disabled{opacity:.6;cursor:progress}
+.workcard{border-left:2px solid var(--active);padding:4px 0 4px 9px;margin:8px 0;font-size:12px}
+.workcard.stale{border-color:var(--mut);color:var(--mut)}
+.workcard b,.workcard small{display:block}.workcard small{color:var(--mut)}
+.plancard{border-top:1px solid var(--line);padding-top:12px;margin-top:8px;font-size:12px}
+.plancard h3{font:600 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
+.planbuttons{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.planbuttons button,.plancard .planaction{border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);padding:5px 8px;cursor:pointer;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}
+.planbuttons button.on{border-color:var(--accent);color:var(--accent);background:var(--bg2)}
+.plancard textarea{width:100%;min-height:52px;resize:vertical;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:6px;font:11px/1.35 ui-monospace,"SF Mono",Menlo,monospace;margin:3px 0 7px}
+.plancard .planaction{margin-right:5px}.plancard .planaction.primary{border-color:var(--accent);color:var(--accent)}
+.plancard button:disabled{opacity:.45;cursor:not-allowed}.planresult{color:var(--mut);margin-top:8px;white-space:pre-line}.planresult b{color:var(--ink)}
 #deps h4{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:10px 0 6px}
 #deps button{display:block;width:100%;text-align:left;font-size:12px;background:none;border:none;color:var(--ink);
   padding:4px 6px;border-radius:5px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
@@ -80,26 +106,72 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
   padding:5px 10px;font-size:12px;max-width:280px;display:none;backdrop-filter:blur(6px)}
 #tip small{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;display:block}
 #hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em}
+#boot{position:fixed;inset:50% auto auto 50%;z-index:20;max-width:min(560px,calc(100vw - 32px));transform:translate(-50%,-50%);
+  padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--mut);
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;white-space:pre-wrap}
+#boot.error{border-color:var(--buggap);color:var(--ink)}
 @media (max-width:760px){#rail{display:none}#dossier{width:100%}}
 </style>
-<canvas id="cv"></canvas>
+<canvas id="cv" role="application" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
   <div id="title"><b>__TITLE__</b></div>
   <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
   <div id="chips"></div>
 </div>
+<!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
+<form id="search" role="search">
+  <label class="sr-only" for="searchinput">Search work items</label>
+  <input id="searchinput" type="search" aria-label="Search work items" aria-controls="cv"
+    aria-describedby="searchcount" placeholder="search stories" autocomplete="off" spellcheck="false">
+  <button id="searchclear" type="button" aria-label="Clear search" disabled>×</button>
+  <output id="searchcount" for="searchinput" aria-live="polite"></output>
+</form>
 <div id="rail"></div>
 <div id="dossier"><button id="close" aria-label="Close">×</button><div id="dbody"></div></div>
-<div id="tip"></div>
+<div id="tip" role="tooltip"></div>
 <div id="hint">drag / two-finger orbit · pinch zoom · click node → story + dependencies</div>
+<div id="boot" role="status">loading constellation…</div>
+<script>
+// codex-sequence-2026-08-08: a boot failure must be visible, including parse
+// errors in the generated application script below.
+(function(){
+  const boot=document.getElementById('boot');
+  function fail(detail){
+    boot.hidden=false; boot.className='error';
+    boot.textContent='Vizzer could not start.\n'+(detail||'Unknown browser error');
+  }
+  addEventListener('error',function(event){
+    fail(event&&(event.message||(event.error&&event.error.message)));
+  },true);
+  addEventListener('unhandledrejection',function(event){
+    const reason=event&&event.reason;
+    fail(reason&&(reason.message||String(reason)));
+  });
+  window.__vizzerBoot={ready:function(){boot.hidden=true;},fail:fail};
+})();
+</script>
 <script>
 const DATA=__DATA__;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const REPO = DATA.repo || '';
-const GROUPS = {shipped:'shipped', building:'active','in-flight':'active', ready:'ready','bug-gap':'buggap',
-  specced:'specced', backlog:'faint', idea:'faint', parked:'parked'};
-const GLAB = {shipped:'shipped', active:'building', ready:'ready', buggap:'bug-gap', specced:'specced', faint:'backlog/idea', parked:'parked'};
+// codex-sequence-2026-08-08: the local app opener exists only behind loopback HTTP.
+const SERVED = location.protocol === 'http:';
+const ACCEPTED_PLAN=DATA.planning||{};
+let planContext=null, planDraft=null, planAnalysis=null, planError='', planRationale='';
+if(SERVED){
+  fetch('/api/plan').then(async response=>{
+    if(!response.ok){
+      if(response.status===404){planError='Planning controls are disabled for this project.';if(sel>=0)openNode(sel);return;}
+      throw new Error((await response.json()).error||'planning unavailable');
+    }
+    planContext=await response.json();
+    planDraft=JSON.parse(JSON.stringify(planContext.overlay.state));
+    if(sel>=0) openNode(sel);
+  }).catch(error=>{ planError=error.message||String(error); if(sel>=0) openNode(sel); });
+}
+// codex-sequence-2026-08-08: node groups are derived from configured roles in Python.
+const GLAB = {shipped:'done', active:'active', ready:'ready', buggap:'regression', specced:'specced', faint:'backlog/idea', parked:'parked', foundation:'foundation'};
 const css = k => getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim();
 let C = {}, RGB = {};
 function rgbOf(col){ col=col.trim(); const m=col.match(/^#([0-9a-f]{6})\b/i);
@@ -107,33 +179,48 @@ function rgbOf(col){ col=col.trim(); const m=col.match(/^#([0-9a-f]{6})\b/i);
   const mm=col.match(/(\d+)[, ]+(\d+)[, ]+(\d+)/); return mm?[+mm[1],+mm[2],+mm[3]]:[128,128,128]; }
 const mixA = (a,b,t)=> a.map((v,i)=>Math.round(v+(b[i]-v)*t));
 const rgbCss = a => 'rgb('+a.join(',')+')';
-function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
+function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked','foundation']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
   RGB.fade = rgbOf(css('faint')); }
 recolor();
-new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>setTimeout(recolor,50));
+if (typeof MutationObserver==='function')
+  new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+// codex-sequence-2026-08-08: Quick Look and older WebKit expose addListener,
+// while current browsers expose addEventListener. Either host must boot.
+const mediaQuery = query => typeof matchMedia==='function' ? matchMedia(query) : {matches:false};
+const colorSchemeQuery = mediaQuery('(prefers-color-scheme: dark)');
+const colorSchemeChanged = ()=>setTimeout(recolor,50);
+if (typeof colorSchemeQuery.addEventListener==='function') colorSchemeQuery.addEventListener('change',colorSchemeChanged);
+else if (typeof colorSchemeQuery.addListener==='function') colorSchemeQuery.addListener(colorSchemeChanged);
 
 // ---- layout: capability clusters on a fibonacci sphere, nodes as gaussian blobs ----
+// codex-sequence-2026-08-08: layout includes synthetic relation targets such as
+// foundations even though product completion counts intentionally exclude them.
 const caps = Object.keys(DATA.caps);
+const layoutTotals = {};
+DATA.nodes.forEach(n=>{ layoutTotals[n.c]=(layoutTotals[n.c]||0)+1; });
+const layoutCaps = Object.keys(layoutTotals);
 const R = 340;
 const capPos = {};
-caps.forEach((c,i)=>{
-  const k = i + .5, phi = Math.acos(1 - 2*k/caps.length), th = Math.PI*(1+Math.sqrt(5))*k;
+layoutCaps.forEach((c,i)=>{
+  const k = i + .5, phi = Math.acos(1 - 2*k/layoutCaps.length), th = Math.PI*(1+Math.sqrt(5))*k;
   capPos[c] = [R*Math.cos(th)*Math.sin(phi), R*Math.sin(th)*Math.sin(phi), R*Math.cos(phi)];
 });
 let seed = 42; const rnd = ()=> (seed = (seed*1103515245+12345) & 0x7fffffff) / 0x7fffffff;
 const gauss = ()=> (rnd()+rnd()+rnd()-1.5)*1.1;
 DATA.nodes.forEach(n=>{
   n.ox = gauss(); n.oy = gauss(); n.oz = gauss();
-  n.g = GROUPS[n.st] || 'specced';
+  n.g = n.g || 'specced';
 });
 // node size modes — 'time': where the hours went (spec-file commits + lane-doc mentions),
 // 'appetite': story complexity. Time mode spreads the clusters so larger circles keep room.
-let sizeMode = 'time', prog = false, recOn = true;
+let sizeMode = 'time';
+// Lifecycle is the base; progress has its own durable-evidence lens.
+const lens = {delivery:true, activity:true, structure:true, progress:true};
+const reducedMotion = mediaQuery('(prefers-reduced-motion: reduce)').matches;
 function layout(){
   const mul = sizeMode==='time' ? 1.6 : 1;
   for (const n of DATA.nodes){
-    const cp = capPos[n.c], spread = (26 + 13*Math.sqrt(DATA.caps[n.c].total))*mul;
+    const cp = capPos[n.c], spread = (26 + 13*Math.sqrt(layoutTotals[n.c]))*mul;
     n.x = cp[0]+n.ox*spread; n.y = cp[1]+n.oy*spread; n.z = cp[2]+n.oz*spread;
   }
 }
@@ -142,10 +229,6 @@ layout();
   const amax = Math.max(1, ...DATA.nodes.map(n=>n.ac+n.am));
   // steeper curve + wider range so scale differences read at a glance (~4x radius min→max)
   DATA.nodes.forEach(n=>{ n.tw = 0.6 + 2.8*Math.pow((n.ac+n.am)/amax, .75); });
-  // ledger-progression rank: q=1 most recently worked, 0 oldest (never-touched stays 0)
-  const touched = DATA.nodes.filter(n=>n.ts>0).sort((a,b)=>a.ts-b.ts);
-  touched.forEach((n,k)=>{ n.q = touched.length>1 ? k/(touched.length-1) : 1; });
-  DATA.nodes.forEach(n=>{ if (n.q===undefined) n.q = 0; });
 }
 // ---- state ----
 const filt = Object.fromEntries(Object.keys(GLAB).map(g=>[g,true]));
@@ -153,6 +236,12 @@ const RELS = ['R0','R1','R2','R3','R?'];
 const rfilt = Object.fromEntries(RELS.map(r=>[r,true]));
 const relKey = n => RELS.includes(n.r) ? n.r : 'R?';
 let capFocus = null, sel = -1, hover = -1;
+// codex-sequence-2026-08-08: every whitespace-delimited query token must occur
+// in the same renderer-built item index. Search dims; it never changes layout.
+let searchTerms = [];
+let searchMatches = DATA.nodes.map(()=>true);
+const matchesSearch = n => searchTerms.length===0 || (!n.foundation &&
+  searchTerms.every(token=>n.q.toLocaleLowerCase().includes(token)));
 // camera centre: eases toward the centroid of whatever is visible
 let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
 function visible(n){ return filt[n.g] && rfilt[relKey(n)] && (!capFocus || n.c===capFocus); }
@@ -164,11 +253,57 @@ function retarget(){
 }
 const nbr = DATA.nodes.map(()=>({up:[],dn:[]}));
 DATA.edges.forEach(([a,b])=>{ nbr[b].up.push(a); nbr[a].dn.push(b); });
+// Typed lineage is navigable independently of prerequisite readiness.
+const relNbr = DATA.nodes.map(()=>({out:[],inc:[]}));
+(DATA.relations||[]).forEach(([a,b,k])=>{
+  relNbr[a].out.push([b,k]); relNbr[b].inc.push([a,k]);
+});
+const freshWork = w => w && w.state==='active' && Date.now()<Date.parse(w.staleAt);
+const activeNode = i => lens.activity && (DATA.nodes[i].aw||[]).some(wi=>freshWork(DATA.work[wi]));
+const nodeProgress = i => (DATA.nodes[i].aw||[]).reduce((p,wi)=>{
+  const w=DATA.work[wi]; p.done+=w.done; p.total+=w.total; return p;
+},{done:0,total:0});
+const ageDays = at => Math.max(0,(Date.now()-Date.parse(at))/86400000);
+const progressEvents = i => lens.progress ? (DATA.nodes[i].pg||{}).events||[] : [];
+const stall = i => {
+  if(!lens.progress) return null;
+  const candidate=(DATA.nodes[i].pg||{}).stall;
+  if(!candidate) return null;
+  const days=ageDays(candidate.since);
+  return days>=candidate.afterDays ? {...candidate,days} : null;
+};
+const progressText = n => {
+  const events=(n.pg||{}).events||[], blocked=(n.pg||{}).stall;
+  const trail=events.map(e=>`${e.kind}: ${e.detail} · ${ageDays(e.at).toFixed(1)}d ago · ${e.source}`).join(' | ');
+  const blockedDays=blocked?ageDays(blocked.since):0;
+  const stuck=blocked&&blockedDays>=blocked.afterDays?`stalled ${blockedDays.toFixed(1)}d since verified/eligible evidence · ${blocked.source}`:'';
+  return [trail,stuck].filter(Boolean).join(' | ');
+};
 
 // ---- top bar ----
-const shippedN = DATA.nodes.filter(n=>n.st==='shipped').length;
-document.getElementById('meterfill').style.width = (100*shippedN/DATA.nodes.length).toFixed(1)+'%';
-document.getElementById('meterlab').textContent = `${shippedN}/${DATA.nodes.length} shipped · ${(100*shippedN/DATA.nodes.length).toFixed(0)}%`;
+const workNodes = DATA.nodes.filter(n=>!n.foundation);
+const shippedN = workNodes.filter(n=>n.g==='shipped').length;
+document.getElementById('meterfill').style.width = (100*shippedN/Math.max(1,workNodes.length)).toFixed(1)+'%';
+document.getElementById('meterlab').textContent = `${shippedN}/${workNodes.length} shipped · ${(100*shippedN/Math.max(1,workNodes.length)).toFixed(0)}%`;
+const searchForm=document.getElementById('search'), searchInput=document.getElementById('searchinput');
+const searchClear=document.getElementById('searchclear'), searchCount=document.getElementById('searchcount');
+function updateSearch(){
+  searchTerms=searchInput.value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  searchMatches=DATA.nodes.map(matchesSearch);
+  const count=DATA.nodes.reduce((total,node,i)=>
+    total+Number(!node.foundation&&searchMatches[i]),0);
+  searchCount.textContent=searchTerms.length ? `${count} result${count===1?'':'s'}` : `${workNodes.length} items`;
+  searchClear.disabled=searchTerms.length===0;
+}
+searchForm.addEventListener('submit',event=>event.preventDefault());
+searchInput.addEventListener('input',updateSearch);
+searchClear.addEventListener('click',()=>{ searchInput.value=''; updateSearch(); searchInput.focus(); });
+addEventListener('keydown',event=>{
+  if(event.key==='Escape' && searchTerms.length){
+    event.preventDefault(); searchInput.value=''; updateSearch(); searchInput.focus();
+  }
+});
+updateSearch();
 const chips = document.getElementById('chips');
 for (const g of Object.keys(GLAB)){
   const b = document.createElement('button'); b.className='chip on'; b.innerHTML=`<i></i>${GLAB[g]}`;
@@ -215,20 +350,23 @@ for (const m of ['time','appetite']){
     layout(); retarget(); };
   sizeChips[m] = b; chips.appendChild(b);
 }
-// progression: fade colour + lightness the further back a story was last worked
+// Switchable lenses. Risk/history/judgment remain future data contracts, not placebo UI.
 chips.appendChild(rsep.cloneNode());
-const pb = document.createElement('button'); pb.className='chip'; pb.textContent='progression';
-pb.onclick = ()=>{ prog=!prog; pb.classList.toggle('on',prog); };
-chips.appendChild(pb);
-// ★ next: brighter-lightness highlight on the recommended next steps
-const nb = document.createElement('button'); nb.className='chip on'; nb.textContent='★ next';
-nb.onclick = ()=>{ recOn=!recOn; nb.classList.toggle('on',recOn); };
-chips.appendChild(nb);
+const lensSeg = document.createElement('div'); lensSeg.className='seg';
+lensSeg.setAttribute('role','group'); lensSeg.setAttribute('aria-label','Graph lenses');
+for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['structure','Structure'],['progress','Progress']]){
+  const b=document.createElement('button'); b.className='on'; b.textContent=label;
+  b.setAttribute('aria-pressed','true'); b.setAttribute('aria-label',label+' lens');
+  b.onclick=()=>{ lens[key]=!lens[key]; b.classList.toggle('on',lens[key]);
+    b.setAttribute('aria-pressed',String(lens[key])); if(sel>=0) openNode(sel); };
+  lensSeg.appendChild(b);
+}
+chips.appendChild(lensSeg);
 // ---- rail ----
 const rail = document.getElementById('rail');
 caps.sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total).forEach(c=>{
   const v = DATA.caps[c];
-  const bg = DATA.nodes.filter(n=>n.c===c&&n.st==='bug-gap').length;
+  const bg = DATA.nodes.filter(n=>n.c===c&&n.g==='buggap').length;
   const d = document.createElement('div'); d.className='cap'; d.tabIndex=0;
   d.innerHTML = `<h3>${esc(c.replace(/-/g,' '))}<span>${v.shipped}/${v.total}</span></h3>
     <div class="capbar"><i style="width:${100*v.shipped/v.total}%"></i><b style="width:${100*bg/v.total}%"></b></div>`;
@@ -246,18 +384,123 @@ function openNode(i){
   const dep = (list,label)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(j=>{
     const m = DATA.nodes[j];
     return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${esc(m.t)}</button>`;}).join('') : '';
+  const rel = (list,label,incoming=false)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(([j,k])=>{
+    const m=DATA.nodes[j], kind=k.replace(/_/g,' ');
+    return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${esc(incoming?kind+' by: '+m.t:kind+': '+m.t)}</button>`;
+  }).join('') : '';
+  const agentWork = lens.activity ? (n.aw||[]).map(wi=>{
+    const w=DATA.work[wi], stale=Date.now()>=Date.parse(w.staleAt);
+    const progress=w.total?`${w.done}/${w.total} checkpoints`:'0/0 checkpoints (not estimated)';
+    return `<div class="workcard${stale?' stale':''}"><b>${esc(w.agent)} · ${esc(stale?'stale':w.state)}</b>
+      ${esc(w.task)}<small>${esc(progress)}${w.checkpoint?' · now: '+esc(w.checkpoint):''}<br>
+      updated ${esc(w.updatedAt)} · stale after ${esc(w.staleAt)}</small></div>`;
+  }).join('') : '';
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
+  const trail = lens.progress ? progressText(n) : '';
   dbody.innerHTML = `<h2>${esc(n.t)}</h2>
     <span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?' <span class="pill" style="background:var(--accent)">★ next step</span>':''}
     <div class="kv"><span>area</span><b>${esc(n.c.replace(/-/g,' '))}</b>
       <span>epic</span><b>${esc(n.e)}</b><span>release</span><b>${esc(n.r||'—')}</b>
       <span>activity</span><b>${n.ac} spec commit${n.ac===1?'':'s'} · ${n.am} doc mention${n.am===1?'':'s'}</b>
-      <span>touched</span><b>${touched}</b></div>
-    ${DATA.root?`<a class="story" href="obsidian://open?path=${esc(encodeURIComponent(DATA.root+'/'+n.p))}">obsidian</a>`:''}
-    ${REPO?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ↗</a>`:''}
-    <div id="deps">${dep(nbr[i].up,'depends on')}${dep(nbr[i].dn,'unblocks')}</div>`;
+      <span>touched</span><b>${touched}</b>
+      ${trail?`<span>progress</span><b>${esc(trail)}</b>`:''}
+      ${!lens.delivery||n.ps==null?'':`<span>priority</span><b>#${n.pr} · ${n.ps} · ${n.pu||0} target dependents</b>
+      <span>why</span><b>${esc(n.pw||'')}</b>`}</div>
+    ${agentWork}
+    ${planSection(n)}
+    ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ↗</a>`:''}
+    ${n.id&&SERVED?`<button class="story" type="button" data-open-item="${esc(n.id)}">open in app</button>`:''}
+    ${DATA.root&&n.p?`<a class="story" href="obsidian://open?path=${esc(encodeURIComponent(DATA.root+'/'+n.p))}">obsidian</a>`:''}
+    ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ↗</a>`:''}
+    <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
+      rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
+  dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
+    b.disabled = true;
+    try {
+      const response = await fetch('/api/open/'+encodeURIComponent(b.dataset.openItem), {method:'POST'});
+      if (!response.ok) throw new Error('open failed');
+      b.textContent = 'opened in app';
+    } catch (_) {
+      b.textContent = 'could not open'; b.disabled = false;
+    }
+  });
+  bindPlanControls(n);
   dossier.classList.add('open');
+}
+
+function planSection(n){
+  if(!n.id||n.foundation) return '';
+  if(!SERVED){
+    const labels=[];
+    if((ACCEPTED_PLAN.promote||[]).includes(n.id)) labels.push('promoted');
+    if((ACCEPTED_PLAN.defer||[]).includes(n.id)) labels.push('deferred');
+    const oi=(ACCEPTED_PLAN.order||[]).indexOf(n.id); if(oi>=0) labels.push(`course #${oi+1}`);
+    return `<div class="plancard"><h3>Planning · accepted r${ACCEPTED_PLAN.revision||0}</h3><div class="planresult">${labels.length?esc(labels.join(' · '))+'\n':''}Read-only file. Run <b>vizzer serve</b> to analyze or accept a course change.</div></div>`;
+  }
+  if(planError) return `<div class="plancard"><h3>Planning</h3><div class="planresult">${esc(planError)}</div></div>`;
+  if(!planContext||!planDraft) return `<div class="plancard"><h3>Planning</h3><div class="planresult">Loading accepted course…</div></div>`;
+  const promoted=planDraft.promote.includes(n.id), deferred=planDraft.defer.includes(n.id);
+  const first=planDraft.order[0]===n.id;
+  const a=planAnalysis;
+  const result=!a?'':[
+    `new prerequisites: ${a.delta.newPrerequisites.length?a.delta.newPrerequisites.join(', '):'none'}`,
+    `ready uptake: ${a.recommendations.after.length?a.recommendations.after.join(', '):'none'}`,
+    `pushed out: ${a.recommendations.displaced.length?a.recommendations.displaced.join(', '):'none'}`,
+    `V1 targets deferred: ${a.opportunityCost.displacedCurrentV1Targets.length?a.opportunityCost.displacedCurrentV1Targets.join(', '):'none'}`,
+    `releases affected: ${a.releaseImplications.affectedReleases.length?a.releaseImplications.affectedReleases.join(', '):'none'}`,
+    ...(a.warnings||[]).map(value=>'warning: '+value),
+  ].join('\n');
+  return `<div class="plancard"><h3>Planning · accepted r${planContext.overlay.revision}</h3>
+    <div class="planbuttons">
+      <button type="button" data-plan="promote" class="${promoted?'on':''}">promote</button>
+      <button type="button" data-plan="defer" class="${deferred?'on':''}">defer</button>
+      <button type="button" data-plan="first" class="${first?'on':''}">take first</button>
+    </div>
+    <label for="planreason">Rationale</label><textarea id="planreason" placeholder="Why change course? What evidence changed?">${esc(planRationale)}</textarea>
+    <button type="button" class="planaction" data-plan="analyze">analyze tradeoffs</button>
+    <button type="button" class="planaction primary" data-plan="apply" ${a?'':'disabled'}>accept course</button>
+    <div class="planresult" aria-live="polite">${esc(result)}</div></div>`;
+}
+
+function bindPlanControls(n){
+  if(!planContext||!planDraft) return;
+  const toggle=(field)=>{
+    const values=planDraft[field], index=values.indexOf(n.id);
+    if(index>=0) values.splice(index,1); else values.push(n.id);
+    const opposite=field==='promote'?'defer':'promote';
+    const oi=planDraft[opposite].indexOf(n.id); if(oi>=0) planDraft[opposite].splice(oi,1);
+    planAnalysis=null; openNode(sel);
+  };
+  dbody.querySelector('[data-plan="promote"]')?.addEventListener('click',()=>toggle('promote'));
+  dbody.querySelector('[data-plan="defer"]')?.addEventListener('click',()=>toggle('defer'));
+  dbody.querySelector('[data-plan="first"]')?.addEventListener('click',()=>{
+    if(!(ACCEPTED_PLAN.baseTargets||[]).includes(n.id)&&!planDraft.promote.includes(n.id)) planDraft.promote.push(n.id);
+    planDraft.defer=planDraft.defer.filter(id=>id!==n.id);
+    planDraft.order=planDraft.order.filter(id=>id!==n.id); planDraft.order.unshift(n.id);
+    planAnalysis=null; openNode(sel);
+  });
+  dbody.querySelector('#planreason')?.addEventListener('input',event=>{
+    planRationale=event.currentTarget.value;
+  });
+  dbody.querySelector('[data-plan="analyze"]')?.addEventListener('click',async event=>{
+    event.currentTarget.disabled=true;
+    try{
+      const response=await fetch('/api/plan/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft})});
+      const body=await response.json(); if(!response.ok) throw new Error(body.error||'analysis failed');
+      planAnalysis=body.analysis; openNode(sel);
+    }catch(error){planError=error.message||String(error);openNode(sel);}
+  });
+  dbody.querySelector('[data-plan="apply"]')?.addEventListener('click',async event=>{
+    const rationale=planRationale.trim();
+    if(!rationale){dbody.querySelector('#planreason')?.focus();return;}
+    event.currentTarget.disabled=true;
+    try{
+      const response=await fetch('/api/plan/apply',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft,expectedRevision:planContext.overlay.revision,rationale})});
+      const body=await response.json(); if(!response.ok) throw new Error(body.error||'course apply failed');
+      location.reload();
+    }catch(error){planError=error.message||String(error);openNode(sel);}
+  });
 }
 // ---- 3d render ----
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -280,30 +523,60 @@ function project(){
 }
 function draw(){
   ctx.clearRect(0,0,W,H);
+  const pulse = reducedMotion ? .72 : .45+.27*(1+Math.sin(performance.now()/360));
   const selSet = new Set();
   if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
-  // edges
-  ctx.lineWidth = 1;
+  if (sel>=0){ relNbr[sel].out.forEach(([j])=>selSet.add(j)); relNbr[sel].inc.forEach(([j])=>selSet.add(j)); }
+  // Hard dependencies are solid. Active endpoints add steady context only;
+  // an explicit relatedStoryIds overlay below is what actually pulses.
   for (const [a,b] of DATA.edges){
     if (!P[a].on || !P[b].on) continue;
     const lit = selSet.has(a) && selSet.has(b) && (a===sel||b===sel);
-    if (!lit) continue;
-    ctx.strokeStyle = lit ? C.shipped : css('line');
-    ctx.globalAlpha = lit ? .9 : .25;
+    const activeCount=Number(activeNode(a))+Number(activeNode(b));
+    if (!(lens.structure&&lit) && !activeCount) continue;
+    ctx.setLineDash([]); ctx.lineWidth=lit?1.5:(activeCount===2?2:1);
+    ctx.strokeStyle = lit ? C.shipped : C.active;
+    const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
+    ctx.globalAlpha = (lit ? .9 : (activeCount===2?.62:.27))*(searchEdgeDim?.16:1);
     ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
   }
+  // Nonblocking relations remain dashed, including their active endpoint context.
+  ctx.setLineDash([4,4]);
+  for (const [a,b] of (DATA.relations||[])){
+    if (!P[a].on || !P[b].on) continue;
+    const lit=lens.structure&&sel>=0&&(a===sel||b===sel);
+    const activeCount=Number(activeNode(a))+Number(activeNode(b));
+    if (!lit&&!activeCount) continue;
+    ctx.lineWidth=lit?1.5:(activeCount===2?2:1);
+    const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
+    ctx.strokeStyle = C.active; ctx.globalAlpha = (lit?.75:(activeCount===2?.55:.22))*(searchEdgeDim?.16:1);
+    ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
+  }
+  // Explicit agent-work linkage pulses. It is not silently inferred from a hard
+  // dependency or typed relation, so the overlay never claims evidence it lacks.
+  if (lens.activity){
+    ctx.setLineDash([2,6]); ctx.lineDashOffset=reducedMotion?0:-performance.now()/90;
+    for (const [wi,b] of (DATA.workLinks||[])){
+      const w=DATA.work[wi], a=w&&w.n;
+      if (!freshWork(w)||a==null||!P[a].on||!P[b].on) continue;
+      const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
+      ctx.strokeStyle=C.active; ctx.lineWidth=2.4; ctx.globalAlpha=pulse*(searchEdgeDim?.16:1);
+      ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
+    }
+  }
+  ctx.lineDashOffset=0;
+  ctx.setLineDash([]);
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
   const order = DATA.nodes.map((_,i)=>i).sort((a,b)=>P[b].d-P[a].d);
   for (const i of order){
     const p = P[i]; if (!p.on) continue;
     const n = DATA.nodes[i];
-    const dim = sel>=0 && !selSet.has(i);
-    // progression mode: attenuation by how far back this story was last worked
-    const av = (prog && !dim) ? .18 + .82*Math.pow(n.q,1.5) : 1;
+    const searchDim = searchTerms.length>0 && !searchMatches[i];
+    const dim = (sel>=0 && !selSet.has(i)) || searchDim;
+    const av = 1;
     let rgb = RGB[n.g];
-    if (prog && !dim) rgb = mixA(rgb, RGB.fade, .78*(1-n.q));
-    const rec = recOn && n.rec && !dim;
+    const rec = lens.delivery && n.rec && !dim;
     if (rec) rgb = mixA(rgb, [255,255,255], .55); // ★ next: brighter lightness
     const col = rgbCss(rgb);
     ctx.globalAlpha = (dim ? .12 : (n.g==='faint'||n.g==='parked' ? .5 : .95)) * av;
@@ -328,10 +601,43 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,p.s*2.6,0,7); ctx.fill(); }
     if (n.g==='buggap' && !dim){ ctx.globalAlpha=.8*av; ctx.strokeStyle=col; ctx.lineWidth=1;
       ctx.beginPath(); ctx.arc(p.x,p.y,p.s*2,0,7); ctx.stroke(); }
+    if (activeNode(i) && !dim){
+      // Motion is optional; the steady ring and checkpoint arc preserve meaning
+      // under prefers-reduced-motion.
+      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.75:1.55+.25*pulse),0,7); ctx.stroke();
+      const progress=nodeProgress(i);
+      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=3;
+        ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.28,-Math.PI/2,
+          -Math.PI/2+2*Math.PI*(progress.done/progress.total)); ctx.stroke(); }
+    }
+    // Circle-plus marks are a static history trail: newest hugs the story,
+    // older verified semantic progress fades outward. Motion never carries it.
+    if (lens.progress && !dim){
+      const events=progressEvents(i);
+      events.forEach((event,order)=>{
+        const age=ageDays(event.at), hotWindow=Math.max(.01,(n.pg||{}).hotWindowDays||7);
+        const brightness=Math.max(.18,1-age/hotWindow);
+        const distance=rr*1.22+order*5, x=p.x+distance, y=p.y-distance*.45;
+        ctx.globalAlpha=brightness*.95; ctx.strokeStyle=C.active; ctx.lineWidth=1.25;
+        ctx.beginPath(); ctx.arc(x,y,3.6,0,7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x-1.55,y); ctx.lineTo(x+1.55,y); ctx.moveTo(x,y-1.55); ctx.lineTo(x,y+1.55); ctx.stroke();
+      });
+      const blocked=stall(i);
+      if (blocked){
+        // Cap prevents a long-stalled story from swallowing its neighbors.
+        const radius=Math.min(rr*2.15,4.4+Math.min(blocked.maxDays,blocked.days)/18);
+        const x=p.x-radius*.72, y=p.y-radius*.72;
+        ctx.globalAlpha=.9; ctx.strokeStyle=C.buggap; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(x,y,radius,0,7); ctx.stroke();
+        ctx.fillStyle=C.buggap; ctx.font=`${Math.max(8,radius*1.6)}px ui-monospace,monospace`;
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('?',x,y+.5);
+      }
+    }
   }
   ctx.globalAlpha = 1;
 }
-const snapCam = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const snapCam = reducedMotion;
 function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
@@ -348,8 +654,11 @@ cv.addEventListener('pointermove',e=>{
     hover = best;
     const tip = document.getElementById('tip');
     if (best>=0){ const n=DATA.nodes[best];
+      const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
+      const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
+      const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
       tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+10)+'px';
-      tip.innerHTML = `${n.rec?'★ ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))} · activity ${n.ac+n.am}</small>`;
+      tip.innerHTML = `${lens.delivery&&n.rec?'★ ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(liveText)}${esc(trailText)}</small>`;
       cv.style.cursor='pointer';
     } else { tip.style.display='none'; cv.style.cursor='grab'; }
   }
@@ -366,4 +675,5 @@ cv.addEventListener('wheel',e=>{ e.preventDefault();
   }
 },{passive:false});
 frame();
+window.__vizzerBoot.ready();
 </script>

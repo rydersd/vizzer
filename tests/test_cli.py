@@ -1,4 +1,6 @@
+import http.client
 import json, shutil
+import threading
 from pathlib import Path
 from vizzer.cli import main
 
@@ -40,6 +42,246 @@ def test_render_without_graph_errors(tmp_path, make_repo, capsys):
     repo = make_repo(tmp_path, "mixed_proj")
     assert main(["render", "--root", str(repo)]) == 2
     assert "sync" in capsys.readouterr().out
+
+
+def test_open_rejects_unknown_graph_item_without_launching(tmp_path, make_repo, capsys, monkeypatch):
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    monkeypatch.setattr(cli, "_open_source", lambda source: (_ for _ in ()).throw(
+        AssertionError("unknown item launched an opener")
+    ))
+
+    assert main(["open", "story:missing", "--root", str(repo)]) == 2
+    assert "unknown item" in capsys.readouterr().out
+
+
+def test_open_rejects_graph_source_escape_and_missing_file(tmp_path, make_repo, capsys, monkeypatch):
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    graph_path = repo / "vizzer" / "vizzer-graph.json"
+    graph = json.loads(graph_path.read_text())
+    target = next(item for item in graph["items"] if item["id"] == "story:canvas-core")
+    target["source"]["path"] = "../outside.md"
+    graph_path.write_text(json.dumps(graph))
+    monkeypatch.setattr(cli, "_open_source", lambda source: (_ for _ in ()).throw(
+        AssertionError("outside source launched an opener")
+    ))
+
+    assert main(["open", "story:canvas-core", "--root", str(repo)]) == 2
+    assert "outside the project" in capsys.readouterr().out
+
+    target["source"]["path"] = "missing.md"
+    graph_path.write_text(json.dumps(graph))
+    assert main(["open", "story:canvas-core", "--root", str(repo)]) == 2
+    assert "unavailable" in capsys.readouterr().out
+
+
+def test_open_uses_platform_default_app_with_only_the_resolved_source(tmp_path, make_repo, monkeypatch):
+    import sys
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    calls = []
+    monkeypatch.setattr(cli.subprocess, "run", lambda args, check: calls.append((args, check)))
+
+    assert main(["open", "story:canvas-core", "--root", str(repo)]) == 0
+    source = (repo / "spec/drawing/epics/tools/stories/canvas-core.md").resolve()
+    expected = "open" if sys.platform == "darwin" else "xdg-open"
+    assert calls == [([expected, str(source)], True)]
+
+
+def test_loopback_serve_open_endpoint_accepts_only_known_item_ids(tmp_path, make_repo, monkeypatch):
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    assert main(["render", "--root", str(repo)]) == 0
+    graph = cli._read_graph(repo)
+    opened = []
+    monkeypatch.setattr(cli, "_open_source", lambda source: opened.append(source))
+    server = cli._make_serve_server(repo, graph, repo / "vizzer" / "views", 0)
+    assert server.server_address[0] == "127.0.0.1"
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        connection = http.client.HTTPConnection(*server.server_address[:2], timeout=2)
+        connection.request("POST", "/api/open/story%3Acanvas-core")
+        response = connection.getresponse()
+        assert response.status == 200
+        response.read()
+        connection.request("POST", "/api/open/story%3Amissing")
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+        connection.request("POST", "/api/open/story%3Acanvas-core?path=../outside.md")
+        response = connection.getresponse()
+        assert response.status == 404
+        response.read()
+        connection.request("GET", "/api/open/story%3Acanvas-core")
+        response = connection.getresponse()
+        assert response.status == 405
+        response.read()
+        connection.request("GET", "/")
+        response = connection.getresponse()
+        assert response.status == 302
+        assert response.getheader("Location") == "/constellation.html"
+        response.read()
+        connection.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    assert opened == [(repo / "spec/drawing/epics/tools/stories/canvas-core.md").resolve()]
+
+
+def test_serve_can_open_the_constellation_in_the_system_browser(
+    tmp_path, make_repo, monkeypatch, capsys
+):
+    """codex-sequence-2026-08-08: one command enables default-app story opening."""
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    assert main(["render", "--root", str(repo)]) == 0
+    capsys.readouterr()
+
+    class FakeServer:
+        server_address = ("127.0.0.1", 43123)
+        closed = False
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            self.closed = True
+
+    server = FakeServer()
+    opened = []
+    monkeypatch.setattr(cli, "_make_serve_server", lambda *args: server)
+    monkeypatch.setattr(cli, "_open_browser", opened.append)
+
+    assert main([
+        "serve", "--root", str(repo), "--port", "0", "--open-browser"
+    ]) == 0
+    assert opened == ["http://127.0.0.1:43123/constellation.html"]
+    assert server.closed
+    assert "serve: http://127.0.0.1:43123/constellation.html" in capsys.readouterr().out
+
+
+def test_refresh_syncs_and_renders_one_fresh_graph(tmp_path, make_repo, capsys):
+    """The normal lifecycle command leaves one coherent graph/view snapshot."""
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    output = capsys.readouterr().out
+    assert "refresh:" in output and "wrote 7 files" in output
+    assert (repo / "vizzer" / "vizzer-graph.json").is_file()
+    assert main(["check", "--root", str(repo), "--structural"]) == 0
+
+
+def test_refresh_does_not_render_a_stale_graph_when_sync_fails(
+    tmp_path, make_repo, capsys
+):
+    """codex-sequence-2026-08-08: a failed build must not re-render old state."""
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    graph_path = repo / "vizzer" / "vizzer-graph.json"
+    dashboard_path = repo / "vizzer" / "views" / "dashboard.md"
+    previous_graph = graph_path.read_text()
+    previous_dashboard = dashboard_path.read_text()
+
+    config_path = repo / "vizzer" / "vizzer.toml"
+    config_path.write_text(config_path.read_text() + '''
+[[status]]
+name = "building"
+emoji = "🔧"
+done = false
+next = ["not-configured"]
+''')
+
+    assert main(["refresh", "--root", str(repo)]) == 2
+    output = capsys.readouterr().out
+    assert "refresh: configuration error" in output
+    assert "wrote" not in output
+    assert graph_path.read_text() == previous_graph
+    assert dashboard_path.read_text() == previous_dashboard
+
+
+def test_refresh_renderer_failure_does_not_publish_graph_without_views(
+    tmp_path, make_repo, capsys, monkeypatch
+):
+    """codex-sequence-2026-08-08: render failure is before the snapshot commit."""
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    graph_path = repo / "vizzer" / "vizzer-graph.json"
+    dashboard_path = repo / "vizzer" / "views" / "dashboard.md"
+    before = {path: path.read_bytes() for path in (graph_path, dashboard_path)}
+
+    def broken_renderer(*args, **kwargs):
+        raise RuntimeError("renderer exploded")
+
+    monkeypatch.setattr(cli, "render_all", broken_renderer)
+    assert main(["refresh", "--root", str(repo)]) == 2
+    output = capsys.readouterr().out
+    assert "renderer exploded" in output
+    assert "traceback" not in output.lower()
+    assert {path: path.read_bytes() for path in before} == before
+
+
+def test_refresh_rolls_back_when_a_view_replace_fails(
+    tmp_path, make_repo, capsys, monkeypatch
+):
+    """codex-sequence-2026-08-08: one failed view cannot leave a mixed snapshot."""
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    artifacts = [repo / "vizzer" / "vizzer-graph.json"] + sorted(
+        (repo / "vizzer" / "views").iterdir()
+    )
+    before = {path: path.read_bytes() for path in artifacts}
+    real_replace = cli.os.replace
+
+    def fail_dashboard(source, destination):
+        if Path(destination).name == "dashboard.md" and ".bak." not in str(source):
+            raise OSError("simulated dashboard replacement failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(cli.os, "replace", fail_dashboard)
+    assert main(["refresh", "--root", str(repo)]) == 2
+    output = capsys.readouterr().out
+    assert "could not write derived artifacts" in output
+    assert {path: path.read_bytes() for path in before} == before
+
+
+def test_sync_adapter_failure_is_a_clean_error_and_preserves_graph(
+    tmp_path, make_repo, capsys, monkeypatch
+):
+    """codex-sequence-2026-08-08: extension failures do not traceback or truncate graph."""
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["sync", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    graph_path = repo / "vizzer" / "vizzer-graph.json"
+    before = graph_path.read_bytes()
+
+    monkeypatch.setattr(cli, "_build", lambda *args: (_ for _ in ()).throw(RuntimeError("adapter exploded")))
+    assert main(["sync", "--root", str(repo)]) == 2
+    output = capsys.readouterr().out
+    assert "adapter exploded" in output
+    assert "traceback" not in output.lower()
+    assert graph_path.read_bytes() == before
 
 
 def test_archive_refuses_paths_outside_the_project(tmp_path, make_repo):
@@ -104,6 +346,17 @@ def test_output_dir_cannot_escape_the_project(tmp_path, make_repo, capsys):
     code = main(["render", "--root", str(repo)])
     assert code != 0
     assert not (tmp_path / "escaped").exists()
+
+
+def test_check_rejects_an_output_dir_outside_the_project(tmp_path, make_repo, capsys):
+    """codex-sequence-2026-08-08: check shares render's path safety boundary."""
+    repo = make_repo(tmp_path, "mixed_proj")
+    cfg = repo / "vizzer" / "vizzer.toml"
+    cfg.write_text(cfg.read_text() + '\n[render]\noutput_dir = "../escaped-check"\n')
+    assert main(["sync", "--root", str(repo)]) == 0
+    assert main(["check", "--root", str(repo)]) == 2
+    assert "outside the project" in capsys.readouterr().out
+    assert not (tmp_path / "escaped-check").exists()
 
 
 def test_structural_check_ignores_activity_only_changes(tmp_path, make_repo):

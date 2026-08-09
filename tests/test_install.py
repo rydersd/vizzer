@@ -13,14 +13,17 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
     (repo / "vizzer" / "vizzer.toml").unlink()
     assert main(["install", str(repo)]) == 0
     assert (repo / "vizzer" / "engine" / "vizzer" / "model.py").exists()
+    assert not (repo / "vizzer" / "engine" / "vizzer" / ".DS_Store").exists()
     assert (repo / "vizzer" / "VERSION").read_text().strip() == vizzer.__version__
     toml = (repo / "vizzer" / "vizzer.toml").read_text()
     assert "spec_tree" in toml and "enabled = true" in toml
+    assert 'dependency_authority = ""' in toml  # codex-sequence-2026-08-08
     gi = (repo / ".gitignore").read_text()
     assert "vizzer/archive/" in gi
     agents = (repo / "AGENTS.md").read_text()
-    assert "<!-- vizzer:begin" in agents and "python3 vizzer/engine sync" in agents
-    assert (repo / "vizzer" / "vizzer-graph.json").exists()      # install ran sync+render
+    assert "<!-- vizzer:begin" in agents and "python3 vizzer/engine refresh" in agents
+    assert "source story/issue/ledger first" in agents
+    assert (repo / "vizzer" / "vizzer-graph.json").exists()      # install ran refresh
     assert (repo / "vizzer" / "views" / "dashboard.md").exists()
 
     # vendored engine runs standalone via `python3 vizzer/engine`
@@ -79,6 +82,7 @@ def test_managed_block_upsert_prefers_existing_claude_md(tmp_path, make_repo):
     assert not (repo / "AGENTS.md").exists()
     assert main(["update", str(repo)]) == 0
     assert (repo / "CLAUDE.md").read_text().count("vizzer:begin") == 1   # idempotent
+    assert "A shipped story stays shipped" in (repo / "CLAUDE.md").read_text()
 
 
 def test_detect_finds_dag_json_for_migration(tmp_path):

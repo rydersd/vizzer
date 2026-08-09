@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, asdict
 
 SCHEMA = 1
 _ACTIVITY_TEXT_FIELDS = {"created", "modified"}
+_RELATION_KIND_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
 def _validate_id(value: str, subject: str) -> None:
@@ -26,6 +28,34 @@ class Group:
 
 
 @dataclass
+class Relation:
+    """A typed, nonblocking edge from an item to another item.
+
+    Hard prerequisites deliberately remain in ``Item.deps``.  Keeping lineage
+    here prevents a "revises" or "bug against" link from accidentally changing
+    readiness while allowing renderers to show the fuller story graph.
+    """
+
+    kind: str
+    target: str
+
+
+# codex-sequence-2026-08-08: live work is an overlay, never lifecycle truth.
+@dataclass
+class ActiveWork:
+    story_id: str
+    agent: str
+    task: str
+    state: str
+    completed: int
+    total: int
+    updated_at: str
+    stale_at: str
+    checkpoint: str | None = None
+    related_story_ids: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Item:
     id: str
     title: str
@@ -35,10 +65,31 @@ class Item:
     wave: str | None = None
     group: str | None = None
     deps: list[str] = field(default_factory=list)
+    # codex-sequence-2026-08-08: typed nonblocking story relationships.
+    relations: list[Relation] = field(default_factory=list)
     appetite: str | None = None
     flags: list[str] = field(default_factory=list)
     source: dict = field(default_factory=dict)
     activity: dict = field(default_factory=dict)
+    # Derived, explainable recommendation components. Empty when disabled.
+    priority: dict = field(default_factory=dict)
+    # Generated trail/stall evidence. Never a source lifecycle field.
+    progress: dict = field(default_factory=dict)
+
+
+# codex-sequence-2026-08-08: milestone membership is derived DAG metadata.
+@dataclass
+class MilestonePhase:
+    name: str
+    items: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Milestone:
+    id: str
+    title: str
+    goal: str = ""
+    phases: list[MilestonePhase] = field(default_factory=list)
 
 
 def _group_from_dict(data: dict) -> Group:
@@ -54,7 +105,25 @@ def _group_from_dict(data: dict) -> Group:
 
 
 def _item_from_dict(data: dict) -> Item:
-    item = Item(**data)
+    raw_relations = data.get("relations", [])
+    if not isinstance(raw_relations, list):
+        raise ValueError("graph item relations must be a list")
+    relations = []
+    for raw in raw_relations:
+        if not isinstance(raw, dict):
+            raise ValueError("graph item relation must be an object")
+        kind = raw.get("kind")
+        target = raw.get("target")
+        if not isinstance(kind, str) or not _RELATION_KIND_RE.fullmatch(kind):
+            raise ValueError("graph item relation kind must be a typed identifier")
+        if not isinstance(target, str):
+            raise ValueError("graph item relation target must be a string")
+        _validate_id(target, "relation target")
+        relations.append(Relation(kind=kind, target=target))
+
+    item_data = dict(data)
+    item_data["relations"] = relations
+    item = Item(**item_data)
     if not isinstance(item.id, str) or not isinstance(item.title, str):
         raise ValueError("graph item id and title must be strings")
     _validate_id(item.id, "item")
@@ -79,6 +148,8 @@ def _item_from_dict(data: dict) -> Item:
         raise ValueError("graph item flags must be a list of strings")
     if not isinstance(item.source, dict) or not isinstance(item.activity, dict):
         raise ValueError("graph item source and activity must be objects")
+    if not isinstance(item.priority, dict) or not isinstance(item.progress, dict):
+        raise ValueError("graph item priority and progress must be objects")
     for field_name in ("adapter", "path"):
         value = item.source.get(field_name)
         if value is not None and not isinstance(value, str):
@@ -112,24 +183,107 @@ def _validate_group_parents(groups: list[Group]) -> None:
         complete.update(path)
 
 
+def _milestone_from_dict(data: dict) -> Milestone:
+    phases = data.get("phases", [])
+    if not isinstance(phases, list):
+        raise ValueError("graph milestone phases must be a list")
+    parsed_phases = []
+    for phase in phases:
+        if not isinstance(phase, dict) or not isinstance(phase.get("name"), str):
+            raise ValueError("graph milestone phase must be a named object")
+        items = phase.get("items", [])
+        if not isinstance(items, list) or not all(isinstance(value, str) for value in items):
+            raise ValueError("graph milestone phase items must be a list of strings")
+        parsed_phases.append(MilestonePhase(name=phase["name"], items=list(items)))
+    milestone = Milestone(
+        id=data.get("id"),
+        title=data.get("title"),
+        goal=data.get("goal", ""),
+        phases=parsed_phases,
+    )
+    if not all(isinstance(value, str) for value in (
+        milestone.id, milestone.title, milestone.goal
+    )):
+        raise ValueError("graph milestone id, title, and goal must be strings")
+    return milestone
+
+
+def _active_work_from_dict(data: dict) -> ActiveWork:
+    try:
+        work = ActiveWork(**data)
+    except TypeError as exc:
+        raise ValueError("graph active work has unknown or missing fields") from exc
+    text = (work.story_id, work.agent, work.task, work.state,
+            work.updated_at, work.stale_at)
+    if not all(isinstance(value, str) and value for value in text):
+        raise ValueError("graph active work text fields must be non-empty strings")
+    _validate_id(work.story_id, "active work story")
+    if work.checkpoint is not None and not isinstance(work.checkpoint, str):
+        raise ValueError("graph active work checkpoint must be a string or null")
+    if (isinstance(work.completed, bool) or not isinstance(work.completed, int)
+            or isinstance(work.total, bool) or not isinstance(work.total, int)
+            or work.completed < 0 or work.total < 0 or work.completed > work.total):
+        raise ValueError("graph active work requires 0 <= completed <= total")
+    if not isinstance(work.related_story_ids, list) or not all(
+        isinstance(value, str) for value in work.related_story_ids
+    ):
+        raise ValueError("graph active work related story ids must be strings")
+    return work
+
+
 @dataclass
 class Graph:
     groups: list[Group] = field(default_factory=list)
     items: list[Item] = field(default_factory=list)
+    milestones: list[Milestone] = field(default_factory=list)
     conflicts: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     vocab: dict = field(default_factory=dict)
+    # codex-sequence-2026-08-08: target provenance and ranked recommendation ids.
+    priority: dict = field(default_factory=dict)
+    # codex-sequence-2026-08-08: switchable, timestamped agent-activity lens.
+    active_work: list[ActiveWork] = field(default_factory=list)
+    activity: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {
+        serialized_items = []
+        for item in self.items:
+            serialized = asdict(item)
+            # Optional extensions stay absent when unused so schema-1 readers and
+            # existing checked-in graphs remain byte-stable until enabled.
+            if not serialized["relations"]:
+                serialized.pop("relations")
+            if not serialized["priority"]:
+                serialized.pop("priority")
+            if not serialized["progress"]:
+                serialized.pop("progress")
+            serialized_items.append(serialized)
+
+        result = {
             "schema": SCHEMA,
             "groups": sorted((asdict(g) for g in self.groups), key=lambda g: g["id"]),
-            "items": sorted((asdict(i) for i in self.items), key=lambda i: i["id"]),
+            "items": sorted(serialized_items, key=lambda i: i["id"]),
+            "milestones": sorted(
+                (asdict(milestone) for milestone in self.milestones),
+                key=lambda milestone: milestone["id"],
+            ),
             "conflicts": sorted(self.conflicts,
                                 key=lambda c: (c.get("item", ""), c.get("field", ""))),
             "warnings": sorted(self.warnings),
             "vocab": self.vocab,
         }
+        if self.priority:
+            result["priority"] = self.priority
+        if self.active_work:
+            result["active_work"] = [
+                asdict(work) for work in sorted(
+                    self.active_work,
+                    key=lambda work: (work.story_id, work.agent, work.task),
+                )
+            ]
+        if self.activity:
+            result["activity"] = self.activity
+        return result
 
     def dumps(self) -> str:
         return json.dumps(self.to_dict(), indent=2, ensure_ascii=False) + "\n"
@@ -141,14 +295,20 @@ class Graph:
 
         groups = d.get("groups", [])
         items = d.get("items", [])
+        milestones = d.get("milestones", [])
         if not isinstance(groups, list):
             raise ValueError("graph groups must be a list")
         if not isinstance(items, list):
             raise ValueError("graph items must be a list")
+        if not isinstance(milestones, list):
+            raise ValueError("graph milestones must be a list")
 
         conflicts = d.get("conflicts", [])
         warnings = d.get("warnings", [])
         vocab = d.get("vocab", {})
+        priority = d.get("priority", {})
+        active_work = d.get("active_work", [])
+        activity = d.get("activity", {})
         if not isinstance(conflicts, list) or not all(
             isinstance(value, dict) for value in conflicts
         ):
@@ -159,6 +319,14 @@ class Graph:
             raise ValueError("graph warnings must be a list of strings")
         if not isinstance(vocab, dict):
             raise ValueError("graph vocab must be an object")
+        if not isinstance(priority, dict):
+            raise ValueError("graph priority must be an object")
+        if not isinstance(active_work, list) or not all(
+            isinstance(value, dict) for value in active_work
+        ):
+            raise ValueError("graph active_work must be a list of objects")
+        if not isinstance(activity, dict):
+            raise ValueError("graph activity must be an object")
         statuses = vocab.get("statuses")
         if statuses is not None and (
             not isinstance(statuses, list)
@@ -171,14 +339,24 @@ class Graph:
 
         parsed_groups = [_group_from_dict(g) for g in groups if isinstance(g, dict)]
         parsed_items = [_item_from_dict(i) for i in items if isinstance(i, dict)]
+        parsed_milestones = [
+            _milestone_from_dict(milestone)
+            for milestone in milestones
+            if isinstance(milestone, dict)
+        ]
+        parsed_work = [_active_work_from_dict(work) for work in active_work]
         _validate_group_parents(parsed_groups)
 
         return cls(
             groups=parsed_groups,
             items=parsed_items,
+            milestones=parsed_milestones,
             conflicts=list(conflicts),
             warnings=list(warnings),
             vocab=dict(vocab),
+            priority=dict(priority),
+            active_work=parsed_work,
+            activity=dict(activity),
         )
 
     def item_map(self) -> dict[str, Item]:

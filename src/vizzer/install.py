@@ -15,9 +15,20 @@ _BLOCK_BEGIN = "<!-- vizzer:begin"
 _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` rewrites this block) -->
 ## Vizzer — project work-graph views
 - `vizzer/vizzer-graph.json` is the normalized index of this project's work items
-  (from specs/ledgers/docs). Read it for orientation; NEVER hand-edit — it's derived.
-- After merging work or changing any status: run
-  `python3 vizzer/engine sync && python3 vizzer/engine render`.
+  (from configured sources). Read it for orientation; NEVER hand-edit — it's derived.
+- Configured source files remain authoritative; importing a DAG does not make the
+  derived graph or rendered views a write-back source. <!-- codex-sequence-2026-08-08 -->
+- Update the authoritative source story/issue/ledger first. After completing work,
+  finding an issue, or changing a story's status or dependencies, run
+  `python3 vizzer/engine refresh`. A shipped story stays shipped; record follow-up
+  issues as separate work or flags rather than downgrading its source status.
+- If `activity.path` is configured, update the named checkpoint feed when work
+  starts, advances, blocks, pauses, or completes; activity never changes lifecycle
+  or priority truth. <!-- codex-sequence-2026-08-08 -->
+- If `planning.enabled` is true, the accepted planning overlay composes over the
+  target manifest. Use the refreshed graph's ranked recommendations for next-task
+  selection. Analyze tradeoffs before applying a course change; never rewrite story
+  headers, dependency truth, or the target manifest as a side effect.
 - `python3 vizzer/engine check` gates staleness (CI/pre-commit friendly).
 - Views live in `vizzer/views/` — dashboard.md answers "what next";
   constellation.html is the 3D map.
@@ -29,8 +40,13 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
 
 # Vizzer
 
-- Run `python3 vizzer/engine sync` after specs, ledgers, docs, or statuses change.
-- Run `python3 vizzer/engine render` after syncing to regenerate the project views.
+- Treat configured source stories, issues, and ledgers as authoritative; never edit
+  the generated graph or views. A shipped story stays shipped: capture regressions
+  as separate work or flags, not a source-status downgrade.
+- Run `python3 vizzer/engine refresh` after task completion, issue discovery, or a
+  story status/dependency change. It syncs and renders one newly built graph.
+- When configured, update the activity feed at named checkpoints; checkpoint
+  progress is an overlay and never substitutes for story acceptance.
 - Run `python3 vizzer/engine check` in CI or before committing to detect stale output.
 """
 
@@ -283,6 +299,9 @@ title = ""
 [reconcile]
 # Source priority used when multiple adapters describe the same item.
 precedence = ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"]
+# Optional field-specific dependency winner during a staged authority migration.
+# codex-sequence-2026-08-08
+dependency_authority = ""
 # Files searched for references to work-item names.
 mention_globs = {_string_array(loose_docs)}
 # Age threshold used to flag stale work.
@@ -291,6 +310,50 @@ staleness_days = 14
 [archive]
 # Source adapters whose files may be archived.
 adapters = ["todos"]
+
+# codex-sequence-2026-08-08: optional target-scoped, explainable uptake ranking.
+[priority]
+enabled = false
+# Strongest target tier: a repo-relative schema-1 JSON file with directTargetIds.
+target_manifest = ""
+target_items = []
+target_milestones = []
+target_releases = []
+limit = 10
+eligible_roles = ["ready", "active", "regression"]
+exclude_flags = ["blocked", "triage", "needs-triage", "stale"]
+
+[priority.role_bias]
+regression = 80
+active = 50
+ready = 0
+
+[priority.appetite_cost]
+small = 0
+medium = 20
+large = 50
+default = 25
+
+# Owner-authored, audited course changes compose with priority target authority.
+# Static views are read-only; use `vizzer serve` or `vizzer plan` to write safely.
+[planning]
+enabled = false
+overlay_path = "vizzer/planning-overlay.json"
+
+# Optional agent-work overlay. It never mutates status, readiness, or priority.
+[activity]
+path = ""
+stale_after_minutes = 120
+
+# Optional lifecycle metadata. `next` permits configured transitions; omitting it
+# keeps the status unconstrained for backwards compatibility.  # codex-sequence-2026-08-08
+# [[status]]
+# name = "building"
+# emoji = "🔧"
+# done = false
+# role = "active"
+# description = "Implementation is underway."
+# next = ["shipped", "parked"]
 
 # Add a hierarchy level the directory tree does not encode, without moving files.
 # [[group]]
@@ -317,7 +380,7 @@ def _vendor(engine: Path) -> None:
             for name in zf.namelist():
                 if not name.startswith("vizzer/") or name.endswith("/"):
                     continue
-                if "__pycache__" in name:
+                if "__pycache__" in name or name.endswith((".pyc", ".DS_Store")):
                     continue
                 dest = engine / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -327,7 +390,8 @@ def _vendor(engine: Path) -> None:
         shutil.copytree(
             Path(vizzer.__file__).parent,
             engine / "vizzer",
-            ignore=shutil.ignore_patterns("__pycache__"),
+            # codex-sequence-2026-08-08: never vendor local interpreter/OS debris.
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
         )
 
     (engine / "__main__.py").write_text(_ENGINE_MAIN, encoding="utf-8")
@@ -409,8 +473,9 @@ def install(target: Path, *, claude_skill: bool = False,
 
     from .cli import main as cli_main
 
-    cli_main(["sync", "--root", str(target)])
-    cli_main(["render", "--root", str(target)])
+    if cli_main(["refresh", "--root", str(target)]) != 0:
+        print("install: initial refresh failed")
+        return 2
     print(f"install: installed vizzer in {target}")
     return 0
 

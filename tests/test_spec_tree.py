@@ -137,6 +137,92 @@ def test_dag_import_walks_slug_keyed_collections(tmp_path):
     assert by_id["story:billable-fields-ui"].status == "specced"
 
 
+def test_dag_import_preserves_milestone_phases_as_item_ids(tmp_path):
+    """codex-sequence-2026-08-08: DAG milestones survive into the derived graph."""
+    import json
+
+    (tmp_path / "dag.json").write_text(json.dumps({
+        "stories": [
+            {"slug": "a", "status": "shipped"},
+            {"slug": "b", "status": "building", "deps": ["a"]},
+        ],
+        "milestones": [{
+            "id": "M1",
+            "title": "Usable slice",
+            "goal": "Prove it.",
+            "phases": [{"name": "Floor", "stories": ["a", "b"]}],
+        }],
+    }))
+
+    result = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
+
+    assert len(result.milestones) == 1
+    milestone = result.milestones[0]
+    assert milestone.id == "M1" and milestone.goal == "Prove it."
+    assert milestone.phases[0].items == ["story:a", "story:b"]
+
+
+@pytest.mark.parametrize(("value", "expected"), [
+    ("[b](b.md) · Research spike: explain why", ["story:b"]),
+    ("[] (no story-slug deps; the launch floor already supplies them)", []),
+    ("`b`, `c`", ["story:b", "story:c"]),
+])
+def test_story_dependency_header_accepts_only_sanctioned_forms(tmp_path, value, expected):
+    """codex-sequence-2026-08-08: match the migration contract's real forms."""
+    story = tmp_path / "spec" / "cap" / "epics" / "tools" / "stories" / "a.md"
+    story.parent.mkdir(parents=True)
+    story.write_text(
+        "# Story: A\n\n> Status: specced\n"
+        f"> Deps: {value}\n",
+        encoding="utf-8",
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+
+    assert result.items[0].deps == expected
+    assert result.items[0].source["deps_declared"] is True
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("value", [
+    "[b](b.md), missing-tool",
+    "[] except b",
+    "[b](b.md) trailing prose",
+])
+def test_story_dependency_header_warns_on_unconsumed_residual_text(tmp_path, value):
+    """codex-sequence-2026-08-08: malformed suffixes cannot produce a quiet graph."""
+    story = tmp_path / "spec" / "cap" / "epics" / "tools" / "stories" / "a.md"
+    story.parent.mkdir(parents=True)
+    story.write_text(
+        "# Story: A\n\n> Status: specced\n"
+        f"> Deps: {value}\n",
+        encoding="utf-8",
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+
+    assert result.items[0].deps == []
+    assert result.items[0].source["deps_declared"] is True
+    assert len(result.warnings) == 1
+    assert "invalid > Deps: header" in result.warnings[0]
+
+
+def test_lowercase_deps_prose_is_not_a_story_dependency_header(tmp_path):
+    """codex-sequence-2026-08-08: contract prose must not erase DAG edges."""
+    story = tmp_path / "spec" / "cap" / "epics" / "tools" / "stories" / "a.md"
+    story.parent.mkdir(parents=True)
+    story.write_text(
+        "# Story: A\n\n> Status: specced\n\n"
+        "## Handoff\n\ndeps: `b` + sibling seams named in prose\n",
+        encoding="utf-8",
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+
+    assert result.items[0].deps == []
+    assert "deps_declared" not in result.items[0].source
+
+
 def test_dag_import_emits_stories_not_slugged_wrappers(tmp_path):
     import json
 
@@ -153,6 +239,88 @@ def test_dag_import_emits_stories_not_slugged_wrappers(tmp_path):
     res = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
 
     assert [item.id for item in res.items] == ["story:snap"]
+
+
+def test_dag_contract_roots_inherit_to_capability_stories_without_hard_deps(tmp_path):
+    """Explicit roots become story → foundation provenance, never readiness edges."""
+    import json
+
+    (tmp_path / "dag.json").write_text(json.dumps({
+        "capabilities": [{
+            "id": "CAP-drawing",
+            "epics": [{"stories": [
+                {"slug": "line", "status": "ready", "deps": []},
+                {"slug": "shape", "status": "ready", "deps": ["line"]},
+            ]}],
+        }, {
+            "slug": "other",
+            "epics": [{"stories": [{"slug": "other-story", "status": "ready"}]}],
+        }],
+        "contractDeps": {"roots": {
+            "coordinate-truth": ["drawing"],
+        }},
+    }))
+
+    result = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
+    by_id = {item.id: item for item in result.items}
+
+    assert {group.id for group in result.groups} == {"foundation:coordinate-truth"}
+    assert [(r.kind, r.target) for r in by_id["story:line"].relations] == [
+        ("foundation_root", "foundation:coordinate-truth")
+    ]
+    assert [(r.kind, r.target) for r in by_id["story:shape"].relations] == [
+        ("foundation_root", "foundation:coordinate-truth")
+    ]
+    assert by_id["story:line"].deps == []
+    assert by_id["story:shape"].deps == ["story:line"]
+    assert by_id["story:other-story"].relations == []
+
+
+def test_dag_contract_roots_warn_on_malformed_values_and_do_not_infer_prose(tmp_path):
+    import json
+
+    (tmp_path / "dag.json").write_text(json.dumps({
+        "capabilities": [{
+            "slug": "drawing",
+            # This deliberately looks foundation-ish but is not contractDeps.
+            "foundations": ["prose-foundation"],
+            "epics": [{"stories": [{"slug": "line", "status": "ready"}]}],
+        }],
+        "contractDeps": {"roots": {
+            "valid-root": "drawing",
+            "other-root": ["drawing", 42, "missing"],
+        }},
+    }))
+
+    result = spec_tree.scan(cfg(dag="dag.json"), tmp_path)
+    [story] = result.items
+
+    assert [(r.kind, r.target) for r in story.relations] == [
+        ("foundation_root", "foundation:other-root")
+    ]
+    assert "foundation:prose-foundation" not in {group.id for group in result.groups}
+    assert any("valid-root must map to a list" in warning for warning in result.warnings)
+    assert any("other-root has malformed capability" in warning for warning in result.warnings)
+    assert any("other-root references unknown capability missing" in warning
+               for warning in result.warnings)
+
+
+def test_dag_contract_roots_do_not_inflate_duplicate_relations(tmp_path):
+    import json
+
+    (tmp_path / "dag.json").write_text(json.dumps({
+        "capabilities": [{
+            "slug": "drawing",
+            "epics": [{"stories": [{"slug": "line", "status": "ready"}]}],
+        }],
+        "contractDeps": {"roots": {"coordinate-truth": ["drawing", "drawing"]}},
+    }))
+
+    [story] = spec_tree.scan(cfg(dag="dag.json"), tmp_path).items
+
+    assert [(r.kind, r.target) for r in story.relations] == [
+        ("foundation_root", "foundation:coordinate-truth")
+    ]
 
 
 def test_non_utf8_group_overview_warns_and_uses_fallback_title(tmp_path):
@@ -183,3 +351,44 @@ def test_dag_import_skips_oversized_json_integer(tmp_path):
 
     assert res.items == []
     assert any("dag.json" in warning for warning in res.warnings)
+
+
+def test_story_lineage_headers_parse_as_typed_nonblocking_relations(tmp_path):
+    stories = tmp_path / "spec" / "cap" / "epics" / "tools" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "old.md").write_text("# Story: Old\n\n> Status: shipped\n")
+    (stories / "floor.md").write_text("# Story: Floor\n\n> Status: shipped\n")
+    (stories / "new.md").write_text(
+        "# Story: New\n\n> Status: specced\n"
+        "> Revises: old.md\n"
+        "> Bug against: [floor](../stories/floor.md)\n"
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+    item = {entry.id: entry for entry in result.items}["story:new"]
+
+    assert [(relation.kind, relation.target) for relation in item.relations] == [
+        ("bug_against", "story:floor"),
+        ("revises", "story:old"),
+    ]
+    assert item.deps == []
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("value", [
+    "old.md plus maybe floor.md",
+    "https://example.test/old.md",
+    "[wrong-label](old.md)",
+    "old.txt",
+])
+def test_story_lineage_warns_and_drops_malformed_whole_values(tmp_path, value):
+    story = tmp_path / "spec" / "cap" / "epics" / "tools" / "stories" / "new.md"
+    story.parent.mkdir(parents=True)
+    story.write_text(
+        f"# Story: New\n\n> Status: specced\n> Revises: {value}\n"
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+
+    assert result.items[0].relations == []
+    assert len(result.warnings) == 1 and "invalid > revises:" in result.warnings[0]

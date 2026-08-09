@@ -17,17 +17,18 @@ class ConfigError(Exception):
 
 
 DEFAULT_STATUSES = [
-    {"name": "idea", "emoji": "💡", "done": False},
-    {"name": "backlog", "emoji": "📋", "done": False},
-    {"name": "specced", "emoji": "📝", "done": False},
-    {"name": "ready", "emoji": "🟢", "done": False},
-    {"name": "building", "emoji": "🔧", "done": False},
-    {"name": "in-flight", "emoji": "✈️", "done": False},
-    {"name": "bug-gap", "emoji": "🐛", "done": False},
-    {"name": "shipped", "emoji": "✅", "done": True},
-    {"name": "verified", "emoji": "🏁", "done": True},
-    {"name": "parked", "emoji": "⏸️", "done": False},
-    {"name": "unknown", "emoji": "❔", "done": False},
+    # codex-sequence-2026-08-08: roles make dashboard lifecycle buckets data.
+    {"name": "idea", "emoji": "💡", "done": False, "role": "ready"},
+    {"name": "backlog", "emoji": "📋", "done": False, "role": "ready"},
+    {"name": "specced", "emoji": "📝", "done": False, "role": "ready"},
+    {"name": "ready", "emoji": "🟢", "done": False, "role": "ready"},
+    {"name": "building", "emoji": "🔧", "done": False, "role": "active"},
+    {"name": "in-flight", "emoji": "✈️", "done": False, "role": "active"},
+    {"name": "bug-gap", "emoji": "🐛", "done": False, "role": "active"},
+    {"name": "shipped", "emoji": "✅", "done": True, "role": "done"},
+    {"name": "verified", "emoji": "🏁", "done": True, "role": "done"},
+    {"name": "parked", "emoji": "⏸️", "done": False, "role": "hold"},
+    {"name": "unknown", "emoji": "❔", "done": False, "role": "ready"},
 ]
 
 DEFAULTS = {
@@ -43,11 +44,95 @@ DEFAULTS = {
                "releases": ["R0", "R1", "R2", "R3"],
                "recommended": [], "obsidian_links": False, "title": ""},
     "reconcile": {"precedence": ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"],
-                  "mention_globs": [], "staleness_days": 14},
+                  # codex-sequence-2026-08-08: optional field-specific migration seam.
+                  "dependency_authority": "", "mention_globs": [], "staleness_days": 14},
     "archive": {"adapters": ["todos"]},
+    # codex-sequence-2026-08-08: target-scoped, explainable uptake; opt-in.
+    "priority": {
+        "enabled": False,
+        "target_manifest": "",
+        "target_items": [],
+        "target_milestones": [],
+        "target_releases": [],
+        "limit": 10,
+        "eligible_roles": ["ready", "active", "regression"],
+        "exclude_flags": ["blocked", "triage", "needs-triage", "stale"],
+        "role_bias": {"regression": 80, "active": 50, "ready": 0},
+        "appetite_cost": {"small": 0, "medium": 20, "large": 50, "default": 25},
+    },
+    # Accepted owner course changes compose over target authority; they never
+    # rewrite story headers, lifecycle, releases, or dependency edges.
+    "planning": {"enabled": False,
+                 "overlay_path": "vizzer/planning-overlay.json"},
+    # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
+    "activity": {"path": "", "stale_after_minutes": 120},
+    # Optional generated semantic history; prose and raw git timestamps are excluded.
+    "progress": {"history_path": "", "hot_window_days": 7,
+                 "stalled_after_days": 14, "stall_max_days": 90,
+                 "backfill_days": 7, "backfill_max_commits_per_story": 48},
 }
 
 _KEY_RE = re.compile(r"^([A-Za-z0-9_-]+)\s*=\s*(.+)$")
+
+
+# codex-sequence-2026-08-08: source-independent lifecycle validation boundary.
+def _validate_statuses(statuses: object) -> None:
+    """Validate optional lifecycle metadata without constraining source prose.
+
+    A configured vocabulary is authoritative only for its own declarations.
+    Source adapters may still encounter an unfamiliar status and record it as
+    such; rejecting a whole refresh for a stray document label would break the
+    graceful-degradation contract.  ``next`` is therefore validated here, at
+    the configuration boundary, rather than while ingesting items.
+    """
+    if not isinstance(statuses, list) or not statuses:
+        raise ConfigError("status vocabulary must be a non-empty table array")
+
+    names: set[str] = set()
+    by_name: dict[str, dict] = {}
+    for index, status in enumerate(statuses, 1):
+        label = f"status #{index}"
+        if not isinstance(status, dict):
+            raise ConfigError(f"{label} must be a table")
+        name = status.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ConfigError(f"{label} needs a non-empty name")
+        if name in names:
+            raise ConfigError(f"duplicate status name {name!r}")
+        names.add(name)
+        by_name[name] = status
+
+        for field in ("emoji", "role", "description"):
+            if field in status and (
+                not isinstance(status[field], str) or not status[field].strip()
+            ):
+                raise ConfigError(f"status {name!r} {field} must be a non-empty string")
+        if "done" in status and not isinstance(status["done"], bool):
+            raise ConfigError(f"status {name!r} done must be true or false")
+
+        transitions = status.get("next")
+        if transitions is not None:
+            if not isinstance(transitions, list) or not all(
+                isinstance(target, str) and target.strip() for target in transitions
+            ):
+                raise ConfigError(
+                    f"status {name!r} next must be an array of non-empty status names"
+                )
+            if len(set(transitions)) != len(transitions):
+                raise ConfigError(f"status {name!r} next contains duplicate targets")
+            if name in transitions:
+                raise ConfigError(f"status {name!r} cannot transition to itself")
+
+    for name, status in by_name.items():
+        for target in status.get("next", []):
+            if target not in by_name:
+                raise ConfigError(
+                    f"status {name!r} declares undefined next status {target!r}"
+                )
+            if status.get("done", False) and not by_name[target].get("done", False):
+                raise ConfigError(
+                    f"done status {name!r} cannot transition to unfinished {target!r}"
+                )
 
 
 def _strip_comment(line: str) -> str:
@@ -143,8 +228,39 @@ class Config:
 
     @property
     def vocab(self) -> dict:
-        statuses = self.data.get("status") or DEFAULT_STATUSES
+        # Presence, rather than truthiness, distinguishes an omitted
+        # vocabulary from an explicitly empty one.  The latter must not
+        # silently resurrect the defaults after validation was bypassed by a
+        # caller constructing Config(data=...) directly.
+        statuses = self.data["status"] if "status" in self.data else DEFAULT_STATUSES
         return {"statuses": [dict(s) for s in statuses]}
+
+    def validate(self) -> None:
+        """Validate status metadata supplied by ``vizzer.toml``.
+
+        Omitting ``[[status]]`` intentionally selects the built-in vocabulary;
+        a present vocabulary replaces it, matching the existing configuration
+        contract.
+        """
+        statuses = self.data["status"] if "status" in self.data else DEFAULT_STATUSES
+        _validate_statuses(statuses)
+        activity_path = self.get("activity.path", "")
+        if not isinstance(activity_path, str):
+            raise ConfigError("activity.path must be a string")
+        stale_minutes = self.get("activity.stale_after_minutes", 120)
+        if (isinstance(stale_minutes, bool) or not isinstance(stale_minutes, int)
+                or stale_minutes <= 0):
+            raise ConfigError("activity.stale_after_minutes must be a positive integer")
+        history_path = self.get("progress.history_path", "")
+        if not isinstance(history_path, str):
+            raise ConfigError("progress.history_path must be a string")
+        for key in ("hot_window_days", "stalled_after_days", "stall_max_days",
+                    "backfill_days", "backfill_max_commits_per_story"):
+            value = self.get(f"progress.{key}")
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ConfigError(f"progress.{key} must be a positive integer")
+        if self.get("progress.stall_max_days") < self.get("progress.stalled_after_days"):
+            raise ConfigError("progress.stall_max_days must be at least stalled_after_days")
 
     def status_meta(self, name: str) -> dict:
         for s in self.vocab["statuses"]:
@@ -155,6 +271,43 @@ class Config:
 
     def done_statuses(self) -> set[str]:
         return {s["name"] for s in self.vocab["statuses"] if s.get("done")}
+
+    def status_role(self, name: str) -> str:
+        """Return the configured dashboard bucket for a lifecycle status."""
+        for status in self.vocab["statuses"]:
+            if status.get("name") != name:
+                continue
+            role = status.get("role")
+            if isinstance(role, str) and role:
+                return role
+            if status.get("done"):
+                return "done"
+            # Backwards compatibility for custom vocabularies written before roles.
+            if name in {"idea", "backlog", "specced", "ready", "unknown"}:
+                return "ready"
+            if name == "parked":
+                return "hold"
+            return "active"
+        return "unknown"
+
+    def transition_allowed(self, current: str, proposed: str) -> bool:
+        """Whether configured lifecycle metadata permits a status change.
+
+        ``next`` is opt-in: an omitted value preserves the prior unconstrained
+        vocabulary behavior, while ``next = []`` is an explicit terminal state.
+        Vizzer does not write status changes; this helper gives integrations and
+        future source editors one shared semantic instead of each inventing one.
+        """
+        statuses = {status.get("name"): status for status in self.vocab["statuses"]}
+        current_status = statuses.get(current)
+        proposed_status = statuses.get(proposed)
+        if current_status is None or proposed_status is None:
+            return False
+        if current_status.get("done", False) and not proposed_status.get("done", False):
+            return False
+        if "next" not in current_status:
+            return True
+        return proposed in current_status["next"]
 
     def gates(self) -> dict:
         return {g["item"]: g.get("reason", "") for g in self.data.get("gates", [])
@@ -172,4 +325,6 @@ class Config:
         data = copy.deepcopy(DEFAULTS)
         if path.is_file():
             data = deep_merge(data, parse_toml_subset(path.read_text(encoding="utf-8")))
-        return cls(data=data, path=path if path.is_file() else None)
+        config = cls(data=data, path=path if path.is_file() else None)
+        config.validate()
+        return config

@@ -11,6 +11,8 @@ from types import ModuleType
 class ScanResult:
     groups: list = field(default_factory=list)
     items: list = field(default_factory=list)
+    # codex-sequence-2026-08-08: optional derived planning metadata.
+    milestones: list = field(default_factory=list)
     warnings: list = field(default_factory=list)
 
 

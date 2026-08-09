@@ -1,14 +1,15 @@
 # tests/test_reconcile.py
 from vizzer.adapters import ScanResult
-from vizzer.config import Config, DEFAULTS
-from vizzer.model import Group, Item
+from vizzer.config import Config, DEFAULTS, deep_merge
+from vizzer.model import Group, Item, Milestone, MilestonePhase, Relation
 from vizzer.reconcile import build_graph
 
 def _cfg():
     return Config(data=DEFAULTS)
 
 def _item(id, adapter, path, **kw):
-    return Item(id=id, title=kw.pop("title", id), source={"adapter": adapter, "path": path}, **kw)
+    source = kw.pop("source_override", {"adapter": adapter, "path": path})
+    return Item(id=id, title=kw.pop("title", id), source=source, **kw)
 
 def test_status_conflict_recorded_higher_precedence_wins(tmp_path):
     scans = [("spec_tree", ScanResult(items=[
@@ -22,6 +23,40 @@ def test_status_conflict_recorded_higher_precedence_wins(tmp_path):
                             "kept": {"adapter": "spec_tree", "value": "building"},
                             "dropped": {"adapter": "dag_import", "value": "specced"}}]
 
+
+def test_explicit_empty_story_dependencies_beat_imported_dag(tmp_path):
+    """codex-sequence-2026-08-08: explicit [] is data, not a missing value."""
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "s/a.md", deps=[],
+              source_override={"adapter": "spec_tree", "path": "s/a.md",
+                               "deps_declared": True}),
+        _item("story:a", "dag_import", "dag.json", deps=["story:b"]),
+        _item("story:b", "spec_tree", "s/b.md"),
+    ]))]
+
+    graph = build_graph(_cfg(), tmp_path, scans)
+
+    assert graph.item_map()["story:a"].deps == []
+
+
+def test_configured_dag_dependency_authority_preserves_story_provenance(tmp_path):
+    """codex-sequence-2026-08-08: bootstrap authority is field-specific."""
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "reconcile": {"dependency_authority": "dag_import"},
+    }))
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "s/a.md", deps=["story:b"],
+              source_override={"adapter": "spec_tree", "path": "s/a.md",
+                               "deps_declared": True}),
+        _item("story:a", "dag_import", "dag.json", deps=[]),
+        _item("story:b", "spec_tree", "s/b.md"),
+    ]))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+
+    assert graph.item_map()["story:a"].deps == []
+    assert graph.item_map()["story:a"].source["path"] == "s/a.md"
+
 def test_file_claim_drops_lower_precedence_duplicate(tmp_path):
     scans = [("spec_tree", ScanResult(items=[_item("story:a", "spec_tree", "x.md")])),
              ("loose_docs", ScanResult(items=[_item("doc:x", "loose_docs", "x.md")]))]
@@ -34,6 +69,55 @@ def test_dangling_dep_dropped_with_warning(tmp_path):
     g = build_graph(_cfg(), tmp_path, scans)
     assert g.item_map()["story:a"].deps == []
     assert "dangling dep story:a → story:ghost (edge dropped)" in g.warnings
+
+
+def test_dangling_lineage_is_dropped_with_warning(tmp_path):
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "a.md", relations=[
+            Relation(kind="revises", target="story:ghost")
+        ])]))]
+
+    graph = build_graph(_cfg(), tmp_path, scans)
+
+    assert graph.item_map()["story:a"].relations == []
+    assert any("dangling relation" in warning and "story:ghost" in warning
+               for warning in graph.warnings)
+
+
+def test_foundation_group_relation_survives_without_becoming_a_dependency(tmp_path):
+    scans = [("spec_tree", ScanResult(
+        groups=[Group(id="foundation:coordinate-truth", kind="foundation",
+                      title="Coordinate Truth")],
+        items=[_item("story:a", "dag_import", "dag.json", deps=[], relations=[
+            Relation(kind="foundation_root", target="foundation:coordinate-truth")
+        ])],
+    ))]
+
+    graph = build_graph(_cfg(), tmp_path, scans)
+    story = graph.item_map()["story:a"]
+
+    assert story.deps == []
+    assert [(r.kind, r.target) for r in story.relations] == [
+        ("foundation_root", "foundation:coordinate-truth")
+    ]
+    assert not any("foundation:coordinate-truth" in warning for warning in graph.warnings)
+
+
+def test_dangling_milestone_member_dropped_with_warning(tmp_path):
+    """codex-sequence-2026-08-08: milestone typos cannot fake progress totals."""
+    scans = [("spec_tree", ScanResult(
+        items=[_item("story:a", "spec_tree", "a.md")],
+        milestones=[Milestone(
+            id="M1",
+            title="Usable slice",
+            phases=[MilestonePhase(name="Floor", items=["story:a", "story:ghost"])],
+        )],
+    ))]
+
+    graph = build_graph(_cfg(), tmp_path, scans)
+
+    assert graph.milestones[0].phases[0].items == ["story:a"]
+    assert any("story:ghost" in warning for warning in graph.warnings)
 
 def test_groups_first_writer_wins_and_vocab_attached(tmp_path):
     scans = [("spec_tree", ScanResult(groups=[Group(id="g", kind="epic", title="One")])),
