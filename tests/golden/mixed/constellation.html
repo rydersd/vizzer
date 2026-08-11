@@ -185,6 +185,10 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .viewcolumns{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-items:start}.viewcolumn{border:1px solid var(--line);border-radius:10px;padding:10px;background:color-mix(in srgb,var(--panel) 70%,transparent)}.viewcolumn h2{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace;margin-bottom:9px}.viewcolumn .viewcard+.viewcard{margin-top:7px}
 .metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel);cursor:pointer;color:var(--ink);text-align:left}.metric:hover,.metric:focus-visible{border-color:var(--accent);outline:none}.metric strong{display:block;font:700 28px/1 ui-monospace,"SF Mono",Menlo,monospace}.metric span{display:block;color:var(--mut);font-size:11px;margin-top:5px}
 .viewtable{width:100%;border-collapse:collapse;font-size:12px}.viewtable th{position:sticky;top:0;background:var(--bg2);color:var(--mut);font:700 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:8px;border-bottom:1px solid var(--line)}.viewtable td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}.viewtable button{border:0;background:none;color:var(--ink);text-align:left;cursor:pointer;padding:0;font:inherit}.viewtable button:hover{text-decoration:underline}.viewemptycopy{padding:32px;border:1px dashed var(--line);border-radius:10px;color:var(--mut);text-align:center}
+.viewsubmeta{margin:0 0 14px;color:var(--mut);font-size:12px}.workstreamalerts{margin:0 0 16px;padding:14px;border:1px solid color-mix(in srgb,var(--buggap) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--buggap) 8%,var(--panel))}.workstreamalert{display:grid;grid-template-columns:110px minmax(140px,1fr) minmax(160px,2fr);gap:10px;padding:7px 0;border-top:1px solid var(--line)}.workstreamalert:first-of-type{border-top:0}.workstreamalert small{color:var(--mut)}
+.workstreamgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}.workstreamcard{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.workstreamcard>header{display:flex;justify-content:space-between;gap:14px}.workstreamcard h2{margin:4px 0;font-size:18px}.workstreamcard p{margin:4px 0;color:var(--mut)}.workstatus{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--active)}.workprogress{height:5px;margin:12px 0;border-radius:999px;background:var(--line);overflow:hidden}.workprogress i{display:block;height:100%;background:var(--active)}
+.workstreamcard dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.workstreamcard dl div{min-width:0}.workstreamcard dt{font-size:10px;text-transform:uppercase;color:var(--mut)}.workstreamcard dd{margin:2px 0;overflow-wrap:anywhere}.workstories{display:grid;gap:6px;margin:10px 0}.workstreamcard details{border-top:1px solid var(--line);padding:9px 0}.workstreamcard summary{cursor:pointer}.workstreamcard ul{list-style:none;padding:0;margin:8px 0 0}.worksession,.workdiscussion{display:grid;gap:2px;padding:7px 0}.worksession span,.workdiscussion span{overflow-wrap:anywhere}.worksession small,.workdiscussion small{color:var(--mut)}.worksession.stale{opacity:.58}.worksession.fresh b{color:var(--active)}.workdiscussion.escalation b{color:var(--owner-override)}
+@media(max-width:720px){.workstreamgrid{grid-template-columns:1fr}.workstreamalert{grid-template-columns:1fr}.workstreamcard dl{grid-template-columns:1fr}}
 #hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
 #hint>span+span{border-left:1px solid var(--line);padding-left:8px}
 #hint kbd{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:0 3px}
@@ -210,6 +214,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
     <a href="#structure" data-view="structure">Hierarchy</a>
     <a href="#features" data-view="features">Features</a>
     <a href="#completion" data-view="completion">Completion</a>
+    <a href="#workstreams" data-view="workstreams">Workstreams</a>
     <a href="#ledgers" data-view="ledgers">Ledgers</a>
   </div></details>
   <details id="exportmenu"><summary>Export</summary><div>
@@ -260,10 +265,9 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
   window.__vizzerBoot={ready:function(){boot.hidden=true;},fail:fail};
 })();
 
-
 </script>
 <script>
-const DATA={"engineVersion":"0.7.1","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.0","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -351,7 +355,7 @@ let areaFocus=null;
 let capFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
-const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','ledgers']);
+const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
 const requestedView=()=>{const candidate=location.hash.replace(/^#/,'');return ROUTE_VIEWS.has(candidate)?candidate:'constellation';};
 let currentView=requestedView();
 // codex-sequence-2026-08-08: every whitespace-delimited query token must occur
@@ -580,6 +584,31 @@ function renderCompletion(entries){
   return panelHead('Completion','Lifecycle and regression debt are computed within each item role, so supporting records cannot inflate or dilute delivery completion.')+
     (sections||emptyPanel('No completion records match the current filters.'));
 }
+function renderWorkstreams(entries){
+  const payload=DATA.workstreams||{}, streams=Array.isArray(payload.workstreams)?payload.workstreams:[];
+  const sessions=Array.isArray(payload.sessions)?payload.sessions:[], discussions=Array.isArray(payload.discussions)?payload.discussions:[];
+  const collisions=Array.isArray(payload.collisions)?payload.collisions:[];
+  const visibleIds=new Set(entries.map(({node})=>node.id));
+  const rows=streams.filter(stream=>!stream.storyIds.length||stream.storyIds.some(id=>visibleIds.has(id)));
+  const sourceSummary=(DATA.sourceAreas||[]).map(area=>`${area.title} · ${area.role}`).join(' | ');
+  const collisionCopy=collisions.length?`<section class="workstreamalerts"><h2>Coordination warnings <span>${collisions.length}</span></h2>${collisions.map(collision=>
+    `<div class="workstreamalert"><b>${esc(collision.kind.replace(/-/g,' '))}</b><span>${esc(collision.workstreams.join(' ↔ '))}</span><small>${esc(collision.values.join(', '))}</small></div>`).join('')}</section>`:'';
+  const cards=rows.map(stream=>{
+    const streamSessions=sessions.filter(session=>session.workstreamId===stream.id);
+    const streamDiscussions=discussions.filter(entry=>entry.workstreamId===stream.id);
+    const stories=stream.storyIds.map(id=>nodeById.get(id)).filter(index=>index!==undefined&&visibleIds.has(DATA.nodes[index].id));
+    const live=streamSessions.filter(session=>session.state==='active'&&Date.now()<Date.parse(session.leaseExpiresAt));
+    const sessionRows=streamSessions.length?streamSessions.map(session=>{
+      const fresh=session.state==='active'&&Date.now()<Date.parse(session.leaseExpiresAt);
+      return `<li class="worksession ${fresh?'fresh':'stale'}"><b>${esc(session.actor)}</b><span>${esc(session.model)} · ${esc(session.role)} · ${fresh?'live':'stale/stopped'}</span><small>${esc(session.branch)} · lease ${esc(session.leaseExpiresAt)}</small></li>`;
+    }).join(''):'<li class="worksession stale"><span>No registered session</span></li>';
+    const discussionRows=streamDiscussions.length?streamDiscussions.slice(-8).map(entry=>
+      `<li class="workdiscussion ${esc(entry.kind)}"><b>${esc(entry.author)} · ${esc(entry.kind)} · ${esc(entry.scope)}</b><span>${esc(entry.body)}</span>${entry.ownerQuestionId?`<small>owner question: ${esc(entry.ownerQuestionId)}</small>`:''}</li>`).join(''):'<li class="workdiscussion"><span>No peer discussion recorded</span></li>';
+    return `<article class="workstreamcard" data-workstream="${esc(stream.id)}"><header><div><span class="workstatus">${esc(stream.status)}</span><h2>${esc(stream.title)}</h2><p>${esc(stream.objective)}</p></div><strong>${stream.total?`${stream.completed}/${stream.total}`:'unestimated'}</strong></header><div class="workprogress"><i style="width:${stream.total?Math.round(100*stream.completed/stream.total):0}%"></i></div><dl><div><dt>Lead</dt><dd>${esc(stream.lead)}</dd></div><div><dt>Reviewer</dt><dd>${esc(stream.reviewer)}</dd></div><div><dt>Checkpoint</dt><dd>${esc(stream.checkpoint)}</dd></div><div><dt>Live sessions</dt><dd>${live.length}</dd></div></dl><div class="workstories">${stories.map(index=>viewCard(index)).join('')}</div><details><summary>Sessions · ${streamSessions.length}</summary><ul>${sessionRows}</ul></details><details><summary>Peer discussion · ${streamDiscussions.length}</summary><ul>${discussionRows}</ul></details><details><summary>Scopes and sequencing</summary><p><b>Depends on:</b> ${esc(stream.dependsOn.join(', ')||'none')}</p><p><b>Allowed paths:</b> ${esc(stream.allowedPaths.join(', ')||'none')}</p><p><b>Shared paths:</b> ${esc(stream.sharedPaths.join(', ')||'none')}</p></details></article>`;
+  }).join('');
+  const meta=`Revision ${payload.revision??0} · runtime ${payload.runtimeRevision??0}${sourceSummary?` · sources: ${sourceSummary}`:''}`;
+  return panelHead('Workstreams','Concurrent ownership, leased sessions, path scopes, peer discussion, escalation, and integration warnings. Chat memory is not coordination state.')+`<p class="viewsubmeta">${esc(meta)}</p>${collisionCopy}${cards?`<div class="workstreamgrid">${cards}</div>`:emptyPanel('No configured workstream intersects the current filters.')}`;
+}
 function renderLedgers(entries){
   const available=new Set(entries.map(({index})=>index));
   const rows=(DATA.work||[]).map((work,index)=>({work,index})).filter(({work})=>available.has(work.n))
@@ -609,6 +638,7 @@ function renderCurrentView(){
     :currentView==='structure'?renderStructure(entries)
     :currentView==='features'?renderFeatures(entries)
     :currentView==='completion'?renderCompletion(entries)
+    :currentView==='workstreams'?renderWorkstreams(entries)
     :renderLedgers(entries);
   bindInteractiveView();
 }
@@ -1006,8 +1036,6 @@ function reconcileAcceptedDecisions(decisions,revision){
   if(sel>=0)openNode(sel);
 }
 
-
-
 let planContext=null, planDraft=null, planAnalysis=null, planError='', planRationale='';
 function planSection(n){
   if(!n.id||n.foundation) return '';
@@ -1045,7 +1073,6 @@ function planSection(n){
     <button type="button" class="planaction primary" data-plan="apply" ${a?'':'disabled'}>accept course</button>
     <div class="planresult" aria-live="polite">${esc(result)}</div></div>`;
 }
-
 function bindPlanControls(n){
   if(!planContext||!planDraft) return;
   const toggle=(field)=>{
@@ -1085,7 +1112,6 @@ function bindPlanControls(n){
     }catch(error){planError=error.message||String(error);openNode(sel);}
   });
 }
-
 
 // ---- dossier ----
 const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierIdentity = document.getElementById('dossieridentity');
@@ -1533,9 +1559,17 @@ if(SERVED){
     questionContext=body;
     if(sel>=0)openNode(sel);
   }).catch(error=>{questionError=error.message||String(error);if(sel>=0)openNode(sel);});
+  fetch('/api/workstreams').then(async response=>{
+    if(response.status===404)return null;
+    const body=await response.json();
+    if(!response.ok)throw new Error(body.error||'workstreams unavailable');
+    if(body.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${body.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve.`);
+    DATA.workstreams=body.workstreams||{};
+    if(currentView==='workstreams')renderCurrentView();
+    return body;
+  }).catch(error=>{console.warn('Vizzer workstreams:',error.message||String(error));});
 }
 frame();
 window.__vizzerBoot.ready();
-
 
 </script>

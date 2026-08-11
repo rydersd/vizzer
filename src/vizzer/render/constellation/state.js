@@ -86,7 +86,7 @@ let areaFocus=null;
 let capFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
-const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','ledgers']);
+const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
 const requestedView=()=>{const candidate=location.hash.replace(/^#/,'');return ROUTE_VIEWS.has(candidate)?candidate:'constellation';};
 let currentView=requestedView();
 // codex-sequence-2026-08-08: every whitespace-delimited query token must occur

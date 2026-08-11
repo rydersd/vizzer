@@ -113,6 +113,31 @@ function renderCompletion(entries){
   return panelHead('Completion','Lifecycle and regression debt are computed within each item role, so supporting records cannot inflate or dilute delivery completion.')+
     (sections||emptyPanel('No completion records match the current filters.'));
 }
+function renderWorkstreams(entries){
+  const payload=DATA.workstreams||{}, streams=Array.isArray(payload.workstreams)?payload.workstreams:[];
+  const sessions=Array.isArray(payload.sessions)?payload.sessions:[], discussions=Array.isArray(payload.discussions)?payload.discussions:[];
+  const collisions=Array.isArray(payload.collisions)?payload.collisions:[];
+  const visibleIds=new Set(entries.map(({node})=>node.id));
+  const rows=streams.filter(stream=>!stream.storyIds.length||stream.storyIds.some(id=>visibleIds.has(id)));
+  const sourceSummary=(DATA.sourceAreas||[]).map(area=>`${area.title} · ${area.role}`).join(' | ');
+  const collisionCopy=collisions.length?`<section class="workstreamalerts"><h2>Coordination warnings <span>${collisions.length}</span></h2>${collisions.map(collision=>
+    `<div class="workstreamalert"><b>${esc(collision.kind.replace(/-/g,' '))}</b><span>${esc(collision.workstreams.join(' ↔ '))}</span><small>${esc(collision.values.join(', '))}</small></div>`).join('')}</section>`:'';
+  const cards=rows.map(stream=>{
+    const streamSessions=sessions.filter(session=>session.workstreamId===stream.id);
+    const streamDiscussions=discussions.filter(entry=>entry.workstreamId===stream.id);
+    const stories=stream.storyIds.map(id=>nodeById.get(id)).filter(index=>index!==undefined&&visibleIds.has(DATA.nodes[index].id));
+    const live=streamSessions.filter(session=>session.state==='active'&&Date.now()<Date.parse(session.leaseExpiresAt));
+    const sessionRows=streamSessions.length?streamSessions.map(session=>{
+      const fresh=session.state==='active'&&Date.now()<Date.parse(session.leaseExpiresAt);
+      return `<li class="worksession ${fresh?'fresh':'stale'}"><b>${esc(session.actor)}</b><span>${esc(session.model)} · ${esc(session.role)} · ${fresh?'live':'stale/stopped'}</span><small>${esc(session.branch)} · lease ${esc(session.leaseExpiresAt)}</small></li>`;
+    }).join(''):'<li class="worksession stale"><span>No registered session</span></li>';
+    const discussionRows=streamDiscussions.length?streamDiscussions.slice(-8).map(entry=>
+      `<li class="workdiscussion ${esc(entry.kind)}"><b>${esc(entry.author)} · ${esc(entry.kind)} · ${esc(entry.scope)}</b><span>${esc(entry.body)}</span>${entry.ownerQuestionId?`<small>owner question: ${esc(entry.ownerQuestionId)}</small>`:''}</li>`).join(''):'<li class="workdiscussion"><span>No peer discussion recorded</span></li>';
+    return `<article class="workstreamcard" data-workstream="${esc(stream.id)}"><header><div><span class="workstatus">${esc(stream.status)}</span><h2>${esc(stream.title)}</h2><p>${esc(stream.objective)}</p></div><strong>${stream.total?`${stream.completed}/${stream.total}`:'unestimated'}</strong></header><div class="workprogress"><i style="width:${stream.total?Math.round(100*stream.completed/stream.total):0}%"></i></div><dl><div><dt>Lead</dt><dd>${esc(stream.lead)}</dd></div><div><dt>Reviewer</dt><dd>${esc(stream.reviewer)}</dd></div><div><dt>Checkpoint</dt><dd>${esc(stream.checkpoint)}</dd></div><div><dt>Live sessions</dt><dd>${live.length}</dd></div></dl><div class="workstories">${stories.map(index=>viewCard(index)).join('')}</div><details><summary>Sessions · ${streamSessions.length}</summary><ul>${sessionRows}</ul></details><details><summary>Peer discussion · ${streamDiscussions.length}</summary><ul>${discussionRows}</ul></details><details><summary>Scopes and sequencing</summary><p><b>Depends on:</b> ${esc(stream.dependsOn.join(', ')||'none')}</p><p><b>Allowed paths:</b> ${esc(stream.allowedPaths.join(', ')||'none')}</p><p><b>Shared paths:</b> ${esc(stream.sharedPaths.join(', ')||'none')}</p></details></article>`;
+  }).join('');
+  const meta=`Revision ${payload.revision??0} · runtime ${payload.runtimeRevision??0}${sourceSummary?` · sources: ${sourceSummary}`:''}`;
+  return panelHead('Workstreams','Concurrent ownership, leased sessions, path scopes, peer discussion, escalation, and integration warnings. Chat memory is not coordination state.')+`<p class="viewsubmeta">${esc(meta)}</p>${collisionCopy}${cards?`<div class="workstreamgrid">${cards}</div>`:emptyPanel('No configured workstream intersects the current filters.')}`;
+}
 function renderLedgers(entries){
   const available=new Set(entries.map(({index})=>index));
   const rows=(DATA.work||[]).map((work,index)=>({work,index})).filter(({work})=>available.has(work.n))
@@ -142,6 +167,7 @@ function renderCurrentView(){
     :currentView==='structure'?renderStructure(entries)
     :currentView==='features'?renderFeatures(entries)
     :currentView==='completion'?renderCompletion(entries)
+    :currentView==='workstreams'?renderWorkstreams(entries)
     :renderLedgers(entries);
   bindInteractiveView();
 }

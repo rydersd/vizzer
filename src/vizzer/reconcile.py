@@ -6,6 +6,7 @@ from pathlib import Path
 
 from . import gitmeta
 from .activity import load_active_work
+from .workstreams import load_workstream_overlay
 from .assessment import apply_assessments
 from .adapters import ScanResult
 from .config import Config
@@ -325,6 +326,9 @@ def build_graph(
         path = _source_path(item)
         if not path:
             continue
+        source_area_ids = cfg.source_area_ids_for(path)
+        if source_area_ids:
+            item.facets["source-area"] = source_area_ids
         needle = item.id.split(":", 1)[1].split("/")[-1]
         item.activity = {
             "commits": meta.commits(path),
@@ -350,6 +354,11 @@ def build_graph(
     # entries stay available as audit history.
     graph.warnings = sorted(
         set(graph.warnings) | set(reconcile_answers(graph, cfg, root))
+    )
+    # Workstream discussion escalation validates against the reconciled open
+    # owner-question set; accepted answers cannot remain fake-open escalations.
+    graph.warnings = sorted(
+        set(graph.warnings) | set(load_workstream_overlay(graph, cfg, root))
     )
     apply_priorities(graph, cfg, root)
     # Assessment consumes reconciled questions and target-scoped priority, but

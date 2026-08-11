@@ -427,6 +427,8 @@ class Graph:
     # Accepted answers are separate from open questions and remain auditable.
     owner_decisions: list[OwnerDecision] = field(default_factory=list)
     activity: dict = field(default_factory=dict)
+    # Versioned workstream intent plus leased local sessions/collision analysis.
+    workstreams: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         serialized_items = []
@@ -486,6 +488,8 @@ class Graph:
             ]
         if self.activity:
             result["activity"] = self.activity
+        if self.workstreams:
+            result["workstreams"] = self.workstreams
         return result
 
     def dumps(self) -> str:
@@ -520,6 +524,7 @@ class Graph:
         owner_questions = d.get("owner_questions", [])
         owner_decisions = d.get("owner_decisions", [])
         activity = d.get("activity", {})
+        workstreams = d.get("workstreams", {})
         if not isinstance(conflicts, list) or not all(
             isinstance(value, dict) for value in conflicts
         ):
@@ -548,6 +553,8 @@ class Graph:
             raise ValueError("graph owner_decisions must be a list of objects")
         if not isinstance(activity, dict):
             raise ValueError("graph activity must be an object")
+        if not isinstance(workstreams, dict):
+            raise ValueError("graph workstreams must be an object")
         statuses = vocab.get("statuses")
         if statuses is not None and (
             not isinstance(statuses, list)
@@ -602,6 +609,7 @@ class Graph:
             owner_questions=parsed_questions,
             owner_decisions=parsed_decisions,
             activity=dict(activity),
+            workstreams=dict(workstreams),
         )
 
     def item_map(self) -> dict[str, Item]:

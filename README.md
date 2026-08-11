@@ -20,12 +20,15 @@ decision identity or authority; the durable repo-local answer record is.
 
 ```bash
 curl -LO https://github.com/rydersd/vizzer/releases/latest/download/vizzer.pyz
-python3 vizzer.pyz          # interactive: pick your project directory
+python3 vizzer.pyz          # interactive: pick a project, then grill its source map
 ```
 
-The installer scans the project, detects which source shapes exist, writes a
-commented `vizzer/vizzer.toml`, vendors the engine, registers the agent-facing
-block, and runs the first refresh. From then on, from the project root:
+The installer proposes what it detects, then asks what the folders actually
+mean. A directory can be called `product-spec`, `experience-spec`, `prd`, or
+something delightfully unhelpful; Vizzer stores its semantic role instead of
+promoting the spelling to architecture. It writes a commented
+`vizzer/vizzer.toml`, vendors the engine, registers the agent-facing block, and
+runs the first refresh. From then on, from the project root:
 
 ```bash
 python3 vizzer/engine refresh   # re-read sources → graph → every view
@@ -36,20 +39,28 @@ python3 vizzer/engine serve     # loopback constellation; story links open in de
 python3 vizzer/engine open story:some-id  # validated direct source opener
 python3 vizzer/engine plan analyze --promote story:some-id
 python3 vizzer/engine plan apply --promote story:some-id --expected-revision 0 --rationale "why"
+python3 vizzer/engine workstreams show
+python3 vizzer/engine sessions show
 ```
 
 Use `refresh` whenever a task completes, an issue is found, or a story's
 status or dependencies change. Update the configured source document first;
 the graph and views are derived and are never a write-back surface.
 
-Non-interactive: `python3 vizzer.pyz install <path>`. Upgrading later:
+Re-run the source interview with `python3 vizzer.pyz configure <path>`, or use
+`install <path> --grill` on first installation. Automation can provide a JSON
+answer file with `configure <path> --answers answers.json --yes`; validation
+rejects paths outside the repository and structured globs that match nothing.
+
+Non-interactive detection without the grill remains available as
+`python3 vizzer.pyz install <path>`. Upgrading later:
 `python3 vizzer.pyz update <path>` — replaces the vendored engine and the
 managed doc block, never touches your config, graph, or views.
 
 ## The views (`vizzer/views/`)
 
 Open `constellation.html` and use its visible **Views** menu. Dashboard,
-Roadmap, Hierarchy, Features, Completion, Ledgers, and Constellation are interactive
+Roadmap, Hierarchy, Features, Completion, Ledgers, Workstreams, and Constellation are interactive
 routes over one embedded graph and one shared filter state. Delivery, Activity,
 Structure, and Progress are composable graph lenses, not separate pages.
 
@@ -64,6 +75,7 @@ snapshots for review, archives, and model context—not a second user interface.
 | `constellation.html#features` / `feature-index.md` | Search and filter every behavior by capability; export the portable index separately. |
 | `constellation.html#completion` / `completion-sheet.md` | Explore lifecycle, regression, and question counts; export the completion snapshot separately. |
 | `constellation.html#ledgers` / `ledger-table.md` | Inspect ownership, progress, checkpoints, and staleness; export the ledger table separately. |
+| `constellation.html#workstreams` | Inspect durable workstream intent, current Claude/Codex/human sessions, checkpoints, path scopes, collisions, and peer discussions. |
 | `decision-journal.md` | LLM-readable export of open questions and accepted decisions, including recommendation deviations and whether the source story contains the evolution event. |
 | `manifest.json` | Machine-readable index of docs represented by enabled adapters (titles, statuses, git dates). It is not a whole-repository corpus manifest unless the configured adapters cover that corpus. |
 | `constellation.html#constellation` | Interactive 3D dependency map using the same search, filters, dossier, and owner-decision queue as every other route. <!-- codex-sequence-2026-08-08 --> |
@@ -82,7 +94,10 @@ from git), so graph and view diffs stay small and reviewable.
 
 ## Sources
 
-Four adapters ship in v1; enable any mix in `vizzer.toml`:
+Four adapters ship in v1; enable any mix in `vizzer.toml`. The configuration
+grill describes them through semantic `[[source_area]]` entries so humans and
+agents can distinguish delivery truth, knowledge, planning, evidence, and
+operations without relying on folder names:
 
 - **`spec_tree`** — nested work-item markdown (any `a/*/b/*/stories/*.md`
   shape; level names are yours). Reads status/release/deps from headers or
@@ -146,8 +161,13 @@ The one file you edit. Keys and defaults:
 | `progress.stalled_after_days` | `14` | No-progress age before previously started work shows `?`. |
 | `progress.stall_max_days` | `90` | Marker-growth cap for long stalls. |
 | `progress.backfill_days` | `7` | One-time exact-header Git lookback when history is introduced. |
+| `workstreams.enabled` | `false` | Enable versioned workstream intent plus machine-local leased sessions. |
+| `workstreams.definitions_path` | `"vizzer/workstreams.json"` | Repo-local, reviewed workstream definitions, path scopes, discussions, and audit revisions. |
+| `workstreams.runtime_path` | `".vizzer/runtime/sessions.json"` | Machine-local live session leases; generated views never expose absolute worktree paths. |
+| `workstreams.lease_minutes` | `30` | Time without heartbeat before a session becomes stale and stops claiming work. |
 
-Three table-arrays: `[[status]]` replaces the status vocabulary (`name`,
+Four table-arrays: `[[source_area]]` gives an arbitrary folder an `id`, `title`,
+semantic `role`, and adapter; `[[status]]` replaces the status vocabulary (`name`,
 `emoji`, `done`, optional dashboard `role`, optional `description`, and
 optional `next`); `[[gates]]` marks items blocked on a decision (`item`,
 `reason`); and repeatable `[[group]]` entries add a hierarchy level that the
@@ -181,6 +201,30 @@ title = "Platform"
 facet = "product"
 values = ["core", "ecosystem"]
 ```
+
+For example, this project calls delivery truth an Experience Spec and keeps a
+Handbook beside it without turning every handbook page into a roadmap item:
+
+```toml
+[[source_area]]
+id = "experience-spec"
+title = "Experience Spec"
+role = "delivery"
+path = "experience-spec"
+adapter = "spec_tree"
+
+[[source_area]]
+id = "handbook"
+title = "Handbook"
+role = "knowledge"
+path = "handbook"
+adapter = "none"
+```
+
+The grill asks separately whether Markdown in a knowledge area should become
+reference items. Saying yes enables `loose_docs`; saying no still preserves the
+area in the source map. This explicit choice prevents a documentation folder from
+quietly adding hundreds of nodes to delivery completion.
 
 Area selection changes the visible slice. Delivery completion remains scoped
 to `role = "delivery"`, so supporting coverage, evidence, decisions, and
@@ -307,6 +351,37 @@ contracts; distinguish decisions from operational blockers; research options bef
 adding a question record. Any model may author the same answer schema after applying
 the same validation rules; accepted answers are retained as auditable owner decisions
 and are no longer counted as open questions.
+
+## Concurrent workstreams
+
+Workstreams make a Claude session, a Codex session, a local model, and a human
+planner coordinate through one provider-neutral contract. Durable intent lives in
+versioned `vizzer/workstreams.json`: objective, story scope, allowed and shared
+paths, lead/reviewer, checkpoint, dependencies, discussion, rationale, and audit
+revision. Live process identity lives separately in ignored
+`.vizzer/runtime/sessions.json` with a renewable lease. A crashed client therefore
+goes stale instead of retaining ownership by folklore.
+
+```bash
+python3 vizzer/engine workstreams apply --file split.json \
+  --expected-revision 0 --actor Ryder --rationale "separate token and canvas risk"
+python3 vizzer/engine sessions start --id codex-tokens --actor Codex --model Spark \
+  --role lead --workstream tokens --branch codex/tokens --worktree ../tokens \
+  --expected-revision 0
+python3 vizzer/engine sessions heartbeat --id codex-tokens --expected-revision 1
+python3 vizzer/engine sessions stop --id codex-tokens --expected-revision 2
+```
+
+All mutations are compare-and-swap and run under a repository mutation lock. The
+Workstreams view exposes overlapping stories, shared/exclusive path collisions,
+stale leases, checkpoints, and peer discussion. Peers may record reversible
+implementation decisions. Product, scope, or contract disagreements must link an
+open owner question and escalate; two models agreeing does not manufacture product
+authority. That would be efficient, certainly, but also nonsense.
+
+Served mode exposes a read-only `/api/workstreams` snapshot so a long-running view
+can update without regenerating HTML. Agents mutate through the atomic CLI; owner
+priority and question decisions keep their separate guarded loopback controls.
 
 The answer ledger is append-only and provider-free. Each entry carries a contiguous
 ledger revision and the fingerprint returned for the current question:

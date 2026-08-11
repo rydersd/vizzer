@@ -22,6 +22,9 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
   (from configured sources). Read it for orientation; NEVER hand-edit — it's derived.
 - Configured source files remain authoritative; importing a DAG does not make the
   derived graph or rendered views a write-back source. <!-- codex-sequence-2026-08-08 -->
+- `[[source_area]]` names semantic project regions; never assume folders are
+  literally named `wiki` or `product-spec`. Use `python3 vizzer/engine configure`
+  when source roles or locations change, and inspect its match-count preview.
 - Update the authoritative source story/issue/ledger first. After completing work,
   finding an issue, or changing a story's status or dependencies, run
   `python3 vizzer/engine refresh`. A shipped story stays shipped; record follow-up
@@ -29,6 +32,12 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
 - If `activity.path` is configured, update the named checkpoint feed when work
   starts, advances, blocks, pauses, or completes; activity never changes lifecycle
   or priority truth. <!-- codex-sequence-2026-08-08 -->
+- If workstreams are enabled, register every live Claude, Codex, human, or script
+  session with `sessions start`; renew its lease with `sessions heartbeat`; stop it
+  explicitly. Use versioned workstreams for objectives/story/path ownership and the
+  discussion log for peer review. Only reversible implementation decisions may be
+  resolved peer-to-peer; product, scope, and contract choices become researched
+  owner questions. Direct concurrent JSON edits are forbidden.
 - At task start and whenever work blocks, scan specs, plans, active work, and
   implementation evidence for unresolved owner decisions. Read the surrounding
   contracts; do not infer a question from `blocked` or keywords. For each real
@@ -76,8 +85,14 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
   as separate work or flags, not a source-status downgrade.
 - Run `python3 vizzer/engine refresh` after task completion, issue discovery, or a
   story status/dependency change. It syncs and renders one newly built graph.
+- Read semantic `source_area` configuration instead of assuming a `wiki`,
+  `product-spec`, or any other fixed folder name.
 - When configured, update the activity feed at named checkpoints; checkpoint
   progress is an overlay and never substitutes for story acceptance.
+- When workstreams are enabled, claim a versioned workstream and start a leased
+  session before editing. Heartbeat while active and stop on handoff. Use peer
+  discussion for reversible implementation choices; escalate product, scope, and
+  contract decisions through the existing researched owner-question channel.
 - Scan repository specs, plans, activity, and implementation evidence for real
   unresolved owner decisions. Do not equate `blocked` with a question. Research
   2–3 options, tradeoffs, a recommendation, falsifier, and evidence before adding
@@ -141,7 +156,7 @@ def _spec_tree(root: Path) -> dict:
         candidates.append(rel)
 
     if not candidates:
-        return {"glob": "", "levels": []}
+        return {"glob": "", "levels": [], "root": ""}
 
     observed = min(candidates, key=lambda path: path.as_posix())
     parts = list(observed.parts)
@@ -159,7 +174,11 @@ def _spec_tree(root: Path) -> dict:
     level_indexes = sorted(index for index in container_indexes
                            if index != stories_index)
     levels = [_singularize(parts[index]) for index in level_indexes]
-    return {"glob": "/".join(glob_parts), "levels": levels}
+    root_parts = parts[:min(level_indexes)] if level_indexes else parts[:stories_index]
+    return {
+        "glob": "/".join(glob_parts), "levels": levels,
+        "root": Path(*root_parts).as_posix() if root_parts else "",
+    }
 
 
 def _looks_like_dag(data) -> bool:
@@ -293,15 +312,51 @@ def _config_text(target: Path, found: dict) -> str:
     spec_tree_enabled = bool(spec_tree["glob"] or spec_tree.get("dag_import", ""))
     loose_docs = found["loose_docs"]
     todos = found["todos"]
-    loose_docs_enabled = bool(loose_docs) and not (
-        spec_tree_enabled or found["ledgers"] or todos
+    loose_docs_enabled = bool(loose_docs) and (
+        bool(found.get("explicit_loose_docs"))
+        or not (spec_tree_enabled or found["ledgers"] or todos)
     )
-    project_name = target.resolve().name.replace('"', "'")
+    project_name = found.get("project_name", target.resolve().name).replace('"', "'")
+    source_areas = list(found.get("source_areas", []))
+    if not source_areas:
+        spec_root = spec_tree.get("root", "")
+        if spec_root:
+            title = Path(spec_root).name.replace("-", " ").title()
+            source_areas.append({
+                "id": re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-"),
+                "title": title, "role": "delivery", "path": spec_root,
+                "adapter": "spec_tree",
+            })
+        for pattern in loose_docs:
+            folder = pattern.split("/", 1)[0]
+            title = folder.replace("-", " ").title()
+            area_id = re.sub(r"[^a-z0-9]+", "-", title.casefold()).strip("-")
+            if folder and all(area["id"] != area_id for area in source_areas):
+                source_areas.append({
+                    "id": area_id, "title": title, "role": "knowledge",
+                    "path": folder, "adapter": "loose_docs",
+                })
+    source_area_text = "\n".join(
+        "\n".join((
+            "[[source_area]]",
+            f'id = "{area["id"].replace(chr(34), chr(39))}"',
+            f'title = "{area["title"].replace(chr(34), chr(39))}"',
+            f'role = "{area["role"]}"',
+            f'path = "{area["path"]}"',
+            f'adapter = "{area["adapter"]}"',
+            "",
+        )) for area in source_areas
+    )
+    item_kind = spec_tree.get("item_kind", "story").replace('"', "'")
     return f"""# Vizzer configuration. Re-run detection manually before changing source globs.
 
 [project]
 # Human-readable project name used in generated views.
 name = "{project_name}"
+
+# Semantic source map. Folder names are project data: Product Spec,
+# Experience Spec, handbook, wiki, ADRs, and research are all valid answers.
+{source_area_text}
 
 [sources.spec_tree]
 # Scan hierarchical story specifications when a matching tree was detected.
@@ -311,7 +366,7 @@ glob = "{spec_tree["glob"]}"
 # Group names captured by each directory wildcard.
 levels = {_string_array(spec_tree["levels"])}
 # Kind prefix used for story item identifiers.
-item_kind = "story"
+item_kind = "{item_kind}"
 # Import dependency edges from an existing DAG file when one was detected.
 dag_import = "{spec_tree.get("dag_import", "")}"
 
@@ -403,6 +458,14 @@ overlay_path = "vizzer/planning-overlay.json"
 [activity]
 path = ""
 stale_after_minutes = 120
+
+# Versioned workstream intent plus machine-local leased sessions. Agents use the
+# CLI/server writer; they do not race by editing the JSON stores directly.
+[workstreams]
+enabled = false
+definitions_path = "vizzer/workstreams.json"
+runtime_path = ".vizzer/runtime/sessions.json"
+lease_minutes = 30
 
 # Optional lifecycle metadata. `next` permits configured transitions; omitting it
 # keeps the status unconstrained for backwards compatibility.  # codex-sequence-2026-08-08
@@ -501,10 +564,16 @@ def _write_version(target: Path) -> None:
 def _ensure_archive_ignored(target: Path) -> None:
     path = target / ".gitignore"
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    if any(line.strip() == "vizzer/archive/" for line in text.splitlines()):
+    required = ("vizzer/archive/", ".vizzer/runtime/")
+    existing = {line.strip() for line in text.splitlines()}
+    missing = [entry for entry in required if entry not in existing]
+    if not missing:
         return
     separator = "" if not text or text.endswith("\n") else "\n"
-    path.write_text(f"{text}{separator}vizzer/archive/\n", encoding="utf-8")
+    path.write_text(
+        f"{text}{separator}" + "".join(f"{entry}\n" for entry in missing),
+        encoding="utf-8",
+    )
 
 
 def _doc_with_block(target: Path) -> Path | None:
@@ -540,7 +609,7 @@ def _upsert_managed_block(path: Path) -> None:
 
 
 def install(target: Path, *, claude_skill: bool = False,
-            harness: str = "auto") -> int:
+            harness: str = "auto", configuration: dict | None = None) -> int:
     """Install vizzer into *target* and generate its initial graph and views."""
     target = Path(target)
     engine = target / "vizzer" / "engine"
@@ -548,15 +617,14 @@ def install(target: Path, *, claude_skill: bool = False,
         print("install: vizzer is already installed; run 'update' instead")
         return 2
 
-    found = detect(target)
+    found = configuration or detect(target)
     print(_detection_summary(found))
     engine.parent.mkdir(parents=True, exist_ok=True)
     _vendor(engine)
     _write_context_docs(target)
     _write_version(target)
-    (target / "vizzer" / "vizzer.toml").write_text(
-        _config_text(target, found), encoding="utf-8"
-    )
+    config_text = found.get("config_text") or _config_text(target, found)
+    (target / "vizzer" / "vizzer.toml").write_text(config_text, encoding="utf-8")
     _ensure_archive_ignored(target)
     _upsert_managed_block(_harness_doc(target, harness))
 

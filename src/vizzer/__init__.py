@@ -1,1 +1,1 @@
-__version__ = "0.7.1"  # routed-view scrolling and reliable pointer selection
+__version__ = "0.8.0"  # generic source grilling and model-neutral workstreams

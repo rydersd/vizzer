@@ -41,6 +41,11 @@ from .question_answers import (
     append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
     read_answers, restore_answers,
 )
+from .workstreams import (
+    WorkstreamConflict, WorkstreamError, append_discussion, apply_workstreams,
+    heartbeat_session, load_workstream_overlay, read_runtime, read_workstreams, restore_runtime,
+    restore_workstreams, start_session, stop_session,
+)
 
 
 GRAPH_RELPATH = Path("vizzer/vizzer-graph.json")
@@ -509,6 +514,25 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
 
         def do_GET(self):
             parsed = urlsplit(self.path)
+            if parsed.path == "/api/workstreams" and not parsed.query:
+                if not self._require_current_engine():
+                    return
+                live_graph = _read_graph(root)
+                if live_graph is None:
+                    self._send_json(500, {
+                        "error": "current work graph is unavailable; run vizzer refresh",
+                    })
+                    return
+                if not cfg.get("workstreams.enabled", False):
+                    self._send_json(404, {"error": "workstreams are disabled"})
+                    return
+                warnings = load_workstream_overlay(live_graph, cfg, root)
+                self._send_json(200, {
+                    "engineVersion": __version__, "schema": 1,
+                    "csrfToken": csrf_token, "warnings": warnings,
+                    "workstreams": live_graph.workstreams,
+                })
+                return
             if parsed.path == "/api/questions" and not parsed.query:
                 if not self._require_current_engine():
                     return
@@ -1384,6 +1408,171 @@ def _journal_owner_decisions(root: Path, args: argparse.Namespace) -> int:
         return 0
 
 
+def _read_request_file(path: str, subject: str) -> dict:
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkstreamError(f"{subject} file is unreadable or malformed: {exc}") from exc
+    if not isinstance(value, dict):
+        raise WorkstreamError(f"{subject} file must contain a JSON object")
+    return value
+
+
+def _workstreams(root: Path, args: argparse.Namespace) -> int:
+    built = _build_fresh_graph(root, "workstreams")
+    if built is None:
+        return 2
+    cfg, graph, _ = built
+    if not cfg.get("workstreams.enabled", False):
+        print("workstreams: disabled in vizzer.toml")
+        return 2
+    try:
+        if args.workstream_action == "show":
+            overlay, _ = read_workstreams(cfg, root, graph)
+            runtime, _ = read_runtime(cfg, root, graph)
+            print(json.dumps({"definitions": overlay, "runtime": runtime}, indent=2))
+            return 0
+        with _mutation_guard(root):
+            # Rebuild under the lock so a concurrent accepted answer or source
+            # edit cannot change the item/question universe between validation
+            # and persistence.
+            locked = _build_fresh_graph(root, "workstreams")
+            if locked is None:
+                return 2
+            cfg, graph, _ = locked
+            previous, _ = read_workstreams(cfg, root, graph)
+            if args.workstream_action == "apply":
+                request = _read_request_file(args.file, "workstream state")
+                state = request.get("state", request)
+                updated = apply_workstreams(
+                    cfg, root, graph, state,
+                    expected_revision=args.expected_revision,
+                    actor=args.actor, rationale=args.rationale,
+                )
+            else:
+                updated = append_discussion(
+                    cfg, root, graph,
+                    expected_revision=args.expected_revision,
+                    workstream_id=args.workstream,
+                    discussion_id=args.id,
+                    author=args.author,
+                    kind=args.kind,
+                    scope=args.scope,
+                    body=args.body,
+                    reply_to=args.reply_to,
+                    owner_question_id=args.owner_question,
+                )
+            if _refresh(root) != 0:
+                restore_workstreams(cfg, root, graph, previous)
+                print("workstreams: mutation rolled back because refresh failed")
+                return 2
+        print(json.dumps(updated, indent=2))
+        return 0
+    except WorkstreamConflict as exc:
+        print(f"workstreams: {exc}")
+        return 3
+    except WorkstreamError as exc:
+        print(f"workstreams: {exc}")
+        return 2
+
+
+def _sessions(root: Path, args: argparse.Namespace) -> int:
+    built = _build_fresh_graph(root, "sessions")
+    if built is None:
+        return 2
+    cfg, graph, _ = built
+    if not cfg.get("workstreams.enabled", False):
+        print("sessions: workstreams are disabled in vizzer.toml")
+        return 2
+    try:
+        if args.session_action == "show":
+            runtime, _ = read_runtime(cfg, root, graph)
+            print(json.dumps(runtime, indent=2))
+            return 0
+        with _mutation_guard(root):
+            locked = _build_fresh_graph(root, "sessions")
+            if locked is None:
+                return 2
+            cfg, graph, _ = locked
+            previous, _ = read_runtime(cfg, root, graph)
+            if args.session_action == "start":
+                updated = start_session(
+                    cfg, root, graph,
+                    session_id=args.id, actor=args.actor, model=args.model,
+                    role=args.role, workstream_id=args.workstream,
+                    branch=args.branch, worktree=args.worktree,
+                    expected_revision=args.expected_revision,
+                    lease_minutes=args.lease_minutes,
+                )
+            elif args.session_action == "heartbeat":
+                updated = heartbeat_session(
+                    cfg, root, graph, session_id=args.id,
+                    expected_revision=args.expected_revision,
+                    lease_minutes=args.lease_minutes,
+                )
+                print(json.dumps(updated, indent=2))
+                return 0
+            else:
+                updated = stop_session(
+                    cfg, root, graph, session_id=args.id,
+                    expected_revision=args.expected_revision,
+                )
+            if _refresh(root) != 0:
+                restore_runtime(cfg, root, graph, previous)
+                print("sessions: mutation rolled back because refresh failed")
+                return 2
+        print(json.dumps(updated, indent=2))
+        return 0
+    except WorkstreamConflict as exc:
+        print(f"sessions: {exc}")
+        return 3
+    except (WorkstreamError, OSError, UnicodeError, json.JSONDecodeError) as exc:
+        print(f"sessions: {exc}")
+        return 2
+
+
+def _configure(root: Path, args: argparse.Namespace) -> int:
+    from .onboarding import ConfigurationError, configure_from_answers, grill
+
+    try:
+        if args.answers:
+            if not args.yes:
+                print("configure: --answers requires --yes")
+                return 1
+            answers = _read_request_file(args.answers, "configuration answers")
+            text, preview = configure_from_answers(root, answers)
+        else:
+            configured = grill(root)
+            text = configured["config_text"]
+            preview = {
+                "projectName": configured["project_name"],
+                "sourceAreas": configured["source_areas"],
+            }
+        destination = root / "vizzer" / "vizzer.toml"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, name = tempfile.mkstemp(
+            prefix=".vizzer.toml.", dir=str(destination.parent)
+        )
+        temporary = Path(name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, destination)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        if (root / "vizzer" / "engine").exists() and _refresh(root) != 0:
+            print("configure: wrote config but refresh failed; fix the reported source contract")
+            return 2
+        print(json.dumps(preview, indent=2))
+        return 0
+    except (ConfigurationError, WorkstreamError, OSError) as exc:
+        print(f"configure: {exc}")
+        return 2
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vizzer")
     subparsers = parser.add_subparsers(dest="command")
@@ -1484,20 +1673,110 @@ def _parser() -> argparse.ArgumentParser:
         handler=lambda args: _journal_owner_decisions(Path(args.root), args)
     )
 
+    workstreams = subparsers.add_parser(
+        "workstreams", help="inspect or atomically update collaborative workstreams"
+    )
+    workstream_subparsers = workstreams.add_subparsers(
+        dest="workstream_action", required=True
+    )
+    workstream_show = workstream_subparsers.add_parser("show")
+    workstream_show.add_argument("--root", default=".")
+    workstream_show.set_defaults(handler=lambda args: _workstreams(Path(args.root), args))
+    workstream_apply = workstream_subparsers.add_parser(
+        "apply", help="replace versioned workstream intent from a JSON state file"
+    )
+    workstream_apply.add_argument("--root", default=".")
+    workstream_apply.add_argument("--file", required=True)
+    workstream_apply.add_argument("--expected-revision", type=int, required=True)
+    workstream_apply.add_argument("--actor", required=True)
+    workstream_apply.add_argument("--rationale", required=True)
+    workstream_apply.set_defaults(handler=lambda args: _workstreams(Path(args.root), args))
+    workstream_discuss = workstream_subparsers.add_parser(
+        "discuss", help="append a peer discussion or owner escalation"
+    )
+    workstream_discuss.add_argument("--root", default=".")
+    workstream_discuss.add_argument("--expected-revision", type=int, required=True)
+    workstream_discuss.add_argument("--workstream", required=True)
+    workstream_discuss.add_argument("--id", required=True)
+    workstream_discuss.add_argument("--author", required=True)
+    workstream_discuss.add_argument("--kind", choices=sorted({
+        "question", "proposal", "response", "decision", "escalation",
+    }), required=True)
+    workstream_discuss.add_argument(
+        "--scope", choices=("implementation", "product", "scope", "contract"),
+        required=True,
+    )
+    workstream_discuss.add_argument("--body", required=True)
+    workstream_discuss.add_argument("--reply-to")
+    workstream_discuss.add_argument("--owner-question")
+    workstream_discuss.set_defaults(handler=lambda args: _workstreams(Path(args.root), args))
+
+    sessions = subparsers.add_parser(
+        "sessions", help="manage leased Claude, Codex, human, or script sessions"
+    )
+    session_subparsers = sessions.add_subparsers(dest="session_action", required=True)
+    session_show = session_subparsers.add_parser("show")
+    session_show.add_argument("--root", default=".")
+    session_show.set_defaults(handler=lambda args: _sessions(Path(args.root), args))
+    session_start = session_subparsers.add_parser("start")
+    session_start.add_argument("--root", default=".")
+    session_start.add_argument("--id", required=True)
+    session_start.add_argument("--actor", required=True)
+    session_start.add_argument("--model", required=True)
+    session_start.add_argument("--role", choices=("lead", "reviewer", "observer"), required=True)
+    session_start.add_argument("--workstream", required=True)
+    session_start.add_argument("--branch", required=True)
+    session_start.add_argument("--worktree", required=True)
+    session_start.add_argument("--expected-revision", type=int, required=True)
+    session_start.add_argument("--lease-minutes", type=int)
+    session_start.set_defaults(handler=lambda args: _sessions(Path(args.root), args))
+    session_heartbeat = session_subparsers.add_parser("heartbeat")
+    session_heartbeat.add_argument("--root", default=".")
+    session_heartbeat.add_argument("--id", required=True)
+    session_heartbeat.add_argument("--expected-revision", type=int, required=True)
+    session_heartbeat.add_argument("--lease-minutes", type=int)
+    session_heartbeat.set_defaults(handler=lambda args: _sessions(Path(args.root), args))
+    session_stop = session_subparsers.add_parser("stop")
+    session_stop.add_argument("--root", default=".")
+    session_stop.add_argument("--id", required=True)
+    session_stop.add_argument("--expected-revision", type=int, required=True)
+    session_stop.set_defaults(handler=lambda args: _sessions(Path(args.root), args))
+
+    configure = subparsers.add_parser(
+        "configure", help="grill project source roles and write vizzer.toml"
+    )
+    configure.add_argument("path")
+    configure.add_argument("--answers", help="non-interactive JSON answer file")
+    configure.add_argument("--yes", action="store_true")
+    configure.set_defaults(handler=lambda args: _configure(Path(args.path), args))
+
     install_parser = subparsers.add_parser("install")
     install_parser.add_argument("path")
     install_parser.add_argument("--claude-skill", action="store_true")
     install_parser.add_argument(
         "--harness", choices=("auto", "claude", "agents"), default="auto"
     )
+    install_parser.add_argument(
+        "--grill", action="store_true",
+        help="interactively name source roles and paths before installation",
+    )
 
     def install_handler(args: argparse.Namespace) -> int:
         from .install import install
 
+        configuration = None
+        if args.grill:
+            from .onboarding import ConfigurationError, grill
+            try:
+                configuration = grill(Path(args.path))
+            except ConfigurationError as exc:
+                print(f"install: {exc}")
+                return 2
         return install(
             Path(args.path),
             claude_skill=args.claude_skill,
             harness=args.harness,
+            configuration=configuration,
         )
 
     install_parser.set_defaults(handler=install_handler)
@@ -1519,15 +1798,17 @@ def main(argv: list[str] | None = None) -> int:
     """Run the vizzer CLI and return a process exit code."""
     parser = _parser()
     if argv is None and not sys.argv[1:]:
-        from .install import detect, install
+        from .install import install
+        from .onboarding import ConfigurationError, grill
 
         target_text = input("Project path [.]: ").strip()
         target = Path(target_text or ".")
-        print(json.dumps(detect(target), indent=2, sort_keys=True))
-        if input("Install vizzer? [y/N] ").strip().lower() not in {"y", "yes"}:
-            print("install: cancelled")
+        try:
+            configuration = grill(target)
+        except ConfigurationError as exc:
+            print(f"install: {exc}")
             return 1
-        return install(target)
+        return install(target, configuration=configuration)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "handler"):

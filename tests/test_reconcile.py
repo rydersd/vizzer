@@ -46,6 +46,25 @@ def test_tags_and_facets_union_while_role_disagreement_is_a_visible_conflict(tmp
     assert any(conflict["field"] == "role" for conflict in graph.conflicts)
 
 
+def test_semantic_source_area_is_attached_by_configured_path_not_folder_name(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"source_area": [{
+        "id": "experience-truth", "title": "Experience Truth",
+        "role": "delivery", "path": "oddly-named-work", "adapter": "spec_tree",
+    }, {
+        "id": "team-memory", "title": "Team Memory",
+        "role": "knowledge", "path": "notes", "adapter": "none",
+    }]}))
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "oddly-named-work/a.md"),
+        _item("story:b", "spec_tree", "somewhere-else/b.md"),
+    ]))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+
+    assert graph.item_map()["story:a"].facets["source-area"] == ["experience-truth"]
+    assert "source-area" not in graph.item_map()["story:b"].facets
+
+
 def test_explicit_empty_story_dependencies_beat_imported_dag(tmp_path):
     """codex-sequence-2026-08-08: explicit [] is data, not a missing value."""
     scans = [("spec_tree", ScanResult(items=[

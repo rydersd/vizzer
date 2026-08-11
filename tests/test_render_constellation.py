@@ -23,7 +23,7 @@ const sandbox={console,document,location:{protocol:'file:',hash:''},window:null,
 const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
 const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.caphead>span').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
 const panelSnapshot=()=>{const html=ids.get('viewpanel').innerHTML;return{cards:(html.match(/data-view-node=/g)||[]).length,metrics:[...html.matchAll(/<strong>(\d+)<\/strong>/g)].map(match=>+match[1]),rows:(html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr>/g)||[]).length}};
-const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
+const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','workstreams','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
 const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
 '''
 
@@ -142,6 +142,54 @@ def test_constellation_preserves_group_hierarchy_for_structure_navigation(tmp_pa
     assert "grid-template-rows:28px 28px 28px" in html
     assert "#meter{grid-column:1 / -1;grid-row:2" in html
     assert "#chips{grid-column:1 / -1;grid-row:3" in html
+
+
+def test_constellation_renders_workstreams_sessions_collisions_and_source_roles(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"source_area": [{
+        "id": "experience-spec", "title": "Experience Spec", "role": "delivery",
+        "path": "s", "adapter": "spec_tree",
+    }]}))
+    graph = _graph()
+    graph.workstreams = {
+        "schema": 1, "revision": 2, "runtimeRevision": 3,
+        "asOf": "2026-08-10T20:00:00Z",
+        "workstreams": [{
+            "id": "canvas", "title": "Canvas", "objective": "Ship canvas",
+            "status": "active", "lead": "Codex", "reviewer": "Claude",
+            "storyIds": ["story:b"], "dependsOn": [],
+            "allowedPaths": ["render/canvas"], "sharedPaths": ["vizzer/active-work.json"],
+            "checkpoint": "Tests", "completed": 1, "total": 2,
+        }],
+        "discussions": [{
+            "id": "policy", "workstreamId": "canvas", "author": "Claude",
+            "kind": "escalation", "scope": "product", "body": "Ryder must choose",
+            "createdAt": "2026-08-10T19:00:00Z", "replyTo": None,
+            "ownerQuestionId": "question:policy",
+        }],
+        "sessions": [{
+            "id": "codex", "actor": "Codex", "model": "Spark", "role": "lead",
+            "workstreamId": "canvas", "state": "active", "branch": "codex/canvas",
+            "worktree": "canvas", "startedAt": "2026-08-10T19:00:00Z",
+            "heartbeatAt": "2026-08-10T19:50:00Z",
+            "leaseExpiresAt": "2099-08-10T20:20:00Z", "stoppedAt": None,
+            "fresh": True,
+        }],
+        "collisions": [{
+            "kind": "shared-path", "workstreams": ["canvas", "tokens"],
+            "values": ["vizzer/active-work.json"],
+        }],
+    }
+
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})["constellation.html"]
+    data = _data(html)
+
+    assert data["workstreams"]["revision"] == 2
+    assert data["sourceAreas"][0]["title"] == "Experience Spec"
+    assert 'href="#workstreams" data-view="workstreams">Workstreams</a>' in html
+    assert "function renderWorkstreams(entries)" in html
+    assert "Coordination warnings" in html
+    assert "peer discussion" in html.casefold()
+    assert "currentView==='workstreams'?renderWorkstreams(entries)" in html
 
 
 def test_constellation_serializes_roles_and_facets_and_scopes_delivery_metrics(tmp_path):
@@ -888,6 +936,7 @@ def test_constellation_version_filter_executes_dynamic_count_updates(tmp_path):
             "metrics": [2, 1, 0, 0, 1, 0, 0, 0, 1],
             "rows": 0,
         },
+        "workstreams": {"cards": 0, "metrics": [], "rows": 0},
         "ledgers": {"cards": 2, "metrics": [], "rows": 2},
     }
     assert state["routesR0"] == {
@@ -900,6 +949,7 @@ def test_constellation_version_filter_executes_dynamic_count_updates(tmp_path):
             "metrics": [1, 1, 0, 0, 0, 0, 0, 0, 1],
             "rows": 0,
         },
+        "workstreams": {"cards": 0, "metrics": [], "rows": 0},
         "ledgers": {"cards": 1, "metrics": [], "rows": 1},
     }
     assert state["reconcile"] == {

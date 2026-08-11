@@ -548,8 +548,10 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         # Accepted owner planning course is inspectable in static mode. Writes
         # remain available only through the guarded loopback service.
         "planning": planning,
+        "workstreams": graph.workstreams,
         "caps": caps,
         "areas": cfg.areas(),
+        "sourceAreas": cfg.source_areas(),
         # deterministic "now": the newest activity in the graph, never wall clock
         "now": max((n["ts"] for n in nodes), default=0),
     }

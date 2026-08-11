@@ -14,6 +14,10 @@ from pathlib import Path
 from .model import ITEM_ROLES
 
 
+SOURCE_AREA_ROLES = {"delivery", "knowledge", "planning", "evidence", "operations"}
+SOURCE_AREA_ADAPTERS = {"spec_tree", "loose_docs", "ledgers", "todos", "none"}
+
+
 class ConfigError(Exception):
     pass
 
@@ -82,6 +86,15 @@ DEFAULTS = {
     "questions": {"answers_path": "vizzer/question-answers.json"},
     # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
     "activity": {"path": "", "stale_after_minutes": 120},
+    # Durable workstream intent is repo data; leased live sessions are local runtime.
+    "workstreams": {
+        "enabled": False,
+        "definitions_path": "vizzer/workstreams.json",
+        "runtime_path": ".vizzer/runtime/sessions.json",
+        "lease_minutes": 30,
+    },
+    # Semantic project map. Folder names are user data, not Vizzer conventions.
+    "source_area": [],
     # Optional named navigation slices over any item facet. Array-of-tables is
     # used because the bundled TOML subset deliberately avoids inline objects.
     "area": [],
@@ -325,6 +338,47 @@ class Config:
                 raise ConfigError(f"progress.{key} must be a positive integer")
         if self.get("progress.stall_max_days") < self.get("progress.stalled_after_days"):
             raise ConfigError("progress.stall_max_days must be at least stalled_after_days")
+        seen_source_areas: set[str] = set()
+        for index, area in enumerate(self.data.get("source_area", []), 1):
+            if not isinstance(area, dict):
+                raise ConfigError(f"source area #{index} must be a table")
+            required = ("id", "title", "role", "path", "adapter")
+            if not all(isinstance(area.get(field), str) and area[field].strip()
+                       for field in required):
+                raise ConfigError(
+                    f"source area #{index} requires non-empty id, title, role, path, and adapter"
+                )
+            if area["id"] in seen_source_areas:
+                raise ConfigError(f"duplicate source area id {area['id']!r}")
+            seen_source_areas.add(area["id"])
+            if area["role"] not in SOURCE_AREA_ROLES:
+                raise ConfigError(
+                    f"source area {area['id']!r} role must be one of "
+                    f"{sorted(SOURCE_AREA_ROLES)}"
+                )
+            if area["adapter"] not in SOURCE_AREA_ADAPTERS:
+                raise ConfigError(
+                    f"source area {area['id']!r} adapter must be one of "
+                    f"{sorted(SOURCE_AREA_ADAPTERS)}"
+                )
+            relative = Path(area["path"])
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ConfigError(
+                    f"source area {area['id']!r} path must stay inside the project"
+                )
+        if not isinstance(self.get("workstreams.enabled"), bool):
+            raise ConfigError("workstreams.enabled must be true or false")
+        for field in ("definitions_path", "runtime_path"):
+            value = self.get(f"workstreams.{field}")
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigError(f"workstreams.{field} must be a non-empty string")
+            relative = Path(value)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ConfigError(f"workstreams.{field} must stay inside the project")
+        lease_minutes = self.get("workstreams.lease_minutes")
+        if (isinstance(lease_minutes, bool) or not isinstance(lease_minutes, int)
+                or lease_minutes <= 0):
+            raise ConfigError("workstreams.lease_minutes must be a positive integer")
 
     def status_meta(self, name: str) -> dict:
         for s in self.vocab["statuses"]:
@@ -390,6 +444,28 @@ class Config:
             for area in self.data.get("area", [])
             if isinstance(area, dict)
         ]
+
+    def source_areas(self) -> list[dict]:
+        return [
+            {field: area[field] for field in ("id", "title", "role", "path", "adapter")}
+            for area in self.data.get("source_area", [])
+            if isinstance(area, dict)
+        ]
+
+    def source_area_ids_for(self, source_path: str) -> list[str]:
+        """Return every semantic area containing a repo-relative source path."""
+        try:
+            candidate = Path(source_path)
+            if candidate.is_absolute() or ".." in candidate.parts:
+                return []
+        except TypeError:
+            return []
+        result = []
+        for area in self.source_areas():
+            root = Path(area["path"])
+            if candidate == root or root in candidate.parents:
+                result.append(area["id"])
+        return result
 
     @classmethod
     def load(cls, root: Path) -> "Config":
