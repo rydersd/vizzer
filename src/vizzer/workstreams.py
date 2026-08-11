@@ -605,7 +605,7 @@ def load_workstream_overlay(graph: Graph, cfg, root: Path, *, now: str | None = 
     warnings.extend(runtime_warnings)
     if runtime is None:
         runtime = empty_runtime()
-    timestamp, parsed = _now(now)
+    _, parsed = _now(now)
     sessions = []
     for session in runtime["sessions"]:
         fresh = (
@@ -620,9 +620,17 @@ def load_workstream_overlay(graph: Graph, cfg, root: Path, *, now: str | None = 
             "fresh": fresh,
         })
     streams = overlay["state"]["workstreams"]
+    # codex-sequence-2026-08-10: checked-in graphs must not change merely
+    # because refresh ran a few seconds later.  Lease freshness can change at
+    # its actual boundary; the observation label comes only from persisted
+    # definition/session events.
+    persisted_times = [overlay.get("updatedAt")]
+    persisted_times.extend(session.get("heartbeatAt") for session in runtime["sessions"])
+    persisted_times.extend(session.get("stoppedAt") for session in runtime["sessions"])
+    as_of = max((value for value in persisted_times if value), default=None)
     graph.workstreams = {
         "schema": SCHEMA, "revision": overlay["revision"],
-        "runtimeRevision": runtime["revision"], "asOf": timestamp,
+        "runtimeRevision": runtime["revision"], "asOf": as_of,
         "definitionsPath": cfg.get("workstreams.definitions_path"),
         "workstreams": streams,
         "discussions": overlay["state"]["discussions"],

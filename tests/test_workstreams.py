@@ -90,6 +90,11 @@ def test_versioned_workstreams_and_leased_sessions_load_into_graph(tmp_path):
     assert graph.workstreams["sessions"][0]["fresh"] is True
     assert any(collision["kind"] == "shared-path" for collision in graph.workstreams["collisions"])
 
+    first_snapshot = json.loads(json.dumps(graph.workstreams))
+    load_workstream_overlay(graph, cfg, tmp_path, now="2026-08-10T20:03:00Z")
+    assert graph.workstreams == first_snapshot
+    assert graph.workstreams["asOf"] == applied["updatedAt"]
+
 
 def test_stale_definition_and_session_revisions_fail_closed(tmp_path):
     cfg, graph = _cfg(tmp_path), _graph()
