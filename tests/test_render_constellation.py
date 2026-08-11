@@ -43,6 +43,13 @@ P[${neighbor}].x=205;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on
 cv.dispatch('pointerdown',{clientX:200,clientY:200,pointerId:21});
 cv.dispatch('pointerup',{clientX:200,clientY:200,pointerId:21})})()`);
 out.overlapTarget={selected:ev(`sel`),expected:exact,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+const p=P[${exact}],rr=nodeRadius(${exact}),radius=nodeBadgeRadius(rr);
+const badge=nodeBadgePoint(p,rr,radius,-1,0);
+cv.dispatch('pointerdown',{clientX:badge.x,clientY:badge.y,pointerId:22});
+cv.dispatch('pointerup',{clientX:badge.x,clientY:badge.y,pointerId:22})})()`);
+out.questionBadgeTarget={selected:ev(`sel`),expected:exact,
+  open:ids.get('dossier').classList.contains('open')};
 const card=new Element('button');card.dataset={viewNode:String(exact)};
 ids.get('viewpanel').querySelectorAll=selector=>selector==='[data-view-node]'?[card]:[];
 ids.get('dbody').scrollTop=999;ev(`switchView('dashboard')`);card.click();
@@ -656,7 +663,7 @@ def test_constellation_agent_trails_follow_only_recent_explicit_checkpoints(tmp_
     assert "trailArrow(P[a],P[b],color,alpha)" in html
 
 
-def test_constellation_uses_lightweight_outline_glyphs_strong_activity_and_capped_depth_blur(tmp_path):
+def test_constellation_uses_lightweight_outline_glyphs_and_strong_activity_pulse(tmp_path):
     html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
                       only={"constellation"})["constellation.html"]
 
@@ -664,8 +671,7 @@ def test_constellation_uses_lightweight_outline_glyphs_strong_activity_and_cappe
     assert "ctx.strokeStyle=col;ctx.lineWidth=1.5;\n      xPath" in html
     assert "ctx.strokeStyle = col; ctx.lineWidth = 1;" in html
     assert "1.72+.58*activeWave" in html and "2.35+.42*activeWave" in html
-    assert "DATA.nodes.length<=800" in html and "'blur(.7px)'" in html
-    assert "const farCount=depthBlur==='none'?0:Math.floor(order.length/3)" in html
+    assert "ctx.filter" not in html
 
 
 def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
@@ -1102,6 +1108,9 @@ def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
 
     assert state["overlapTarget"] == {
         "selected": 1, "expected": 1, "title": "B",
+    }
+    assert state["questionBadgeTarget"] == {
+        "selected": 1, "expected": 1, "open": True,
     }
     assert state["cardTarget"] == {
         "selected": 1, "expected": 1, "title": "B",

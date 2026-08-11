@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vizzer"
-version = "0.8.1" # Agent traversal trails and lightweight constellation depth cues.
+version = "0.8.2" # Agent trails and lightweight glyphs without canvas blur.
 description = "Portable work-graph views: normalize a project's specs/ledgers/docs into one graph and render roadmap, dashboard, and a 3D constellation."
 readme = "README.md"
 requires-python = ">=3.9"

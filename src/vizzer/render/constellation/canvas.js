@@ -134,16 +134,8 @@ function draw(){
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
   const order = DATA.nodes.map((_,i)=>i).filter(i=>P[i].on).sort((a,b)=>P[b].d-P[a].d);
-  // One shallow blur bucket creates depth without a blur filter per node. The
-  // farthest third changes the canvas filter once, then the focal field stays
-  // sharp. Very large graphs keep the cheaper opacity/scale depth cues only.
-  const depthBlur=(!reducedMotion&&DATA.nodes.length<=800&&typeof ctx.filter==='string')?'blur(.7px)':'none';
-  const farCount=depthBlur==='none'?0:Math.floor(order.length/3);
-  let appliedFilter='none';ctx.filter='none';
   for (let position=0;position<order.length;position++){
     const i=order[position],p=P[i];
-    const nextFilter=position<farCount?depthBlur:'none';
-    if(nextFilter!==appliedFilter){ctx.filter=nextFilter;appliedFilter=nextFilter;}
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
     const dim = (sel>=0 && !selSet.has(i)) || searchDim;
@@ -280,7 +272,6 @@ function draw(){
       }
     }
   }
-  ctx.filter='none';
   ctx.globalAlpha = 1;
 }
 const snapCam = reducedMotion;
@@ -305,14 +296,27 @@ function releasePointer(e){
 function updatePointerState(x,y){
   pointerActive=true; pointerX=x; pointerY=y;
   let best=-1,bestDistance=Infinity,bestDepth=Infinity;
+  let questionBest=-1,questionDistance=Infinity,questionDepth=Infinity;
   for(let i=0;i<P.length;i++){
     const p=P[i];
     if(!p.on){p.near=0;continue;}
     const distance=Math.hypot(p.x-x,p.y-y), hitRadius=nodeHitRadius(i);
     p.near=Math.max(0,1-Math.max(0,distance-hitRadius)/32);
     if(distance<=hitRadius&&(distance<bestDistance-.25||(Math.abs(distance-bestDistance)<=.25&&p.d<bestDepth))){best=i;bestDistance=distance;bestDepth=p.d;}
+    if(ownerQuestions(i).length){
+      const rr=nodeRadius(i),radius=nodeBadgeRadius(rr);
+      const badge=nodeBadgePoint(p,rr,radius,-1,0);
+      const badgeDistance=Math.hypot(badge.x-x,badge.y-y);
+      const badgeHitRadius=Math.max(8,radius+4);
+      if(badgeDistance<=badgeHitRadius&&(badgeDistance<questionDistance-.25||
+          (Math.abs(badgeDistance-questionDistance)<=.25&&p.d<questionDepth))){
+        questionBest=i;questionDistance=badgeDistance;questionDepth=p.d;
+      }
+    }
   }
-  hover=best;
+  // The blocker X is drawn outside the story circle, so it needs its own hit
+  // region. Clicking either target opens the same story/question dossier.
+  hover=questionBest>=0?questionBest:best;
 }
 function clearPointerState(){
   pointerActive=false;hover=-1;P.forEach(p=>{p.near=0;});
