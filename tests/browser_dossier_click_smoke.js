@@ -15,16 +15,35 @@ const server=http.createServer((request,response)=>{
 });
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const termGraceMs=+(process.env.VIZZER_BROWSER_TERM_GRACE_MS||1500);
-const waitForExit=(child,timeout)=>{
-  if(child.exitCode!==null||child.signalCode!==null)return Promise.resolve(true);
-  return new Promise(resolve=>{
-    let settled=false;
-    const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);child.removeListener('exit',onExit);resolve(value);};
-    const onExit=()=>finish(true);
-    const timer=setTimeout(()=>finish(false),timeout);
-    child.once('exit',onExit);
-    if(child.exitCode!==null||child.signalCode!==null)finish(true);
-  });
+const useProcessGroup=process.platform!=='win32';
+const signalBrowser=(child,signal)=>{
+  if(!useProcessGroup&&(child.exitCode!==null||child.signalCode!==null))return false;
+  try{
+    if(useProcessGroup&&Number.isInteger(child.pid)){process.kill(-child.pid,signal);return true;}
+    return child.kill(signal);
+  }catch(error){if(error.code==='ESRCH')return false;throw error;}
+};
+const browserRunning=child=>{
+  if(useProcessGroup&&Number.isInteger(child.pid)){
+    try{process.kill(-child.pid,0);return true;}
+    catch(error){if(error.code==='ESRCH')return false;throw error;}
+  }
+  return child.exitCode===null&&child.signalCode===null;
+};
+const waitForExit=async(child,timeout)=>{
+  const deadline=Date.now()+timeout;
+  while(browserRunning(child)&&Date.now()<deadline)await delay(25);
+  return !browserRunning(child);
+};
+const removeProfile=async()=>{
+  const deadline=Date.now()+5000;
+  while(true){
+    try{fs.rmSync(profile,{recursive:true,force:true});return;}
+    catch(error){
+      if(!['EBUSY','EMFILE','ENFILE','ENOTEMPTY','EPERM'].includes(error.code)||Date.now()>=deadline)throw error;
+      await delay(100);
+    }
+  }
 };
 const waitFor=async(fn,label,timeout=8000)=>{
   const deadline=Date.now()+timeout;
@@ -37,7 +56,7 @@ try{
   const url=`http://127.0.0.1:${server.address().port}/constellation.html`;
   browser=spawn(chrome,['--headless=new','--no-first-run','--no-default-browser-check',
     '--disable-background-networking','--remote-debugging-port=0',`--user-data-dir=${profile}`,url],
-    {stdio:'ignore'});
+    {stdio:'ignore',detached:useProcessGroup});
   const active=path.join(profile,'DevToolsActivePort');
   const debugPort=await waitFor(()=>fs.existsSync(active)&&fs.readFileSync(active,'utf8').split('\n')[0],'DevTools port');
   const target=await waitFor(async()=>{
@@ -265,14 +284,14 @@ try{
   process.stdout.write(JSON.stringify(state));socket.close();
 }finally{
   if(browser){
-    browser.kill('SIGTERM');
+    signalBrowser(browser,'SIGTERM');
     if(!await waitForExit(browser,termGraceMs)){
-      browser.kill('SIGKILL');
+      signalBrowser(browser,'SIGKILL');
       if(!await waitForExit(browser,5000))throw new Error('Chrome did not exit after SIGKILL');
     }
   }
   if(server.closeAllConnections)server.closeAllConnections();
   server.close();
-  fs.rmSync(profile,{recursive:true,force:true,maxRetries:5,retryDelay:50});
+  await removeProfile();
 }
 })().then(()=>process.exit(0)).catch(error=>{console.error(error);process.exit(1);});
