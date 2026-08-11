@@ -453,19 +453,27 @@ class Config:
         ]
 
     def source_area_ids_for(self, source_path: str) -> list[str]:
-        """Return every semantic area containing a repo-relative source path."""
+        """Return the most-specific semantic areas containing a source path.
+
+        Areas may be nested (for example ``wiki/product-spec`` inside ``wiki``).
+        The child is the source's meaning; the parent remains a useful map entry
+        but must not relabel delivery work as generic knowledge.
+        """
         try:
             candidate = Path(source_path)
             if candidate.is_absolute() or ".." in candidate.parts:
                 return []
         except TypeError:
             return []
-        result = []
+        matches: list[tuple[int, str]] = []
         for area in self.source_areas():
             root = Path(area["path"])
             if candidate == root or root in candidate.parents:
-                result.append(area["id"])
-        return result
+                matches.append((len(root.parts), area["id"]))
+        if not matches:
+            return []
+        deepest = max(depth for depth, _ in matches)
+        return [area_id for depth, area_id in matches if depth == deepest]
 
     @classmethod
     def load(cls, root: Path) -> "Config":

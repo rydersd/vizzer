@@ -65,6 +65,25 @@ def test_semantic_source_area_is_attached_by_configured_path_not_folder_name(tmp
     assert "source-area" not in graph.item_map()["story:b"].facets
 
 
+def test_nested_source_area_prefers_specific_delivery_tree_over_parent_wiki(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"source_area": [{
+        "id": "wiki", "title": "Wiki", "role": "knowledge",
+        "path": "wiki", "adapter": "none",
+    }, {
+        "id": "product-spec", "title": "Product Spec", "role": "delivery",
+        "path": "wiki/product-spec", "adapter": "spec_tree",
+    }]}))
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "wiki/product-spec/stories/a.md"),
+        _item("doc:b", "loose_docs", "wiki/notes/b.md"),
+    ]))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+
+    assert graph.item_map()["story:a"].facets["source-area"] == ["product-spec"]
+    assert graph.item_map()["doc:b"].facets["source-area"] == ["wiki"]
+
+
 def test_explicit_empty_story_dependencies_beat_imported_dag(tmp_path):
     """codex-sequence-2026-08-08: explicit [] is data, not a missing value."""
     scans = [("spec_tree", ScanResult(items=[
