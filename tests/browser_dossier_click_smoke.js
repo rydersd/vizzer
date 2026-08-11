@@ -14,6 +14,18 @@ const server=http.createServer((request,response)=>{
   response.writeHead(404,{'Content-Type':'application/json'});response.end('{}');
 });
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const termGraceMs=+(process.env.VIZZER_BROWSER_TERM_GRACE_MS||1500);
+const waitForExit=(child,timeout)=>{
+  if(child.exitCode!==null||child.signalCode!==null)return Promise.resolve(true);
+  return new Promise(resolve=>{
+    let settled=false;
+    const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);child.removeListener('exit',onExit);resolve(value);};
+    const onExit=()=>finish(true);
+    const timer=setTimeout(()=>finish(false),timeout);
+    child.once('exit',onExit);
+    if(child.exitCode!==null||child.signalCode!==null)finish(true);
+  });
+};
 const waitFor=async(fn,label,timeout=8000)=>{
   const deadline=Date.now()+timeout;
   while(Date.now()<deadline){try{const value=await fn();if(value)return value;}catch(_){}await delay(50);}
@@ -253,9 +265,11 @@ try{
   process.stdout.write(JSON.stringify(state));socket.close();
 }finally{
   if(browser){
-    const exited=new Promise(resolve=>browser.once('exit',resolve));
-    browser.kill('SIGTERM');await Promise.race([exited,delay(1500)]);
-    if(browser.exitCode==null)browser.kill('SIGKILL');
+    browser.kill('SIGTERM');
+    if(!await waitForExit(browser,termGraceMs)){
+      browser.kill('SIGKILL');
+      if(!await waitForExit(browser,5000))throw new Error('Chrome did not exit after SIGKILL');
+    }
   }
   if(server.closeAllConnections)server.closeAllConnections();
   server.close();
