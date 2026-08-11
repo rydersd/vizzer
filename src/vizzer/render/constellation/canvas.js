@@ -15,6 +15,21 @@ function trianglePath(x,y,radius){
 function xPath(x,y,radius){
   ctx.beginPath();ctx.moveTo(x-radius,y-radius);ctx.lineTo(x+radius,y+radius);ctx.moveTo(x+radius,y-radius);ctx.lineTo(x-radius,y+radius);
 }
+function agentTrailColor(agent){
+  let hash=2166136261;
+  for(const char of agent)hash=Math.imul(hash^char.codePointAt(0),16777619);
+  return C.trails[Math.abs(hash)%C.trails.length]||C.active;
+}
+function trailArrow(a,b,color,alpha){
+  const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+  if(length<8)return;
+  const ux=dx/length,uy=dy/length,size=3.5;
+  ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(b.x,b.y);
+  ctx.lineTo(b.x-ux*size-uy*size*.62,b.y-uy*size+ux*size*.62);
+  ctx.moveTo(b.x,b.y);
+  ctx.lineTo(b.x-ux*size+uy*size*.62,b.y-uy*size-ux*size*.62);ctx.stroke();
+}
 const nodeBadgeRadius = rr => Math.max(1.5,Math.min(8,rr*.42));
 const nodeBadgePoint = (p,rr,radius,side=1,slot=0) => {
   // Keep every badge on the node envelope. Older progress fans around that
@@ -42,7 +57,9 @@ function project(){
 }
 function draw(){
   ctx.clearRect(0,0,W,H);
-  const pulse = reducedMotion ? .72 : .45+.27*(1+Math.sin(performance.now()/360));
+  const activeWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/300);
+  const pulse=reducedMotion?.78:.55+.45*activeWave;
+  const xWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/620);
   const selSet = new Set();
   if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
   if (sel>=0){ relNbr[sel].out.forEach(([j])=>selSet.add(j)); relNbr[sel].inc.forEach(([j])=>selSet.add(j)); }
@@ -71,6 +88,24 @@ function draw(){
     ctx.strokeStyle = C.active; ctx.globalAlpha = (lit?.75:(activeCount===2?.55:.22))*(searchEdgeDim?.16:1);
     ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
   }
+  // Straight agent trails connect only explicit chronological checkpoints.
+  // They are not dependency edges and never bridge across a filtered point.
+  if(lens.activity){
+    ctx.setLineDash([]);
+    for(const trail of (DATA.agentTrails||[])){
+      const color=agentTrailColor(trail.agent),points=trail.points||[];
+      for(let step=1;step<points.length;step++){
+        const a=points[step-1].n,b=points[step].n;
+        if(a==null||b==null||!P[a].on||!P[b].on)continue;
+        const recency=step/Math.max(1,points.length-1);
+        const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
+        const alpha=(.14+.5*recency)*(searchEdgeDim?.16:1);
+        ctx.strokeStyle=color;ctx.lineWidth=1.15;ctx.globalAlpha=alpha;
+        ctx.beginPath();ctx.moveTo(P[a].x,P[a].y);ctx.lineTo(P[b].x,P[b].y);ctx.stroke();
+        trailArrow(P[a],P[b],color,alpha);
+      }
+    }
+  }
   // Explicit agent-work linkage pulses. It is not silently inferred from a hard
   // dependency or typed relation, so the overlay never claims evidence it lacks.
   if (lens.activity){
@@ -79,7 +114,7 @@ function draw(){
       const w=DATA.work[wi], a=w&&w.n;
       if (!freshWork(w)||a==null||!P[a].on||!P[b].on) continue;
       const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
-      ctx.strokeStyle=C.active; ctx.lineWidth=2.4; ctx.globalAlpha=pulse*(searchEdgeDim?.16:1);
+      ctx.strokeStyle=C.active; ctx.lineWidth=2.6; ctx.globalAlpha=pulse*(searchEdgeDim?.16:1);
       ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
     }
   }
@@ -98,9 +133,17 @@ function draw(){
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
-  const order = DATA.nodes.map((_,i)=>i).sort((a,b)=>P[b].d-P[a].d);
-  for (const i of order){
-    const p = P[i]; if (!p.on) continue;
+  const order = DATA.nodes.map((_,i)=>i).filter(i=>P[i].on).sort((a,b)=>P[b].d-P[a].d);
+  // One shallow blur bucket creates depth without a blur filter per node. The
+  // farthest third changes the canvas filter once, then the focal field stays
+  // sharp. Very large graphs keep the cheaper opacity/scale depth cues only.
+  const depthBlur=(!reducedMotion&&DATA.nodes.length<=800&&typeof ctx.filter==='string')?'blur(.7px)':'none';
+  const farCount=depthBlur==='none'?0:Math.floor(order.length/3);
+  let appliedFilter='none';ctx.filter='none';
+  for (let position=0;position<order.length;position++){
+    const i=order[position],p=P[i];
+    const nextFilter=position<farCount?depthBlur:'none';
+    if(nextFilter!==appliedFilter){ctx.filter=nextFilter;appliedFilter=nextFilter;}
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
     const dim = (sel>=0 && !selSet.has(i)) || searchDim;
@@ -112,12 +155,13 @@ function draw(){
     ctx.globalAlpha = progressOpacity(n)*focusAlpha;
     const rr = nodeRadius(i);
     if (n.g==='specced'){ // unbuilt-but-specced: an empty vessel, outline only
-      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, rr*.32);
+      ctx.strokeStyle = col; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*.85,0,7); ctx.stroke();
     } else if(n.g==='shipped'){
-      ctx.fillStyle=col;trianglePath(p.x,p.y,rr);ctx.fill();
+      ctx.strokeStyle=col;ctx.lineWidth=1.5;trianglePath(p.x,p.y,rr);ctx.stroke();
     } else if(n.g==='buggap'){
-      ctx.strokeStyle=col;ctx.lineWidth=Math.max(1.5,rr*.35);xPath(p.x,p.y,rr*.72);ctx.stroke();
+      ctx.globalAlpha*=.9+.1*xWave;ctx.strokeStyle=col;ctx.lineWidth=1.5;
+      xPath(p.x,p.y,rr*(.7+.035*xWave));ctx.stroke();
     } else {
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,7); ctx.fill();
@@ -125,7 +169,7 @@ function draw(){
     // Release/version is a separate outer-ring channel; blending it into fill
     // would make progress versus horizon impossible to decode.
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
-    ctx.lineWidth=Math.max(.75,rr*.11);
+    ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
     // Unknown assessed size gets a neutral dashed ring. It must not look like
     // XS merely because both are visually compact.
@@ -137,7 +181,7 @@ function draw(){
     // punted. Downstream-affected nodes get a quieter dotted halo.
     const course=ownerCourse(i);
     if(course&&!dim){
-      ctx.globalAlpha=course==='promoted'?.88:.72;ctx.strokeStyle=C.owner;ctx.lineWidth=2;
+      ctx.globalAlpha=course==='promoted'?.88:.72;ctx.strokeStyle=C.owner;ctx.lineWidth=1;
       ctx.setLineDash(course==='punted'?[4,3]:[]);
       ctx.beginPath();ctx.arc(p.x,p.y,rr*1.82,0,7);ctx.stroke();ctx.setLineDash([]);
       if(course==='promoted'){
@@ -156,11 +200,11 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*(1.45+.7*p.near),0,7); ctx.fill();
     }
     if(i===hover&&!dim){
-      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,[255,255,255],.8)); ctx.lineWidth=1.5;
+      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,[255,255,255],.8)); ctx.lineWidth=1.25;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.38,0,7); ctx.stroke();
     }
     if(i===sel){
-      ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=2;
+      ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=1.5;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.58,0,7); ctx.stroke();
     }
     if (rec){ // recommended-next: soft glow + bright ring so it pops off the muted field
@@ -168,18 +212,20 @@ function draw(){
       ctx.fillStyle = rgbCss(mixA(rgb,[255,255,255],.5));
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*2.6,0,7); ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1.6;
+      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
     }
-    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.14; ctx.fillStyle=col;
-      trianglePath(p.x,p.y,p.s*2.6);ctx.fill(); }
+    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.12; ctx.strokeStyle=col;ctx.lineWidth=1.5;
+      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke(); }
     if (activeNode(i) && !dim){
       // Motion is optional; the steady ring and checkpoint arc preserve meaning
       // under prefers-reduced-motion.
-      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.75:1.55+.25*pulse),0,7); ctx.stroke();
+      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7); ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
       const progress=nodeProgress(i);
-      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=3;
+      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.28,-Math.PI/2,
           -Math.PI/2+2*Math.PI*(progress.done/progress.total)); ctx.stroke(); }
     }
@@ -194,13 +240,13 @@ function draw(){
       for(const offset of [0,.5]){
         const phase=questionWavePhase(i,offset);
         ctx.globalAlpha=reducedMotion?(offset===0?.13:.07):.2*Math.pow(1-phase,1.7);
-        ctx.strokeStyle=C.owner;ctx.lineWidth=Math.max(.75,1.35-phase*.55);
+        ctx.strokeStyle=C.owner;ctx.lineWidth=1;
         ctx.beginPath();ctx.arc(p.x,p.y,rr*(1.65+phase*3.1),0,7);ctx.stroke();
       }
       const radius=nodeBadgeRadius(rr);
       const {x,y}=nodeBadgePoint(p,rr,radius,-1,0);
-      ctx.globalAlpha=1;ctx.strokeStyle=C.owner;ctx.lineWidth=2;
-      xPath(x,y,Math.max(2.5,radius*.82));ctx.stroke();
+      ctx.globalAlpha=.86+.14*xWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+      xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke();
       if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(5,radius*1.25)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),x+radius,y);}
     }
     // Circle-check marks are a static history trail: the newest overlaps the
@@ -213,7 +259,7 @@ function draw(){
         const age=ageDays(event.at), hotWindow=Math.max(.01,(n.pg||{}).hotWindowDays||7);
         const brightness=Math.max(.18,1-age/hotWindow);
         const {x,y}=nodeBadgePoint(p,rr,markerBase,1,order);
-        ctx.globalAlpha=brightness*.95; ctx.strokeStyle=C.active; ctx.lineWidth=1.25;
+        ctx.globalAlpha=brightness*.95; ctx.strokeStyle=C.active; ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(x,y,markerBase,0,7); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x-markerBase*.42,y);
         ctx.lineTo(x-markerBase*.08,y+markerBase*.32);
@@ -227,13 +273,14 @@ function draw(){
         const ageRatio=Math.min(1,blocked.days/Math.max(1,blocked.maxDays));
         const radius=Math.min(10,markerBase*(1+.25*ageRatio));
         const {x,y}=nodeBadgePoint(p,rr,radius,-1,unresolved.length?1:0);
-        ctx.globalAlpha=.9; ctx.strokeStyle=C.buggap; ctx.lineWidth=1.5;
+        ctx.globalAlpha=.9; ctx.strokeStyle=C.buggap; ctx.lineWidth=1;
         ctx.setLineDash([Math.max(1,radius*.38),Math.max(1,radius*.34)]);
         ctx.beginPath(); ctx.arc(x,y,radius,0,7); ctx.stroke();
         ctx.setLineDash([]);
       }
     }
   }
+  ctx.filter='none';
   ctx.globalAlpha = 1;
 }
 const snapCam = reducedMotion;

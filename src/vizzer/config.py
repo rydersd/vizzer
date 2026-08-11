@@ -85,7 +85,7 @@ DEFAULTS = {
     # Accepted owner answers are source input in a separate audited ledger.
     "questions": {"answers_path": "vizzer/question-answers.json"},
     # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
-    "activity": {"path": "", "stale_after_minutes": 120},
+    "activity": {"path": "", "stale_after_minutes": 120, "trail_rounds": 5},
     # Durable workstream intent is repo data; leased live sessions are local runtime.
     "workstreams": {
         "enabled": False,
@@ -328,6 +328,10 @@ class Config:
         if (isinstance(stale_minutes, bool) or not isinstance(stale_minutes, int)
                 or stale_minutes <= 0):
             raise ConfigError("activity.stale_after_minutes must be a positive integer")
+        trail_rounds = self.get("activity.trail_rounds", 5)
+        if (isinstance(trail_rounds, bool) or not isinstance(trail_rounds, int)
+                or not 2 <= trail_rounds <= 8):
+            raise ConfigError("activity.trail_rounds must be an integer from 2 through 8")
         history_path = self.get("progress.history_path", "")
         if not isinstance(history_path, str):
             raise ConfigError("progress.history_path must be a string")

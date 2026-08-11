@@ -155,6 +155,7 @@ The one file you edit. Keys and defaults:
 | `planning.overlay_path` | `"vizzer/planning-overlay.json"` | Versioned, repo-local priority overlay; never a story write-back surface. |
 | `activity.path` | `""` | Optional repo-relative schema-1 live-agent checkpoint feed. |
 | `activity.stale_after_minutes` | `120` | Age after which work stays visible but stops animating. |
+| `activity.trail_rounds` | `5` | Recent explicit checkpoints retained per agent for straight-line traversal trails (2–8). |
 | `questions.answers_path` | `"vizzer/question-answers.json"` | Repo-local, model-neutral authority for accepted owner answers. |
 | `progress.history_path` | `""` | Optional generated semantic-history ledger; never hand-edit it. |
 | `progress.hot_window_days` | `7` | Brightness window for recent progress trails. |

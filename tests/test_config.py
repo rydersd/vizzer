@@ -142,6 +142,8 @@ def test_invalid_status_transition_metadata_is_rejected(tmp_path, status_config,
 @pytest.mark.parametrize("activity_config, message", [
     ('path = true\nstale_after_minutes = 30\n', "activity.path"),
     ('path = "vizzer/active-work.json"\nstale_after_minutes = 0\n', "positive integer"),
+    ('path = "vizzer/active-work.json"\ntrail_rounds = 1\n', "2 through 8"),
+    ('path = "vizzer/active-work.json"\ntrail_rounds = 9\n', "2 through 8"),
 ])
 def test_invalid_activity_configuration_is_rejected(tmp_path, activity_config, message):
     """codex-sequence-2026-08-08: broken instrumentation config fails early."""

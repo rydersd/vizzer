@@ -463,6 +463,37 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             if related_index is not None:
                 work_links.append([work_index, related_index])
 
+    # Explicit checkpoint chronology is the only authority for an agent trail.
+    # Dependency proximity and layout adjacency are intentionally ignored: a
+    # pretty inferred route would be a fabricated work record.
+    trail_limit = cfg.get("activity.trail_rounds", 5)
+    activity_by_agent: dict[str, list] = {}
+    for entry in graph.active_work:
+        if entry.story_id in idx:
+            activity_by_agent.setdefault(entry.agent, []).append(entry)
+    agent_trails = []
+    for agent, entries in sorted(activity_by_agent.items()):
+        checkpoints = []
+        for entry in sorted(
+            entries,
+            key=lambda value: (
+                value.updated_at, value.story_id, value.task, value.state,
+            ),
+        ):
+            point = {
+                "n": idx[entry.story_id],
+                "at": entry.updated_at,
+                "state": entry.state,
+                "task": entry.task,
+            }
+            if checkpoints and checkpoints[-1]["n"] == point["n"]:
+                checkpoints[-1] = point
+            else:
+                checkpoints.append(point)
+        checkpoints = checkpoints[-trail_limit:]
+        if len(checkpoints) >= 2:
+            agent_trails.append({"agent": agent, "points": checkpoints})
+
     # Questions are explicit researched decisions, not a spelling of "blocked".
     # Keeping them separate lets a question survive stale/completed work and lets
     # operational blockers remain honest.
@@ -543,6 +574,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         "relations": relations,
         "work": work,
         "workLinks": work_links,
+        "agentTrails": agent_trails,
         "questions": questions,
         "decisions": decisions,
         # Accepted owner planning course is inspectable in static mode. Writes

@@ -616,6 +616,58 @@ def test_constellation_activity_lens_pulses_only_explicit_fresh_work_links(tmp_p
     assert "ctx.setLineDash([4,4])" in html  # typed relation, not hard dependency
 
 
+def test_constellation_agent_trails_follow_only_recent_explicit_checkpoints(tmp_path):
+    graph = _graph()
+    graph.active_work = [
+        ActiveWork(
+            story_id=story_id, agent="Galileo", task=f"round {round_number}",
+            state="complete" if round_number < 6 else "active",
+            completed=round_number, total=6,
+            updated_at=f"2026-08-0{round_number}T12:00:00Z",
+            stale_at="2099-08-08T19:00:00Z",
+        )
+        for round_number, story_id in enumerate(
+            ["story:a", "story:a", "story:b", "story:a", "story:b", "story:a"],
+            1,
+        )
+    ] + [ActiveWork(
+        story_id="story:b", agent="Kepler", task="single checkpoint",
+        state="active", completed=1, total=1,
+        updated_at="2026-08-07T12:00:00Z",
+        stale_at="2099-08-08T19:00:00Z",
+    )]
+    cfg = Config(data=deep_merge(DEFAULTS, {"activity": {"trail_rounds": 3}}))
+
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+    data = _data(html)
+
+    assert data["agentTrails"] == [{
+        "agent": "Galileo",
+        "points": [
+            {"n": 0, "at": "2026-08-04T12:00:00Z", "state": "complete", "task": "round 4"},
+            {"n": 1, "at": "2026-08-05T12:00:00Z", "state": "complete", "task": "round 5"},
+            {"n": 0, "at": "2026-08-06T12:00:00Z", "state": "active", "task": "round 6"},
+        ],
+    }]
+    assert "Straight agent trails connect only explicit chronological checkpoints" in html
+    assert "const recency=step/Math.max(1,points.length-1)" in html
+    assert "trailArrow(P[a],P[b],color,alpha)" in html
+
+
+def test_constellation_uses_lightweight_outline_glyphs_strong_activity_and_capped_depth_blur(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "ctx.strokeStyle=col;ctx.lineWidth=1.5;trianglePath" in html
+    assert "ctx.strokeStyle=col;ctx.lineWidth=1.5;\n      xPath" in html
+    assert "ctx.strokeStyle = col; ctx.lineWidth = 1;" in html
+    assert "1.72+.58*activeWave" in html and "2.35+.42*activeWave" in html
+    assert "DATA.nodes.length<=800" in html and "'blur(.7px)'" in html
+    assert "const farCount=depthBlur==='none'?0:Math.floor(order.length/3)" in html
+
+
 def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
     graph = _graph()
     graph.active_work = [ActiveWork(
@@ -651,7 +703,7 @@ def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
     assert data["questions"][0]["prompt"] == "Should close-target or handle hit win?"
     assert "const ownerQuestions = i =>\n  (DATA.nodes[i].oq||[])" in html
     assert "const unresolved=ownerQuestions(i)" in html
-    assert "xPath(x,y,Math.max(2.5,radius*.82))" in html
+    assert "xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave))" in html
     assert "if(unresolved.length>1)" in html
     assert "Never infer them from a" in html
     assert "[w.state,stale?'stale':'']" in html
@@ -696,7 +748,7 @@ def test_constellation_lenses_are_accessible_and_reduced_motion_is_semantic(tmp_
     assert "aria-pressed" in html and "aria-label','Graph lenses" in html
     assert "prefers-reduced-motion: reduce" in html
     assert "const reducedMotion" in html
-    assert "reducedMotion ? .72" in html
+    assert "const pulse=reducedMotion?.78" in html
     assert "ctx.lineDashOffset=reducedMotion?0" in html
 
 
@@ -767,7 +819,7 @@ def test_constellation_owner_questions_pulse_and_emit_reduced_motion_safe_shockw
     assert "const questionPulse=reducedMotion?.16" in html
     assert "ctx.arc(p.x,p.y,rr*2.15,0,7);ctx.fill()" in html
     assert "Explicit researched decisions use an X as the steady blocker signal" in html
-    assert "xPath(x,y,Math.max(2.5,radius*.82));ctx.stroke()" in html
+    assert "xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke()" in html
 
 
 def test_constellation_question_blocker_is_explicit_and_actionable(tmp_path):

@@ -458,6 +458,7 @@ overlay_path = "vizzer/planning-overlay.json"
 [activity]
 path = ""
 stale_after_minutes = 120
+trail_rounds = 5
 
 # Versioned workstream intent plus machine-local leased sessions. Agents use the
 # CLI/server writer; they do not race by editing the JSON stores directly.

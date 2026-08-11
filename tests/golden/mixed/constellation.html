@@ -6,22 +6,30 @@
   --shipped:#D6C29A; --active:#4F9FE8; --ready:#74C98B; --buggap:#C27B6E;
   --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;
   --owner-override:#E879F9;
+  --agent-trail-1:#67B7FF; --agent-trail-2:#8BD49C; --agent-trail-3:#E4B86B;
+  --agent-trail-4:#D88CE8; --agent-trail-5:#77D2C8; --agent-trail-6:#F08C86;
 }
 @media (prefers-color-scheme: light){:root{
   --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
   --shipped:#8A6F3F; --active:#296EA8; --ready:#347A4A; --buggap:#A6594E;
   --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;
-  --owner-override:#B832B8;}}
+  --owner-override:#B832B8;
+  --agent-trail-1:#246CA7; --agent-trail-2:#347A4A; --agent-trail-3:#8A6326;
+  --agent-trail-4:#8A3D96; --agent-trail-5:#287A72; --agent-trail-6:#A64D48;}}
 :root[data-theme="dark"]{
   --bg:#0B0D12; --bg2:#12151D; --panel:#141821ee; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
   --shipped:#D6C29A; --active:#4F9FE8; --ready:#74C98B; --buggap:#C27B6E;
   --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;
-  --owner-override:#E879F9;}
+  --owner-override:#E879F9;
+  --agent-trail-1:#67B7FF; --agent-trail-2:#8BD49C; --agent-trail-3:#E4B86B;
+  --agent-trail-4:#D88CE8; --agent-trail-5:#77D2C8; --agent-trail-6:#F08C86;}
 :root[data-theme="light"]{
   --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FFFFFFee; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
   --shipped:#8A6F3F; --active:#296EA8; --ready:#347A4A; --buggap:#A6594E;
   --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;
-  --owner-override:#B832B8;}
+  --owner-override:#B832B8;
+  --agent-trail-1:#246CA7; --agent-trail-2:#347A4A; --agent-trail-3:#8A6326;
+  --agent-trail-4:#8A3D96; --agent-trail-5:#287A72; --agent-trail-6:#A64D48;}
 
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
@@ -267,7 +275,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 
 </script>
 <script>
-const DATA={"engineVersion":"0.8.0","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.1","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -287,6 +295,7 @@ const mixA = (a,b,t)=> a.map((v,i)=>Math.round(v+(b[i]-v)*t));
 const rgbCss = a => 'rgb('+a.join(',')+')';
 function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked','foundation']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
   C.owner=css('owner-override'); RGB.owner=rgbOf(C.owner);
+  C.trails=Array.from({length:6},(_,i)=>css(`agent-trail-${i+1}`));
   RGB.fade = rgbOf(css('faint')); }
 recolor();
 if (typeof MutationObserver==='function')
@@ -1224,6 +1233,21 @@ function trianglePath(x,y,radius){
 function xPath(x,y,radius){
   ctx.beginPath();ctx.moveTo(x-radius,y-radius);ctx.lineTo(x+radius,y+radius);ctx.moveTo(x+radius,y-radius);ctx.lineTo(x-radius,y+radius);
 }
+function agentTrailColor(agent){
+  let hash=2166136261;
+  for(const char of agent)hash=Math.imul(hash^char.codePointAt(0),16777619);
+  return C.trails[Math.abs(hash)%C.trails.length]||C.active;
+}
+function trailArrow(a,b,color,alpha){
+  const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+  if(length<8)return;
+  const ux=dx/length,uy=dy/length,size=3.5;
+  ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(b.x,b.y);
+  ctx.lineTo(b.x-ux*size-uy*size*.62,b.y-uy*size+ux*size*.62);
+  ctx.moveTo(b.x,b.y);
+  ctx.lineTo(b.x-ux*size+uy*size*.62,b.y-uy*size-ux*size*.62);ctx.stroke();
+}
 const nodeBadgeRadius = rr => Math.max(1.5,Math.min(8,rr*.42));
 const nodeBadgePoint = (p,rr,radius,side=1,slot=0) => {
   // Keep every badge on the node envelope. Older progress fans around that
@@ -1251,7 +1275,9 @@ function project(){
 }
 function draw(){
   ctx.clearRect(0,0,W,H);
-  const pulse = reducedMotion ? .72 : .45+.27*(1+Math.sin(performance.now()/360));
+  const activeWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/300);
+  const pulse=reducedMotion?.78:.55+.45*activeWave;
+  const xWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/620);
   const selSet = new Set();
   if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
   if (sel>=0){ relNbr[sel].out.forEach(([j])=>selSet.add(j)); relNbr[sel].inc.forEach(([j])=>selSet.add(j)); }
@@ -1280,6 +1306,24 @@ function draw(){
     ctx.strokeStyle = C.active; ctx.globalAlpha = (lit?.75:(activeCount===2?.55:.22))*(searchEdgeDim?.16:1);
     ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
   }
+  // Straight agent trails connect only explicit chronological checkpoints.
+  // They are not dependency edges and never bridge across a filtered point.
+  if(lens.activity){
+    ctx.setLineDash([]);
+    for(const trail of (DATA.agentTrails||[])){
+      const color=agentTrailColor(trail.agent),points=trail.points||[];
+      for(let step=1;step<points.length;step++){
+        const a=points[step-1].n,b=points[step].n;
+        if(a==null||b==null||!P[a].on||!P[b].on)continue;
+        const recency=step/Math.max(1,points.length-1);
+        const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
+        const alpha=(.14+.5*recency)*(searchEdgeDim?.16:1);
+        ctx.strokeStyle=color;ctx.lineWidth=1.15;ctx.globalAlpha=alpha;
+        ctx.beginPath();ctx.moveTo(P[a].x,P[a].y);ctx.lineTo(P[b].x,P[b].y);ctx.stroke();
+        trailArrow(P[a],P[b],color,alpha);
+      }
+    }
+  }
   // Explicit agent-work linkage pulses. It is not silently inferred from a hard
   // dependency or typed relation, so the overlay never claims evidence it lacks.
   if (lens.activity){
@@ -1288,7 +1332,7 @@ function draw(){
       const w=DATA.work[wi], a=w&&w.n;
       if (!freshWork(w)||a==null||!P[a].on||!P[b].on) continue;
       const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
-      ctx.strokeStyle=C.active; ctx.lineWidth=2.4; ctx.globalAlpha=pulse*(searchEdgeDim?.16:1);
+      ctx.strokeStyle=C.active; ctx.lineWidth=2.6; ctx.globalAlpha=pulse*(searchEdgeDim?.16:1);
       ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
     }
   }
@@ -1307,9 +1351,17 @@ function draw(){
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
-  const order = DATA.nodes.map((_,i)=>i).sort((a,b)=>P[b].d-P[a].d);
-  for (const i of order){
-    const p = P[i]; if (!p.on) continue;
+  const order = DATA.nodes.map((_,i)=>i).filter(i=>P[i].on).sort((a,b)=>P[b].d-P[a].d);
+  // One shallow blur bucket creates depth without a blur filter per node. The
+  // farthest third changes the canvas filter once, then the focal field stays
+  // sharp. Very large graphs keep the cheaper opacity/scale depth cues only.
+  const depthBlur=(!reducedMotion&&DATA.nodes.length<=800&&typeof ctx.filter==='string')?'blur(.7px)':'none';
+  const farCount=depthBlur==='none'?0:Math.floor(order.length/3);
+  let appliedFilter='none';ctx.filter='none';
+  for (let position=0;position<order.length;position++){
+    const i=order[position],p=P[i];
+    const nextFilter=position<farCount?depthBlur:'none';
+    if(nextFilter!==appliedFilter){ctx.filter=nextFilter;appliedFilter=nextFilter;}
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
     const dim = (sel>=0 && !selSet.has(i)) || searchDim;
@@ -1321,12 +1373,13 @@ function draw(){
     ctx.globalAlpha = progressOpacity(n)*focusAlpha;
     const rr = nodeRadius(i);
     if (n.g==='specced'){ // unbuilt-but-specced: an empty vessel, outline only
-      ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, rr*.32);
+      ctx.strokeStyle = col; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*.85,0,7); ctx.stroke();
     } else if(n.g==='shipped'){
-      ctx.fillStyle=col;trianglePath(p.x,p.y,rr);ctx.fill();
+      ctx.strokeStyle=col;ctx.lineWidth=1.5;trianglePath(p.x,p.y,rr);ctx.stroke();
     } else if(n.g==='buggap'){
-      ctx.strokeStyle=col;ctx.lineWidth=Math.max(1.5,rr*.35);xPath(p.x,p.y,rr*.72);ctx.stroke();
+      ctx.globalAlpha*=.9+.1*xWave;ctx.strokeStyle=col;ctx.lineWidth=1.5;
+      xPath(p.x,p.y,rr*(.7+.035*xWave));ctx.stroke();
     } else {
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,7); ctx.fill();
@@ -1334,7 +1387,7 @@ function draw(){
     // Release/version is a separate outer-ring channel; blending it into fill
     // would make progress versus horizon impossible to decode.
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
-    ctx.lineWidth=Math.max(.75,rr*.11);
+    ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
     // Unknown assessed size gets a neutral dashed ring. It must not look like
     // XS merely because both are visually compact.
@@ -1346,7 +1399,7 @@ function draw(){
     // punted. Downstream-affected nodes get a quieter dotted halo.
     const course=ownerCourse(i);
     if(course&&!dim){
-      ctx.globalAlpha=course==='promoted'?.88:.72;ctx.strokeStyle=C.owner;ctx.lineWidth=2;
+      ctx.globalAlpha=course==='promoted'?.88:.72;ctx.strokeStyle=C.owner;ctx.lineWidth=1;
       ctx.setLineDash(course==='punted'?[4,3]:[]);
       ctx.beginPath();ctx.arc(p.x,p.y,rr*1.82,0,7);ctx.stroke();ctx.setLineDash([]);
       if(course==='promoted'){
@@ -1365,11 +1418,11 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*(1.45+.7*p.near),0,7); ctx.fill();
     }
     if(i===hover&&!dim){
-      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,[255,255,255],.8)); ctx.lineWidth=1.5;
+      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,[255,255,255],.8)); ctx.lineWidth=1.25;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.38,0,7); ctx.stroke();
     }
     if(i===sel){
-      ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=2;
+      ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=1.5;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.58,0,7); ctx.stroke();
     }
     if (rec){ // recommended-next: soft glow + bright ring so it pops off the muted field
@@ -1377,18 +1430,20 @@ function draw(){
       ctx.fillStyle = rgbCss(mixA(rgb,[255,255,255],.5));
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*2.6,0,7); ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1.6;
+      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
     }
-    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.14; ctx.fillStyle=col;
-      trianglePath(p.x,p.y,p.s*2.6);ctx.fill(); }
+    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.12; ctx.strokeStyle=col;ctx.lineWidth=1.5;
+      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke(); }
     if (activeNode(i) && !dim){
       // Motion is optional; the steady ring and checkpoint arc preserve meaning
       // under prefers-reduced-motion.
-      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.75:1.55+.25*pulse),0,7); ctx.stroke();
+      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7); ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
       const progress=nodeProgress(i);
-      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=3;
+      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.28,-Math.PI/2,
           -Math.PI/2+2*Math.PI*(progress.done/progress.total)); ctx.stroke(); }
     }
@@ -1403,13 +1458,13 @@ function draw(){
       for(const offset of [0,.5]){
         const phase=questionWavePhase(i,offset);
         ctx.globalAlpha=reducedMotion?(offset===0?.13:.07):.2*Math.pow(1-phase,1.7);
-        ctx.strokeStyle=C.owner;ctx.lineWidth=Math.max(.75,1.35-phase*.55);
+        ctx.strokeStyle=C.owner;ctx.lineWidth=1;
         ctx.beginPath();ctx.arc(p.x,p.y,rr*(1.65+phase*3.1),0,7);ctx.stroke();
       }
       const radius=nodeBadgeRadius(rr);
       const {x,y}=nodeBadgePoint(p,rr,radius,-1,0);
-      ctx.globalAlpha=1;ctx.strokeStyle=C.owner;ctx.lineWidth=2;
-      xPath(x,y,Math.max(2.5,radius*.82));ctx.stroke();
+      ctx.globalAlpha=.86+.14*xWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+      xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke();
       if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(5,radius*1.25)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),x+radius,y);}
     }
     // Circle-check marks are a static history trail: the newest overlaps the
@@ -1422,7 +1477,7 @@ function draw(){
         const age=ageDays(event.at), hotWindow=Math.max(.01,(n.pg||{}).hotWindowDays||7);
         const brightness=Math.max(.18,1-age/hotWindow);
         const {x,y}=nodeBadgePoint(p,rr,markerBase,1,order);
-        ctx.globalAlpha=brightness*.95; ctx.strokeStyle=C.active; ctx.lineWidth=1.25;
+        ctx.globalAlpha=brightness*.95; ctx.strokeStyle=C.active; ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(x,y,markerBase,0,7); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x-markerBase*.42,y);
         ctx.lineTo(x-markerBase*.08,y+markerBase*.32);
@@ -1436,13 +1491,14 @@ function draw(){
         const ageRatio=Math.min(1,blocked.days/Math.max(1,blocked.maxDays));
         const radius=Math.min(10,markerBase*(1+.25*ageRatio));
         const {x,y}=nodeBadgePoint(p,rr,radius,-1,unresolved.length?1:0);
-        ctx.globalAlpha=.9; ctx.strokeStyle=C.buggap; ctx.lineWidth=1.5;
+        ctx.globalAlpha=.9; ctx.strokeStyle=C.buggap; ctx.lineWidth=1;
         ctx.setLineDash([Math.max(1,radius*.38),Math.max(1,radius*.34)]);
         ctx.beginPath(); ctx.arc(x,y,radius,0,7); ctx.stroke();
         ctx.setLineDash([]);
       }
     }
   }
+  ctx.filter='none';
   ctx.globalAlpha = 1;
 }
 const snapCam = reducedMotion;

@@ -18,6 +18,7 @@ const mixA = (a,b,t)=> a.map((v,i)=>Math.round(v+(b[i]-v)*t));
 const rgbCss = a => 'rgb('+a.join(',')+')';
 function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked','foundation']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
   C.owner=css('owner-override'); RGB.owner=rgbOf(C.owner);
+  C.trails=Array.from({length:6},(_,i)=>css(`agent-trail-${i+1}`));
   RGB.fade = rgbOf(css('faint')); }
 recolor();
 if (typeof MutationObserver==='function')
