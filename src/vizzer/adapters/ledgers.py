@@ -201,6 +201,7 @@ def scan(cfg, root: Path) -> ScanResult:
                 title=title,
                 status=status,
                 group=group_id,
+                role="evidence",
                 source={"adapter": "ledgers", "path": relpath},
             ))
 

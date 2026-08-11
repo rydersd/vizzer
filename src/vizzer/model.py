@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import json
 import re
+import hashlib
 from dataclasses import dataclass, field, asdict
 
-SCHEMA = 1
+SCHEMA = 2
+SUPPORTED_SCHEMAS = {1, SCHEMA}
 _ACTIVITY_TEXT_FIELDS = {"created", "modified"}
 _RELATION_KIND_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
+_FACET_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
+ITEM_ROLES = {"delivery", "coverage", "evidence", "decision", "reference"}
 
 
 def _validate_id(value: str, subject: str) -> None:
@@ -56,6 +60,60 @@ class ActiveWork:
 
 
 @dataclass
+class OwnerQuestionOption:
+    id: str
+    label: str
+    tradeoff: str
+
+
+@dataclass
+class OwnerQuestionRecommendation:
+    option_id: str
+    rationale: str
+
+
+@dataclass
+class OwnerQuestion:
+    id: str
+    story_id: str
+    owner: str
+    prompt: str
+    options: list[OwnerQuestionOption]
+    recommendation: OwnerQuestionRecommendation
+    falsifier: str
+    evidence: list[str]
+
+
+def owner_question_fingerprint(question: OwnerQuestion) -> str:
+    """Return the canonical content identity used by answer compare-and-swap.
+
+    The question id alone is deliberately insufficient: an agent may refine a
+    prompt, option, recommendation, falsifier, or evidence while an older page
+    remains open.  List order is meaningful presentation data, while object key
+    order is not.
+    """
+    canonical = json.dumps(
+        asdict(question), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+@dataclass
+class OwnerDecision:
+    """An accepted answer reconciled against its exact current question."""
+
+    question: OwnerQuestion
+    fingerprint: str
+    revision: int
+    answered_at: str
+    answered_by: str
+    kind: str
+    option_id: str | None = None
+    text: str | None = None
+
+
+@dataclass
 class Item:
     id: str
     title: str
@@ -68,6 +126,13 @@ class Item:
     # codex-sequence-2026-08-08: typed nonblocking story relationships.
     relations: list[Relation] = field(default_factory=list)
     appetite: str | None = None
+    # What this item contributes to. Structural location and portfolio meaning
+    # are deliberately separate: a ledger phase is evidence, not delivery work.
+    role: str = "delivery"
+    # Authored free labels stay distinct from operational flags such as blocked.
+    tags: list[str] = field(default_factory=list)
+    # Many-to-many project dimensions (for example product and capability).
+    facets: dict[str, list[str]] = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
     source: dict = field(default_factory=dict)
     activity: dict = field(default_factory=dict)
@@ -123,6 +188,13 @@ def _item_from_dict(data: dict) -> Item:
 
     item_data = dict(data)
     item_data["relations"] = relations
+    if "role" not in item_data:
+        prefix = str(item_data.get("id", "")).partition(":")[0]
+        item_data["role"] = {
+            "product-capability": "coverage",
+            "phase": "evidence",
+            "doc": "reference",
+        }.get(prefix, "delivery")
     item = Item(**item_data)
     if not isinstance(item.id, str) or not isinstance(item.title, str):
         raise ValueError("graph item id and title must be strings")
@@ -146,6 +218,21 @@ def _item_from_dict(data: dict) -> Item:
         isinstance(value, str) for value in item.flags
     ):
         raise ValueError("graph item flags must be a list of strings")
+    if item.role not in ITEM_ROLES:
+        raise ValueError(f"graph item role must be one of {sorted(ITEM_ROLES)}")
+    if not isinstance(item.tags, list) or not all(
+        isinstance(value, str) and value for value in item.tags
+    ):
+        raise ValueError("graph item tags must be a list of non-empty strings")
+    if not isinstance(item.facets, dict):
+        raise ValueError("graph item facets must be an object")
+    for name, values in item.facets.items():
+        if not isinstance(name, str) or not _FACET_NAME_RE.fullmatch(name):
+            raise ValueError("graph item facet names must be typed identifiers")
+        if not isinstance(values, list) or not all(
+            isinstance(value, str) and value for value in values
+        ):
+            raise ValueError("graph item facet values must be non-empty strings")
     if not isinstance(item.source, dict) or not isinstance(item.activity, dict):
         raise ValueError("graph item source and activity must be objects")
     if not isinstance(item.priority, dict) or not isinstance(item.progress, dict):
@@ -231,6 +318,96 @@ def _active_work_from_dict(data: dict) -> ActiveWork:
     return work
 
 
+def owner_question_from_dict(data: dict) -> OwnerQuestion:
+    try:
+        options_raw = data["options"]
+        recommendation_raw = data["recommendation"]
+        options = [OwnerQuestionOption(**value) for value in options_raw]
+        recommendation = OwnerQuestionRecommendation(**recommendation_raw)
+        question = OwnerQuestion(
+            id=data["id"],
+            story_id=data["story_id"],
+            owner=data["owner"],
+            prompt=data["prompt"],
+            options=options,
+            recommendation=recommendation,
+            falsifier=data["falsifier"],
+            evidence=data["evidence"],
+        )
+    except (KeyError, TypeError) as exc:
+        raise ValueError("graph owner question has unknown or missing fields") from exc
+    text = (question.id, question.story_id, question.owner, question.prompt,
+            question.recommendation.option_id, question.recommendation.rationale,
+            question.falsifier)
+    if not all(isinstance(value, str) and value for value in text):
+        raise ValueError("graph owner question text fields must be non-empty strings")
+    _validate_id(question.id, "owner question")
+    _validate_id(question.story_id, "owner question story")
+    if len(question.options) not in (2, 3):
+        raise ValueError("graph owner question requires 2 or 3 options")
+    option_ids = [option.id for option in question.options]
+    if len(option_ids) != len(set(option_ids)):
+        raise ValueError("graph owner question option ids must be unique")
+    for option in question.options:
+        if not all(isinstance(value, str) and value for value in (
+            option.id, option.label, option.tradeoff
+        )):
+            raise ValueError("graph owner question options require non-empty text")
+    if question.recommendation.option_id not in option_ids:
+        raise ValueError("graph owner question recommendation must name an option")
+    if not isinstance(question.evidence, list) or not question.evidence or not all(
+        isinstance(value, str) and value for value in question.evidence
+    ):
+        raise ValueError("graph owner question evidence must be non-empty strings")
+    return question
+
+
+def owner_decision_from_dict(data: dict) -> OwnerDecision:
+    try:
+        allowed = {
+            "question", "fingerprint", "revision", "answered_at", "answered_by",
+            "kind", "option_id", "text",
+        }
+        if set(data) != allowed:
+            raise TypeError
+        decision = OwnerDecision(
+            question=owner_question_from_dict(data["question"]),
+            fingerprint=data["fingerprint"],
+            revision=data["revision"],
+            answered_at=data["answered_at"],
+            answered_by=data["answered_by"],
+            kind=data["kind"],
+            option_id=data["option_id"],
+            text=data["text"],
+        )
+    except (KeyError, TypeError) as exc:
+        raise ValueError("graph owner decision has unknown or missing fields") from exc
+    if not isinstance(decision.fingerprint, str) or not re.fullmatch(
+        r"[0-9a-f]{64}", decision.fingerprint
+    ):
+        raise ValueError("graph owner decision fingerprint must be lowercase SHA-256")
+    if decision.fingerprint != owner_question_fingerprint(decision.question):
+        raise ValueError("graph owner decision fingerprint does not match its question")
+    if (isinstance(decision.revision, bool)
+            or not isinstance(decision.revision, int) or decision.revision <= 0):
+        raise ValueError("graph owner decision revision must be a positive integer")
+    if not all(isinstance(value, str) and value for value in (
+        decision.answered_at, decision.answered_by, decision.kind
+    )):
+        raise ValueError("graph owner decision audit fields must be non-empty strings")
+    option_ids = {option.id for option in decision.question.options}
+    if decision.kind == "option":
+        if decision.option_id not in option_ids or decision.text is not None:
+            raise ValueError("graph option decision must select a current option only")
+    elif decision.kind == "freeform":
+        if decision.option_id is not None or not isinstance(decision.text, str) \
+                or not decision.text.strip():
+            raise ValueError("graph freeform decision must contain text only")
+    else:
+        raise ValueError("graph owner decision kind must be option or freeform")
+    return decision
+
+
 @dataclass
 class Graph:
     groups: list[Group] = field(default_factory=list)
@@ -241,8 +418,14 @@ class Graph:
     vocab: dict = field(default_factory=dict)
     # codex-sequence-2026-08-08: target provenance and ranked recommendation ids.
     priority: dict = field(default_factory=dict)
+    # Deterministic delivery profiles and feasible portfolio suggestions.
+    assessment: dict = field(default_factory=dict)
     # codex-sequence-2026-08-08: switchable, timestamped agent-activity lens.
     active_work: list[ActiveWork] = field(default_factory=list)
+    # Explicit researched decisions. Generic blocked work is not a question.
+    owner_questions: list[OwnerQuestion] = field(default_factory=list)
+    # Accepted answers are separate from open questions and remain auditable.
+    owner_decisions: list[OwnerDecision] = field(default_factory=list)
     activity: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -257,6 +440,10 @@ class Graph:
                 serialized.pop("priority")
             if not serialized["progress"]:
                 serialized.pop("progress")
+            if not serialized["tags"]:
+                serialized.pop("tags")
+            if not serialized["facets"]:
+                serialized.pop("facets")
             serialized_items.append(serialized)
 
         result = {
@@ -274,11 +461,27 @@ class Graph:
         }
         if self.priority:
             result["priority"] = self.priority
+        if self.assessment:
+            result["assessment"] = self.assessment
         if self.active_work:
             result["active_work"] = [
                 asdict(work) for work in sorted(
                     self.active_work,
                     key=lambda work: (work.story_id, work.agent, work.task),
+                )
+            ]
+        if self.owner_questions:
+            result["owner_questions"] = [
+                asdict(question) for question in sorted(
+                    self.owner_questions,
+                    key=lambda question: question.id,
+                )
+            ]
+        if self.owner_decisions:
+            result["owner_decisions"] = [
+                asdict(decision) for decision in sorted(
+                    self.owner_decisions,
+                    key=lambda decision: (decision.question.id, decision.revision),
                 )
             ]
         if self.activity:
@@ -292,6 +495,11 @@ class Graph:
     def from_dict(cls, d: dict) -> "Graph":
         if not isinstance(d, dict):
             raise ValueError("graph must be a JSON object")
+        schema = d.get("schema", 1)
+        if schema not in SUPPORTED_SCHEMAS:
+            raise ValueError(
+                f"graph schema must be one of {sorted(SUPPORTED_SCHEMAS)}"
+            )
 
         groups = d.get("groups", [])
         items = d.get("items", [])
@@ -307,7 +515,10 @@ class Graph:
         warnings = d.get("warnings", [])
         vocab = d.get("vocab", {})
         priority = d.get("priority", {})
+        assessment = d.get("assessment", {})
         active_work = d.get("active_work", [])
+        owner_questions = d.get("owner_questions", [])
+        owner_decisions = d.get("owner_decisions", [])
         activity = d.get("activity", {})
         if not isinstance(conflicts, list) or not all(
             isinstance(value, dict) for value in conflicts
@@ -321,10 +532,20 @@ class Graph:
             raise ValueError("graph vocab must be an object")
         if not isinstance(priority, dict):
             raise ValueError("graph priority must be an object")
+        if not isinstance(assessment, dict):
+            raise ValueError("graph assessment must be an object")
         if not isinstance(active_work, list) or not all(
             isinstance(value, dict) for value in active_work
         ):
             raise ValueError("graph active_work must be a list of objects")
+        if not isinstance(owner_questions, list) or not all(
+            isinstance(value, dict) for value in owner_questions
+        ):
+            raise ValueError("graph owner_questions must be a list of objects")
+        if not isinstance(owner_decisions, list) or not all(
+            isinstance(value, dict) for value in owner_decisions
+        ):
+            raise ValueError("graph owner_decisions must be a list of objects")
         if not isinstance(activity, dict):
             raise ValueError("graph activity must be an object")
         statuses = vocab.get("statuses")
@@ -345,6 +566,27 @@ class Graph:
             if isinstance(milestone, dict)
         ]
         parsed_work = [_active_work_from_dict(work) for work in active_work]
+        parsed_questions = [owner_question_from_dict(question)
+                            for question in owner_questions]
+        parsed_decisions = [owner_decision_from_dict(decision)
+                            for decision in owner_decisions]
+        question_ids = [question.id for question in parsed_questions]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("graph owner question ids must be unique")
+        decision_ids = [decision.question.id for decision in parsed_decisions]
+        if len(decision_ids) != len(set(decision_ids)):
+            raise ValueError("graph owner decision question ids must be unique")
+        if set(question_ids) & set(decision_ids):
+            raise ValueError("graph owner questions and decisions must be disjoint")
+        item_ids = {item.id for item in parsed_items}
+        orphan_questions = [question.id for question in parsed_questions
+                            if question.story_id not in item_ids]
+        if orphan_questions:
+            raise ValueError("graph owner questions must reference existing items")
+        orphan_decisions = [decision.question.id for decision in parsed_decisions
+                            if decision.question.story_id not in item_ids]
+        if orphan_decisions:
+            raise ValueError("graph owner decisions must reference existing items")
         _validate_group_parents(parsed_groups)
 
         return cls(
@@ -355,7 +597,10 @@ class Graph:
             warnings=list(warnings),
             vocab=dict(vocab),
             priority=dict(priority),
+            assessment=dict(assessment),
             active_work=parsed_work,
+            owner_questions=parsed_questions,
+            owner_decisions=parsed_decisions,
             activity=dict(activity),
         )
 

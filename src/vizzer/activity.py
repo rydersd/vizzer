@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import Config
-from .model import ActiveWork, Graph
+from .model import ActiveWork, Graph, owner_question_from_dict
 
 
 _STATES = {"active", "blocked", "paused", "complete"}
@@ -174,8 +174,54 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
         parsed,
         key=lambda work: (work.story_id, work.agent, work.task),
     )
+    raw_questions = payload.get("questions", [])
+    parsed_questions = []
+    seen_question_ids: set[str] = set()
+    if not isinstance(raw_questions, list):
+        warnings.append("activity feed questions must be an array (questions ignored)")
+        raw_questions = []
+    for index, raw in enumerate(raw_questions, 1):
+        label = f"activity feed question #{index}"
+        if not isinstance(raw, dict):
+            warnings.append(f"{label} must be an object (question dropped)")
+            continue
+        try:
+            recommendation = raw.get("recommendation")
+            question = owner_question_from_dict({
+                "id": raw.get("id"),
+                "story_id": raw.get("storyId"),
+                "owner": raw.get("owner"),
+                "prompt": raw.get("prompt"),
+                "options": raw.get("options"),
+                "recommendation": {
+                    "option_id": recommendation.get("optionId")
+                    if isinstance(recommendation, dict) else None,
+                    "rationale": recommendation.get("rationale")
+                    if isinstance(recommendation, dict) else None,
+                },
+                "falsifier": raw.get("falsifier"),
+                "evidence": raw.get("evidence"),
+            })
+        except ValueError as exc:
+            warnings.append(f"{label} {exc} (question dropped)")
+            continue
+        if question.story_id not in item_ids:
+            warnings.append(
+                f"{label} references unknown item {question.story_id} (question dropped)"
+            )
+            continue
+        if question.id in seen_question_ids:
+            warnings.append(f"{label} duplicates {question.id} (question dropped)")
+            continue
+        seen_question_ids.add(question.id)
+        parsed_questions.append(question)
+    graph.owner_questions = sorted(parsed_questions, key=lambda question: question.id)
     graph.activity = {
         "source": str(configured),
         "stale_after_minutes": stale_minutes,
+        # Deterministic snapshot time for static portfolio coordination. The
+        # browser may compare to wall time for animation; generated work
+        # selection must not change merely because refresh ran an hour later.
+        "as_of": max((work.updated_at for work in graph.active_work), default=None),
     }
     return warnings

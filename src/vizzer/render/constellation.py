@@ -1,4 +1,4 @@
-"""Interactive 3D constellation: inject graph data into the self-contained template."""
+"""Interactive constellation: compose frontend sources and inject graph data."""
 from __future__ import annotations
 
 import html
@@ -8,20 +8,128 @@ from importlib.resources import files
 from pathlib import Path
 from urllib.parse import quote
 
+from .. import __version__
 from ..config import Config
-from ..model import Graph
+from ..model import Graph, owner_question_fingerprint
 from .common import priority_items, source_link_prefix
 
-TEMPLATE_NAME = "constellation_template.html"
+FRONTEND_DIR = "constellation"
+FRONTEND_RESOURCES = (
+    ("__VIZZER_TOKENS_CSS__", "tokens.css"),
+    ("__VIZZER_LAYOUT_CSS__", "layout.css"),
+    ("__VIZZER_VIEWS_CSS__", "views.css"),
+    ("__VIZZER_BOOT_JS__", "boot.js"),
+    ("__VIZZER_STATE_JS__", "state.js"),
+    ("__VIZZER_VIEWS_JS__", "views.js"),
+    ("__VIZZER_FILTERS_JS__", "filters.js"),
+    ("__VIZZER_QUESTIONS_JS__", "questions.js"),
+    ("__VIZZER_PLANNING_JS__", "planning.js"),
+    ("__VIZZER_DOSSIER_JS__", "dossier.js"),
+    ("__VIZZER_CANVAS_JS__", "canvas.js"),
+    ("__VIZZER_BOOTSTRAP_JS__", "bootstrap.js"),
+)
+
+
+def _frontend_text(name: str) -> str:
+    """Read one frontend source through importlib resources, including zipapps."""
+    return (files(__package__) / FRONTEND_DIR / name).read_text(encoding="utf-8")
 
 
 def _template_text() -> str:
-    """Read the template through the resources API so it works inside a zipapp too."""
-    return (files(__package__) / TEMPLATE_NAME).read_text(encoding="utf-8")
+    """Inline frontend sources into the shell without adding runtime dependencies."""
+    shell = _frontend_text("shell.html")
+    missing = [token for token, _ in FRONTEND_RESOURCES if token not in shell]
+    if missing:
+        raise RuntimeError(f"constellation shell is missing resource slots: {missing}")
+    resources = {token: _frontend_text(name)
+                 for token, name in FRONTEND_RESOURCES}
+    composed = re.sub(
+        "|".join(re.escape(token) for token in resources),
+        lambda match: resources[match.group(0)],
+        shell,
+    )
+    unresolved = re.findall(r"__VIZZER_[A-Z_]+__", composed)
+    if unresolved:
+        raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
+    return composed
 
-# story complexity → node radius weight, from the item's appetite field
+# Authored appetite fallback used only when assessment is disabled.
 APPETITE_W = {"small": 1.0, "medium": 1.9, "large": 2.9}
+ASSESSED_W = {"XS": 0.75, "S": 1.0, "M": 1.9, "L": 2.9, "XL": 3.6}
 DEFAULT_W = 1.4
+_SIZE_BANDS = {"XS", "S", "M", "L", "XL"}
+_UNCERTAINTY = {"U0", "U1", "U2", "U3"}
+_PROVENANCE = {"observed", "authored", "inferred", "unknown"}
+_PARALLEL = {"candidate", "serial", "unknown"}
+
+
+def _bounded_strings(value: object, *, limit: int = 12) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [entry[:500] for entry in value[:limit]
+            if isinstance(entry, str) and entry]
+
+
+def _assessment_profile(value: object) -> dict:
+    """Constrain persisted assessment data before it reaches HTML/JavaScript."""
+    if not isinstance(value, dict):
+        return {}
+    raw_size = value.get("size")
+    raw_impact = value.get("impact")
+    raw_parallel = value.get("parallelism")
+    if not all(isinstance(entry, dict)
+               for entry in (raw_size, raw_impact, raw_parallel)):
+        return {}
+    band = raw_size.get("assessed_band")
+    band = band if band in _SIZE_BANDS else None
+    plausible = raw_size.get("plausible_range", {})
+    if not isinstance(plausible, dict):
+        plausible = {}
+    dimensions = {}
+    raw_dimensions = raw_size.get("dimensions", {})
+    if isinstance(raw_dimensions, dict):
+        for name in ("implementation", "verification", "integration", "coordination"):
+            entry = raw_dimensions.get(name)
+            if not isinstance(entry, dict):
+                continue
+            dimension_band = entry.get("band")
+            provenance = entry.get("provenance")
+            dimensions[name] = {
+                "band": dimension_band if dimension_band in _SIZE_BANDS else None,
+                "provenance": provenance if provenance in _PROVENANCE else "unknown",
+            }
+
+    def count(name: str) -> int:
+        value = raw_impact.get(name)
+        if isinstance(value, bool) or not isinstance(value, int):
+            return 0
+        return min(max(value, 0), 1_000_000)
+
+    uncertainty = raw_size.get("uncertainty")
+    provenance = raw_size.get("provenance")
+    parallel = raw_parallel.get("classification")
+    raw_appetite = raw_size.get("raw_authored_appetite")
+    return {
+        "band": band,
+        "uncertainty": uncertainty if uncertainty in _UNCERTAINTY else "U3",
+        "range": [
+            plausible.get("min") if plausible.get("min") in _SIZE_BANDS else None,
+            plausible.get("max") if plausible.get("max") in _SIZE_BANDS else None,
+        ],
+        "provenance": provenance if provenance in _PROVENANCE else "unknown",
+        "rawAuthoredAppetite": raw_appetite[:200]
+        if isinstance(raw_appetite, str) else None,
+        "dimensions": dimensions,
+        "evidence": _bounded_strings(raw_size.get("evidence")),
+        "unknowns": _bounded_strings(raw_size.get("unknowns")),
+        "targetReach": count("structural_target_reach"),
+        "immediateUnlock": count("immediate_unlock"),
+        "frontierReach": count("frontier_reach"),
+        "impactProvenance": raw_impact.get("provenance")
+        if raw_impact.get("provenance") in _PROVENANCE else "unknown",
+        "parallel": parallel if parallel in _PARALLEL else "unknown",
+        "parallelConflicts": _bounded_strings(raw_parallel.get("conflicts")),
+    }
 
 
 def _int(value) -> int:
@@ -128,11 +236,55 @@ def _source_href(root: Path, cfg: Config, source_path: object) -> str:
     return quote(source_link_prefix(cfg, root) + relative, safe="/")
 
 
+def _question_payload(entry, node_index: int) -> dict:
+    """Serialize the complete authored packet used by either question state."""
+    return {
+        "id": entry.id,
+        "n": node_index,
+        "storyId": entry.story_id,
+        "fingerprint": owner_question_fingerprint(entry),
+        "owner": entry.owner,
+        "prompt": entry.prompt,
+        "options": [{
+            "id": option.id,
+            "label": option.label,
+            "tradeoff": option.tradeoff,
+        } for option in entry.options],
+        "recommendation": {
+            "optionId": entry.recommendation.option_id,
+            "rationale": entry.recommendation.rationale,
+        },
+        "falsifier": entry.falsifier,
+        "evidence": list(entry.evidence),
+    }
+
+
+def _question_search_text(entry) -> str:
+    return " ".join((
+        entry.id,
+        entry.owner,
+        entry.prompt,
+        *(value for option in entry.options
+          for value in (option.id, option.label, option.tradeoff)),
+        entry.recommendation.option_id,
+        entry.recommendation.rationale,
+        entry.falsifier,
+        *entry.evidence,
+    ))
+
+
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     # Manual highlights remain supported; deterministic recommendations augment
     # them when the priority engine is enabled.
     recommended = set(cfg.get("render.recommended", []))
     recommended.update(item.id for item in priority_items(graph))
+    assessment_items = graph.assessment.get("items", {})
+    portfolio = graph.assessment.get("portfolio", {})
+    portfolio_lane = {}
+    if isinstance(portfolio, dict):
+        for lane in ("small", "anchors", "defects", "questions", "occupied", "blocked"):
+            for item_id in portfolio.get(lane, []):
+                portfolio_lane.setdefault(item_id, lane)
     nodes, idx = [], {}
     items = sorted(graph.items, key=lambda i: i.id)
     for it in items:
@@ -140,17 +292,34 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             continue
         idx[it.id] = len(nodes)
         cap_tail, epic_title = _top_group(graph, it.group)
-        w = APPETITE_W.get(it.appetite or "", DEFAULT_W)
+        raw_assessment = assessment_items.get(it.id, {}) \
+            if isinstance(assessment_items, dict) else {}
+        assessment = _assessment_profile(raw_assessment)
+        assessed_band = assessment.get("band")
+        if assessment:
+            # Unknown assessed size must look unknown, not silently inherit an
+            # M-ish default or the authored estimate that failed assessment.
+            w = ASSESSED_W.get(assessed_band, ASSESSED_W["XS"])
+        else:
+            w = APPETITE_W.get(it.appetite or "", DEFAULT_W)
         node = {
             "id": it.id,
             "s": it.id.split(":", 1)[1].split("/")[-1],
             "t": it.title[:80],
+            "summary": (it.one_liner or "")[:240],
             "st": it.status,
             # codex-sequence-2026-08-08: one lifecycle role map across views.
             "g": _visual_group(cfg, it.status),
             "c": cap_tail,
             "e": epic_title[:40],
             "r": it.release or "",
+            "role": it.role,
+            "tags": list(it.tags),
+            "facets": {name: list(values) for name, values in it.facets.items()},
+            # Keep structural ownership intact for hierarchy views. ``c`` and
+            # ``e`` are compact display labels; neither can reconstruct a
+            # deep or project-configured group tree after rendering.
+            "group": it.group or "",
             "p": it.source.get("path", ""),
             # codex-sequence-2026-08-08: visible canonical on-drive story link.
             "h": _source_href(root, cfg, it.source.get("path")),
@@ -169,6 +338,11 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
                 it.one_liner or "",
                 it.status,
                 it.release or "",
+                it.role,
+                " ".join(it.tags),
+                " ".join(
+                    value for values in it.facets.values() for value in values
+                ),
                 _group_search_text(graph, it.group),
                 it.source.get("path", ""),
             ) if value),
@@ -182,6 +356,8 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             )
         if it.id in recommended:
             node["rec"] = 1
+        if assessment:
+            node["assess"] = dict(assessment, lane=portfolio_lane.get(it.id, ""))
         if it.priority:
             node["pr"] = it.priority.get("rank")
             node["ps"] = it.priority.get("score")
@@ -189,6 +365,15 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             node["pu"] = it.priority.get("components", {}).get(
                 "target_dependents", 0
             )
+            defect = it.priority.get("defect")
+            if isinstance(defect, dict):
+                components = defect.get("components", {})
+                node["dr"] = defect.get("rank")
+                node["dw"] = defect.get("rationale", "")
+                node["dt"] = components.get("target_impact", 0)
+                node["dd"] = components.get("total_dependents", 0)
+                node["dl"] = defect.get("lineage", "story-only")
+                node["q"] += " " + str(defect.get("rationale", ""))
         nodes.append(node)
 
     # codex-sequence-2026-08-08: Foundation groups are explicit non-work nodes.  They deliberately have
@@ -208,6 +393,9 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "c": "foundations",
             "e": "Structural root",
             "r": "",
+            "role": "reference",
+            "tags": [],
+            "facets": {},
             "p": "",
             "w": 1.35,
             "ac": 0,
@@ -275,9 +463,58 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             if related_index is not None:
                 work_links.append([work_index, related_index])
 
+    # Questions are explicit researched decisions, not a spelling of "blocked".
+    # Keeping them separate lets a question survive stale/completed work and lets
+    # operational blockers remain honest.
+    questions = []
+    for entry in sorted(graph.owner_questions, key=lambda value: value.id):
+        node_index = idx.get(entry.story_id)
+        if node_index is None:
+            continue
+        question_index = len(questions)
+        questions.append(_question_payload(entry, node_index))
+        nodes[node_index].setdefault("oq", []).append(question_index)
+        nodes[node_index]["q"] += " " + _question_search_text(entry)
+
+    # Accepted decisions are repo-authoritative history, not open questions.
+    # Keep the question snapshot in the static payload so a reader can judge an
+    # answer without relying on a mutable activity feed that may have moved on.
+    decisions = []
+    for entry in sorted(
+        graph.owner_decisions,
+        key=lambda value: (value.question.id, value.revision),
+    ):
+        question = entry.question
+        node_index = idx.get(question.story_id)
+        if node_index is None:
+            continue
+        decision_index = len(decisions)
+        serialized = _question_payload(question, node_index)
+        serialized.update({
+            "fingerprint": entry.fingerprint,
+            "revision": entry.revision,
+            "answeredAt": entry.answered_at,
+            "answeredBy": entry.answered_by,
+            "kind": entry.kind,
+            "optionId": entry.option_id,
+            "text": entry.text,
+        })
+        decisions.append(serialized)
+        nodes[node_index].setdefault("od", []).append(decision_index)
+        nodes[node_index]["q"] += " " + " ".join(filter(None, (
+            _question_search_text(question),
+            entry.fingerprint,
+            str(entry.revision),
+            entry.answered_at,
+            entry.answered_by,
+            entry.kind,
+            entry.option_id,
+            entry.text,
+        )))
+
     caps: dict[str, dict] = {}
     done = cfg.done_statuses()
-    for it in items:
+    for it in (item for item in items if item.role == "delivery"):
         cap_tail, _ = _top_group(graph, it.group)
         caps.setdefault(cap_tail, {"total": 0, "shipped": 0})
         caps[cap_tail]["total"] += 1
@@ -290,18 +527,38 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     planning["baseTargets"] = graph.priority.get("base_targets", [])
     planning["effectiveTargets"] = graph.priority.get("effective_targets", [])
     data = {
+        "engineVersion": __version__,
         "nodes": nodes,
+        "groups": [
+            {
+                "id": group.id,
+                "kind": group.kind,
+                "title": group.title,
+                "parent": group.parent or "",
+            }
+            for group in sorted(graph.groups, key=lambda value: value.id)
+            if group.kind != "foundation"
+        ],
         "edges": edges,
         "relations": relations,
         "work": work,
         "workLinks": work_links,
+        "questions": questions,
+        "decisions": decisions,
         # Accepted owner planning course is inspectable in static mode. Writes
         # remain available only through the guarded loopback service.
         "planning": planning,
         "caps": caps,
+        "areas": cfg.areas(),
         # deterministic "now": the newest activity in the graph, never wall clock
         "now": max((n["ts"] for n in nodes), default=0),
     }
+    if graph.assessment:
+        data["assessment"] = {
+            "schema": graph.assessment.get("schema"),
+            "method": graph.assessment.get("method"),
+            "portfolio": portfolio if isinstance(portfolio, dict) else {},
+        }
     # codex-sequence-2026-08-08: Default output is portable and root-free.
     # The documented Obsidian integration remains an explicit local-vault opt-in.
     if cfg.get("render.obsidian_links", False):

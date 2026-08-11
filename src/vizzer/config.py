@@ -11,6 +11,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from .model import ITEM_ROLES
+
 
 class ConfigError(Exception):
     pass
@@ -35,9 +37,10 @@ DEFAULTS = {
     "project": {"name": "project"},
     "sources": {
         "spec_tree": {"enabled": False, "glob": "", "levels": [],
-                      "item_kind": "story", "dag_import": ""},
+                      "item_kind": "story", "dag_import": "",
+                      "product_tags": []},
         "ledgers": {"enabled": False, "glob": "thoughts/ledgers/CONTINUITY_*.md"},
-        "loose_docs": {"enabled": False, "globs": []},
+        "loose_docs": {"enabled": False, "globs": [], "item_role": "reference"},
         "todos": {"enabled": False, "globs": ["TODO.md"]},
     },
     "render": {"output_dir": "vizzer/views",
@@ -60,12 +63,28 @@ DEFAULTS = {
         "role_bias": {"regression": 80, "active": 50, "ready": 0},
         "appetite_cost": {"small": 0, "medium": 20, "large": 50, "default": 25},
     },
+    # Delivery assessment is orthogonal to uptake priority. It normalizes the
+    # authored appetite, records uncertainty/evidence, and proposes a feasible
+    # mixed-size portfolio without inventing an AI productivity multiplier.
+    "assessment": {
+        "enabled": False,
+        "signals_path": "vizzer/assessment-signals.json",
+        "small_limit": 4,
+        "anchor_limit": 2,
+        "question_limit": 1,
+        "verification_globs": ["tests/**/*", "test/**/*", "tests-ui/**/*"],
+    },
     # Accepted owner course changes compose over target authority; they never
     # rewrite story headers, lifecycle, releases, or dependency edges.
     "planning": {"enabled": False,
                  "overlay_path": "vizzer/planning-overlay.json"},
+    # Accepted owner answers are source input in a separate audited ledger.
+    "questions": {"answers_path": "vizzer/question-answers.json"},
     # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
     "activity": {"path": "", "stale_after_minutes": 120},
+    # Optional named navigation slices over any item facet. Array-of-tables is
+    # used because the bundled TOML subset deliberately avoids inline objects.
+    "area": [],
     # Optional generated semantic history; prose and raw git timestamps are excluded.
     "progress": {"history_path": "", "hot_window_days": 7,
                  "stalled_after_days": 14, "stall_max_days": 90,
@@ -247,6 +266,51 @@ class Config:
         activity_path = self.get("activity.path", "")
         if not isinstance(activity_path, str):
             raise ConfigError("activity.path must be a string")
+        answers_path = self.get("questions.answers_path")
+        if not isinstance(answers_path, str) or not answers_path:
+            raise ConfigError("questions.answers_path must be a non-empty string")
+        loose_doc_role = self.get("sources.loose_docs.item_role")
+        if loose_doc_role not in ITEM_ROLES:
+            raise ConfigError(
+                f"sources.loose_docs.item_role must be one of {sorted(ITEM_ROLES)}"
+            )
+        product_tags = self.get("sources.spec_tree.product_tags")
+        if not isinstance(product_tags, list) or not all(
+            isinstance(value, str) and value for value in product_tags
+        ):
+            raise ConfigError("sources.spec_tree.product_tags must be non-empty strings")
+        seen_areas = set()
+        for index, area in enumerate(self.data.get("area", []), 1):
+            if not isinstance(area, dict):
+                raise ConfigError(f"area #{index} must be a table")
+            area_id, title, facet = area.get("id"), area.get("title"), area.get("facet")
+            values = area.get("values")
+            if not all(isinstance(value, str) and value for value in (area_id, title, facet)):
+                raise ConfigError(f"area #{index} requires non-empty id, title, and facet")
+            if area_id in seen_areas:
+                raise ConfigError(f"duplicate area id {area_id!r}")
+            seen_areas.add(area_id)
+            if not isinstance(values, list) or not values or not all(
+                isinstance(value, str) and value for value in values
+            ):
+                raise ConfigError(f"area {area_id!r} values must be non-empty strings")
+        if not isinstance(self.get("assessment.enabled"), bool):
+            raise ConfigError("assessment.enabled must be true or false")
+        signals_path = self.get("assessment.signals_path")
+        if not isinstance(signals_path, str) or not signals_path:
+            raise ConfigError("assessment.signals_path must be a non-empty string")
+        for key in ("small_limit", "anchor_limit", "question_limit"):
+            value = self.get(f"assessment.{key}")
+            if (isinstance(value, bool) or not isinstance(value, int)
+                    or value < 0):
+                raise ConfigError(f"assessment.{key} must be a non-negative integer")
+        verification_globs = self.get("assessment.verification_globs")
+        if (not isinstance(verification_globs, list)
+                or not all(isinstance(value, str) and value
+                           for value in verification_globs)):
+            raise ConfigError(
+                "assessment.verification_globs must be non-empty strings"
+            )
         stale_minutes = self.get("activity.stale_after_minutes", 120)
         if (isinstance(stale_minutes, bool) or not isinstance(stale_minutes, int)
                 or stale_minutes <= 0):
@@ -318,6 +382,14 @@ class Config:
         if not isinstance(groups, list):
             return []
         return [dict(group) for group in groups if isinstance(group, dict)]
+
+    def areas(self) -> list[dict]:
+        return [
+            {"id": area["id"], "title": area["title"],
+             "facet": area["facet"], "values": list(area["values"])}
+            for area in self.data.get("area", [])
+            if isinstance(area, dict)
+        ]
 
     @classmethod
     def load(cls, root: Path) -> "Config":

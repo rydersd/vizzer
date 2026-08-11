@@ -151,3 +151,56 @@ def test_invalid_activity_configuration_is_rejected(tmp_path, activity_config, m
     )
     with pytest.raises(ConfigError, match=message):
         Config.load(tmp_path)
+
+
+@pytest.mark.parametrize(("assessment_config", "message"), [
+    ('enabled = "yes"\n', "assessment.enabled"),
+    ('enabled = true\nsignals_path = ""\n', "signals_path"),
+    ("enabled = true\nsmall_limit = -1\n", "small_limit"),
+    ('enabled = true\nverification_globs = [""]\n', "verification_globs"),
+])
+def test_invalid_assessment_configuration_is_rejected(
+    tmp_path, assessment_config, message,
+):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        "[assessment]\n" + assessment_config
+    )
+    with pytest.raises(ConfigError, match=message):
+        Config.load(tmp_path)
+
+
+def test_loose_document_role_is_typed_at_the_config_boundary(tmp_path):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        '[sources.loose_docs]\nitem_role = "miscellaneous"\n'
+    )
+
+    with pytest.raises(ConfigError, match="item_role must be one of"):
+        Config.load(tmp_path)
+
+
+def test_named_area_groups_are_validated_and_exposed(tmp_path):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        '[[area]]\nid = "products"\ntitle = "Products"\n'
+        'facet = "product"\nvalues = ["time", "notes"]\n'
+    )
+
+    config = Config.load(tmp_path)
+
+    assert config.areas() == [{
+        "id": "products", "title": "Products", "facet": "product",
+        "values": ["time", "notes"],
+    }]
+
+
+def test_named_area_group_rejects_empty_values(tmp_path):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        '[[area]]\nid = "products"\ntitle = "Products"\n'
+        'facet = "product"\nvalues = []\n'
+    )
+
+    with pytest.raises(ConfigError, match="values must be non-empty strings"):
+        Config.load(tmp_path)

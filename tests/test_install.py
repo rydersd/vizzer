@@ -13,11 +13,16 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
     (repo / "vizzer" / "vizzer.toml").unlink()
     assert main(["install", str(repo)]) == 0
     assert (repo / "vizzer" / "engine" / "vizzer" / "model.py").exists()
+    frontend = repo / "vizzer" / "engine" / "vizzer" / "render" / "constellation"
+    assert (frontend / "shell.html").is_file()
+    assert (frontend / "state.js").is_file()
+    assert (frontend / "canvas.js").is_file()
     assert not (repo / "vizzer" / "engine" / "vizzer" / ".DS_Store").exists()
     assert (repo / "vizzer" / "VERSION").read_text().strip() == vizzer.__version__
     toml = (repo / "vizzer" / "vizzer.toml").read_text()
     assert "spec_tree" in toml and "enabled = true" in toml
     assert 'dependency_authority = ""' in toml  # codex-sequence-2026-08-08
+    assert "[assessment]" in toml and "small_limit = 4" in toml
     gi = (repo / ".gitignore").read_text()
     assert "vizzer/archive/" in gi
     agents = (repo / "AGENTS.md").read_text()
@@ -25,6 +30,12 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
     assert "source story/issue/ledger first" in agents
     assert (repo / "vizzer" / "vizzer-graph.json").exists()      # install ran refresh
     assert (repo / "vizzer" / "views" / "dashboard.md").exists()
+    assert (repo / "vizzer" / "docs" /
+            "story-sizing-and-portfolio-selection.md").is_file()
+    assert (repo / "vizzer" / "docs" /
+            "prds-and-living-product-specs.md").is_file()
+    assert "model-neutral" in (repo / "vizzer" / "docs" /
+                               "story-sizing-and-portfolio-selection.md").read_text().casefold()
 
     # vendored engine runs standalone via `python3 vizzer/engine`
     r = subprocess.run([sys.executable, "vizzer/engine", "check", "--structural"],
@@ -39,8 +50,11 @@ def test_install_twice_refuses_update_replaces(tmp_path, make_repo):
     assert main(["install", str(repo)]) == 2
     marker = repo / "vizzer" / "engine" / "vizzer" / "model.py"
     marker.write_text("clobbered")
+    context = repo / "vizzer" / "docs" / "story-sizing-and-portfolio-selection.md"
+    context.write_text("stale")
     assert main(["update", str(repo)]) == 0
     assert "clobbered" not in marker.read_text()
+    assert context.read_text() != "stale"
     toml_before = (repo / "vizzer" / "vizzer.toml").read_text()
     assert (repo / "vizzer" / "vizzer.toml").read_text() == toml_before
 

@@ -74,7 +74,8 @@ def _scan_file(path: Path, root: Path, groups: dict[str, Group],
         release=_string(front.get("release")),
         group=group_id,
         deps=_list(front.get("deps")),
-        flags=_list(front.get("tags")),
+        role=str(cfg.get("sources.loose_docs.item_role", "reference")),
+        tags=_list(front.get("tags")),
         source={"adapter": "loose_docs", "path": relpath},
     )
 

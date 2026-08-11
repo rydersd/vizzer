@@ -1,6 +1,10 @@
 from pathlib import Path
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import ActiveWork, Graph, Group, Item, Milestone, MilestonePhase
+from vizzer.model import (
+    ActiveWork, Graph, Group, Item, Milestone, MilestonePhase, OwnerQuestion,
+    OwnerDecision, OwnerQuestionOption, OwnerQuestionRecommendation,
+    owner_question_fingerprint,
+)
 from vizzer.render import render_all
 
 def _graph():
@@ -123,8 +127,42 @@ def test_dashboard_uses_configured_roles_and_renders_active_milestone(tmp_path):
     assert "1/2" in milestone and "Next" in milestone and "[b]" in milestone
     active = out.split("## In progress")[1].split("##")[0]
     assert "[c]" in active and "[b]" not in active
-    regression = out.split("## Regression queue")[1].split("##")[0]
+    regression = out.split("## Regression queue", 1)[1].split("\n## ", 1)[0]
     assert "[b]" in regression and "[c]" not in regression
+
+
+def test_regression_queue_sorts_v1_impact_and_separates_unranked_and_inflight(tmp_path):
+    statuses = [
+        {"name": "bug-gap", "emoji": "🐛", "done": False, "role": "regression"},
+        {"name": "in-flight", "emoji": "✈️", "done": False, "role": "regression"},
+    ]
+    cfg = Config(data=deep_merge(DEFAULTS, {"status": statuses}))
+    high = Item(id="story:z-high", title="High", status="bug-gap", release="R0")
+    low = Item(id="story:a-low", title="Low", status="bug-gap", release="R0")
+    unknown = Item(id="story:b-unknown", title="Unknown", status="bug-gap", release="R0")
+    inflight = Item(id="story:c-inflight", title="Inflight", status="in-flight", release="R0")
+    high.priority = {"defect": {
+        "rank": 1, "lineage": "bug-against",
+        "components": {"target_impact": 2, "incomplete_dependents": 4,
+                       "total_dependents": 7},
+    }}
+    low.priority = {"defect": {
+        "rank": 2, "lineage": "story-only",
+        "components": {"target_impact": 0, "incomplete_dependents": 2,
+                       "total_dependents": 3},
+    }}
+    graph = Graph(vocab=cfg.vocab, items=[low, unknown, inflight, high])
+
+    out = render_all(graph, cfg, tmp_path, only={"dashboard"})["dashboard.md"]
+    queue = out.split("## Regression queue", 1)[1].split("\n## ", 1)[0]
+
+    assert queue.index("z-high") < queue.index("a-low") < queue.index("b-unknown")
+    assert "### V1-impact bug gaps" in queue
+    assert "Sorted by known hard-dependency blast radius, not guessed severity" in queue
+    assert "### Remaining bug gaps by known graph reach" in queue
+    assert "story-only estimate; missing `Bug against`" in queue
+    assert "### Unscored bug gaps" in queue
+    assert "### In-flight integration" in queue and "c-inflight" in queue
 
 
 def test_nonblocking_relations_do_not_block_ready_queue(tmp_path):
@@ -159,6 +197,121 @@ def test_dashboard_renders_persisted_priority_rationale(tmp_path):
     assert "score 940" in section and "depth 1" in section
 
 
+def test_dashboard_renders_separate_assessed_portfolio_lanes(tmp_path):
+    graph = _graph()
+    profile = {
+        "size": {
+            "assessed_band": "S", "uncertainty": "U1",
+            "plausible_range": {"min": "S", "max": "M"},
+        },
+        "impact": {
+            "structural_target_reach": 2, "immediate_unlock": 1,
+        },
+        "parallelism": {"classification": "candidate"},
+    }
+    graph.assessment = {
+        "schema": 1,
+        "method": "deterministic-delivery-assessment-v1",
+        "items": {"story:ready": profile},
+        "portfolio": {
+            "small": ["story:ready"], "anchors": [], "defects": [],
+            "questions": [], "unknown_size": ["story:blocked"],
+        },
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    section = out.split("## Provisional assessed portfolio", 1)[1].split("\n## ", 1)[0]
+    assert "High structural-leverage small candidates" in section
+    assert "S · U1" in section and "plausible S–M" in section
+    assert "2 target(s), 1 immediate unlock(s)" in section
+    assert "parallel: candidate" in section
+    assert "1 otherwise eligible item(s) remain unsized" in section
+    assert "universal AI speed multiplier" in section
+
+
+def test_dashboard_renders_assessment_withholding_and_current_ownership(tmp_path):
+    graph = _graph()
+    graph.activity = {"as_of": "2026-08-10T10:30:00Z"}
+    graph.active_work = [ActiveWork(
+        story_id="story:ready", agent="Faraday", task="Size the route",
+        state="blocked", completed=1, total=2,
+        updated_at="2026-08-10T10:00:00Z",
+        stale_at="2026-08-10T12:00:00Z",
+    )]
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:ready": {
+            "size": {"assessed_band": "S", "uncertainty": "U2",
+                     "plausible_range": {"min": "XS", "max": "M"}},
+            "impact": {"structural_target_reach": 0, "immediate_unlock": 0},
+            "parallelism": {"classification": "unknown"},
+        }},
+        "portfolio": {
+            "small": [], "anchors": [], "defects": [], "questions": [],
+            "occupied": ["story:ready"], "unknown_size": [],
+            "warnings": ["delivery portfolio withheld: missing explicit target scope"],
+        },
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "Freshly owned work" in out
+    assert "Faraday: blocked — Size the route" in out
+    assert "Assessment cautions" in out
+    assert "missing explicit target scope" in out
+
+
+def test_dashboard_keeps_stale_blockers_out_of_dispatch_lanes(tmp_path):
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:ready", agent="Faraday", task="Owner ruling required",
+        state="blocked", completed=1, total=2,
+        updated_at="2026-08-10T08:00:00Z",
+        stale_at="2026-08-10T10:00:00Z",
+    )]
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:ready": {
+            "size": {"assessed_band": "S", "uncertainty": "U2",
+                     "plausible_range": {"min": "XS", "max": "M"}},
+            "impact": {"structural_target_reach": 1, "immediate_unlock": 1},
+            "parallelism": {"classification": "unknown"},
+        }},
+        "portfolio": {
+            "small": [], "anchors": [], "defects": [], "questions": [],
+            "occupied": [], "blocked": ["story:ready"],
+            "stale_work": ["story:ready"], "unknown_size": [],
+        },
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "Unresolved stale blockers" in out
+    assert "Faraday: blocked — Owner ruling required" in out
+    assert "until a newer record or owner decision clears them" in out
+    assert "High structural-leverage small candidates" not in out
+
+
+def test_dashboard_degrades_malformed_persisted_assessment_without_markdown_injection(
+    tmp_path,
+):
+    graph = _graph()
+    graph.assessment = {
+        "items": {"story:ready": {"size": [], "impact": "many", "parallelism": None}},
+        "portfolio": {
+            "small": ["story:ready", 42], "unknown_size": "not-a-list",
+            "warnings": ["[click me](https://evil.invalid)\n## injected"],
+        },
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "unassessed · U3 · unknown" in out
+    assert "\\[click me\\]" in out
+    assert "\n## injected" not in out
+
+
 def test_dashboard_renders_agent_checkpoint_evidence_without_fake_percent(tmp_path):
     graph = _graph()
     graph.active_work = [
@@ -184,6 +337,87 @@ def test_dashboard_renders_agent_checkpoint_evidence_without_fake_percent(tmp_pa
     assert "0/0 checkpoints (not estimated)" in section
     assert "%" not in section
     assert "stale after `2026-08-08T19:00:00Z`" in section
+
+
+def test_dashboard_separates_owner_questions_from_operational_blockers(tmp_path):
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:blocked", agent="Planck", task="Capture evidence",
+        state="blocked", completed=0, total=1,
+        updated_at="2026-08-08T17:00:00Z",
+        stale_at="2026-08-08T19:00:00Z",
+        checkpoint="Run the real corpus",
+    )]
+    graph.owner_questions = [OwnerQuestion(
+        id="question:route",
+        story_id="story:ready",
+        owner="Ryder",
+        prompt="Which route owns the decision?",
+        options=[
+            OwnerQuestionOption("shared", "Shared", "One authority."),
+            OwnerQuestionOption("local", "Local", "Smaller patch."),
+        ],
+        recommendation=OwnerQuestionRecommendation(
+            "shared", "Repeated concepts need one source.",
+        ),
+        falsifier="The concept remains permanently single-use.",
+        evidence=["wiki/story.md:12"],
+    )]
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+    question_section = out.split("## Open owner questions")[1].split("##")[0]
+    work_section = out.split("## Agent work")[1].split("##")[0]
+
+    assert "Which route owns the decision?" in question_section
+    assert "recommended: Shared" in question_section
+    assert "Capture evidence" not in question_section
+    assert "Capture evidence" in work_section and "question" not in work_section
+
+
+def test_dashboard_separates_open_questions_from_accepted_decisions(tmp_path):
+    graph = _graph()
+    open_question = OwnerQuestion(
+        id="question:open-route", story_id="story:ready", owner="Ryder",
+        prompt="Which route remains open?",
+        options=[
+            OwnerQuestionOption("shared", "Shared", "One authority."),
+            OwnerQuestionOption("local", "Local", "Smaller patch."),
+        ],
+        recommendation=OwnerQuestionRecommendation("shared", "Avoid drift."),
+        falsifier="The concept stays single-use.", evidence=["wiki/story.md:12"],
+    )
+    answered_question = OwnerQuestion(
+        id="question:answered-route", story_id="story:wip", owner="Ryder",
+        prompt="Which route was accepted?",
+        options=[
+            OwnerQuestionOption("shared", "Shared", "One authority."),
+            OwnerQuestionOption("local", "Local", "Smaller patch."),
+        ],
+        recommendation=OwnerQuestionRecommendation("shared", "Avoid drift."),
+        falsifier="The concept stays single-use.", evidence=["wiki/story.md:20"],
+    )
+    graph.owner_questions = [open_question]
+    graph.owner_decisions = [OwnerDecision(
+        question=answered_question,
+        fingerprint=owner_question_fingerprint(answered_question),
+        revision=3,
+        answered_at="2026-08-10T18:30:00Z",
+        answered_by="Ryder",
+        kind="option",
+        option_id="shared",
+        text=None,
+    )]
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+    open_section = out.split("## Open owner questions", 1)[1].split("\n## ", 1)[0]
+    accepted = out.split("## Accepted owner decisions", 1)[1].split("\n## ", 1)[0]
+
+    assert "Which route remains open?" in open_section
+    assert "Which route was accepted?" not in open_section
+    assert "Which route was accepted?" in accepted
+    assert "selected **Shared** (`shared`)" in accepted
+    assert "revision 3" in accepted and "Ryder" in accepted
+    assert "Which route remains open?" not in accepted
 
 
 def test_dashboard_source_links_escape_markdown_path_delimiters(tmp_path):

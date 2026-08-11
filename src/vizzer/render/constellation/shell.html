@@ -1,0 +1,66 @@
+<meta charset="utf-8">
+<title>__TITLE__</title>
+<style>
+__VIZZER_TOKENS_CSS__
+__VIZZER_LAYOUT_CSS__
+__VIZZER_VIEWS_CSS__
+</style>
+<svg class="symbol-defs" aria-hidden="true">
+  <symbol id="sym-xmark" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9m0-9-9 9"/></symbol>
+  <symbol id="sym-star-fill" viewBox="0 0 16 16"><path d="M8 1.5l1.92 3.9 4.3.62-3.11 3.03.73 4.28L8 11.31l-3.84 2.02.73-4.28-3.11-3.03 4.3-.62z"/></symbol>
+  <symbol id="sym-arrow-up-right" viewBox="0 0 16 16"><path d="M4 12 12 4m-6 0h6v6"/></symbol>
+</svg>
+<canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
+<div id="top">
+  <div id="title"><b>__TITLE__</b></div>
+  <details id="viewmenu"><summary>Views</summary><div>
+    <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
+    <a href="#dashboard" data-view="dashboard">Dashboard</a>
+    <a href="#roadmap" data-view="roadmap">Roadmap</a>
+    <a href="#structure" data-view="structure">Hierarchy</a>
+    <a href="#features" data-view="features">Features</a>
+    <a href="#completion" data-view="completion">Completion</a>
+    <a href="#ledgers" data-view="ledgers">Ledgers</a>
+  </div></details>
+  <details id="exportmenu"><summary>Export</summary><div>
+    <a href="dashboard.md" download>Dashboard Markdown</a>
+    <a href="roadmap.md" download>Roadmap Markdown</a>
+    <a href="feature-index.md" download>Feature index Markdown</a>
+    <a href="completion-sheet.md" download>Completion Markdown</a>
+    <a href="ledger-table.md" download>Ledgers Markdown</a>
+    <a href="manifest.json" download>Graph manifest JSON</a>
+  </div></details>
+  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
+  <div id="chips"></div>
+</div>
+<!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
+<form id="search" role="search">
+  <label class="sr-only" for="searchinput">Search work items</label>
+  <input id="searchinput" type="search" aria-label="Search work items" aria-controls="cv"
+    aria-describedby="searchcount" placeholder="search stories" autocomplete="off" spellcheck="false">
+  <button id="searchclear" type="button" aria-label="Clear search" disabled><svg class="symbol" aria-hidden="true"><use href="#sym-xmark"/></svg></button>
+  <output id="searchcount" for="searchinput" aria-live="polite"></output>
+</form>
+<div id="rail"></div>
+<main id="viewpanel" tabindex="-1" hidden></main>
+<div id="dossier" aria-hidden="true">
+  <header id="dossierhead"><div id="dossieridentity"></div><button id="close" aria-label="Close"><svg class="symbol" aria-hidden="true"><use href="#sym-xmark"/></svg></button></header>
+  <div id="dbody"></div>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="viewempty" role="status" aria-live="polite"></div>
+<div id="hint"><span>drag orbit</span><span>two-finger orbit</span><span><kbd>&#8984;</kbd> + two-finger pan</span><span>pinch zoom</span><span>click node opens story + dependencies</span></div>
+<div id="boot" role="status">loading constellation…</div>
+<script>
+__VIZZER_BOOT_JS__
+</script>
+<script>
+__VIZZER_STATE_JS__
+__VIZZER_VIEWS_JS__
+__VIZZER_FILTERS_JS__
+__VIZZER_QUESTIONS_JS__
+__VIZZER_PLANNING_JS__
+__VIZZER_DOSSIER_JS__
+__VIZZER_CANVAS_JS__
+__VIZZER_BOOTSTRAP_JS__
+</script>

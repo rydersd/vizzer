@@ -113,9 +113,55 @@ def _collapse(value: str) -> str:
     return " ".join(value.split())
 
 
+def _string_list(value) -> list[str]:
+    if isinstance(value, list):
+        raw = value
+    elif isinstance(value, str):
+        raw = value.split(",")
+    else:
+        return []
+    return list(dict.fromkeys(
+        entry.strip() for entry in map(str, raw) if entry.strip()
+    ))
+
+
+def _authored_list(front: dict, body: str, front_key: str, label: str) -> list[str]:
+    value = front.get(front_key)
+    if value is not None:
+        return _string_list(value)
+    match = re.search(
+        rf"^>\s*{re.escape(label)}:\s*(.+?)\s*$", body,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    return _string_list(match.group(1)) if match else []
+
+
 def _match_value(pattern: str, text: str) -> str | None:
     match = re.search(pattern, text, re.MULTILINE)
     return match.group(1) if match else None
+
+
+def _appetite_value(text: str) -> str | None:
+    """Preserve the authored appetite label without swallowing its rationale.
+
+    Appetite is deliberately free-form project metadata.  The old ``[a-z-]+``
+    matcher silently turned ``not yet assessable`` into ``not`` and
+    ``small/medium`` into ``small``.  That is worse than missing data: it hands
+    the assessor a confident lie.  Keep the complete label, stripping only the
+    well-established prose separators and Markdown emphasis around it.
+    """
+    match = re.search(r"\bAppetite:\s*(.+?)\s*$", text, re.IGNORECASE | re.MULTILINE)
+    if not match:
+        return None
+    value = match.group(1).strip()
+    # Header fields and rationale use visibly separated delimiters.  An en dash
+    # inside ``small–medium`` has no surrounding spaces and remains data.
+    value = re.split(r"\s+·\s+|\s+[—–]\s+|\s+\(", value, maxsplit=1)[0].strip()
+    if len(value) >= 4 and value.startswith("**") and value.endswith("**"):
+        value = value[2:-2].strip()
+    if len(value) >= 2 and value[0] == value[-1] == "`":
+        value = value[1:-1].strip()
+    return value or None
 
 
 def _dep_ids(value, item_kind: str) -> list[str]:
@@ -283,7 +329,7 @@ def _group_chain(root: Path, rel: Path, pattern: str, levels: list[str],
 
 def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
                item_kind: str, groups: dict[str, Group],
-               warnings: list[str]) -> Item | None:
+               warnings: list[str], product_tags: set[str]) -> Item | None:
     rel = path.relative_to(root)
     relpath = rel.as_posix()
     try:
@@ -310,7 +356,7 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
     wave = front.get("wave")
     if not isinstance(wave, str) or not wave:
         wave = _match_value(r"Wave:\s*([A-Za-z0-9]+)", body)
-    appetite = _match_value(r"[Aa]ppetite:\s*\**\s*([a-z-]+)", body)
+    appetite = _appetite_value(body)
     if "deps" in front:
         deps = _dep_ids(front["deps"], item_kind)
         deps_declared = True
@@ -323,6 +369,17 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
         warnings.append(f"{relpath}: invalid > Deps: header: {deps_error}")
     relations, relation_errors = _body_relations(body, item_kind)
     warnings.extend(f"{relpath}: {error}" for error in relation_errors)
+    tags = _authored_list(front, body, "tags", "Tags")
+    product_capabilities = _authored_list(
+        front, body, "product_capabilities", "Product capabilities"
+    )
+    products = list(dict.fromkeys(
+        capability.split("/", 1)[0]
+        for capability in product_capabilities if "/" in capability
+    ))
+    products = list(dict.fromkeys(
+        products + [tag for tag in tags if tag in product_tags]
+    ))
     flags = ["debt"] if re.search(r"^>\s*Debt:", body, re.MULTILINE) else []
 
     source = {"adapter": "spec_tree", "path": relpath}
@@ -340,6 +397,14 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
         deps=deps,
         relations=relations,
         appetite=appetite,
+        role="delivery",
+        tags=tags,
+        facets={
+            key: values for key, values in (
+                ("product", products),
+                ("capability", product_capabilities),
+            ) if values
+        },
         flags=flags,
         source=source,
     )
@@ -532,6 +597,12 @@ def _dag_items(root: Path, dag_relpath: str, item_kind: str,
             wave=(str(node["wave"])
                   if node.get("wave") is not None else None),
             deps=_dep_ids(node.get("deps", []), item_kind),
+            role="delivery",
+            tags=_string_list(node.get("tags", [])),
+            facets={key: values for key, values in (
+                ("product", _string_list(node.get("products", []))),
+                ("capability", _string_list(node.get("productCapabilities", []))),
+            ) if values},
             relations=[
                 Relation(kind="foundation_root", target=f"foundation:{root_slug}")
                 for root_slug in sorted(story_roots.get(slug, set()))
@@ -586,6 +657,7 @@ def scan(cfg, root: Path) -> ScanResult:
     pattern = cfg.get("sources.spec_tree.glob", "")
     levels = list(cfg.get("sources.spec_tree.levels", []))
     item_kind = cfg.get("sources.spec_tree.item_kind", "story")
+    product_tags = set(cfg.get("sources.spec_tree.product_tags", []))
     warnings = []
     groups: dict[str, Group] = {}
     items = []
@@ -601,7 +673,7 @@ def scan(cfg, root: Path) -> ScanResult:
             if path.name.startswith("_") or not path.is_file():
                 continue
             item = _scan_file(path, root, pattern, levels, item_kind,
-                              groups, warnings)
+                              groups, warnings, product_tags)
             if item is not None:
                 items.append(item)
 

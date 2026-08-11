@@ -6,10 +6,12 @@ from pathlib import Path
 
 from . import gitmeta
 from .activity import load_active_work
+from .assessment import apply_assessments
 from .adapters import ScanResult
 from .config import Config
 from .model import Graph, Group, Item
 from .priority import apply_priorities
+from .question_answers import reconcile_answers
 
 
 _MERGE_FIELDS = ("status", "release", "wave", "title", "one_liner", "appetite")
@@ -222,6 +224,23 @@ def build_graph(
                     "dropped": {"adapter": _adapter(newcomer), "value": dropped_value},
                 })
 
+        if keeper.role != newcomer.role:
+            conflicts.append({
+                "item": keeper.id,
+                "field": "role",
+                "kept": {"adapter": _adapter(keeper), "value": keeper.role},
+                "dropped": {"adapter": _adapter(newcomer), "value": newcomer.role},
+            })
+
+        # Tags and facets are authored many-to-many membership. Reconciliation
+        # must union them; choosing one adapter would recreate a single-parent
+        # hierarchy under a different spelling.
+        keeper.tags = list(dict.fromkeys(keeper.tags + newcomer.tags))
+        for name, values in newcomer.facets.items():
+            keeper.facets[name] = list(dict.fromkeys(
+                keeper.facets.get(name, []) + values
+            ))
+
         # codex-sequence-2026-08-08: dependency authority can migrate separately
         # from title/status/source provenance. Explicit story `Deps: []` also
         # remains data, not an invitation for a lower source to refill it.
@@ -326,5 +345,15 @@ def build_graph(
     # codex-sequence-2026-08-08: activity is a validated overlay. Loading it
     # after reconciliation lets unknown ids fail visibly without affecting work truth.
     graph.warnings = sorted(set(graph.warnings) | set(load_active_work(graph, cfg, root)))
+    # Answers are reconciled after activity questions are loaded. Current exact
+    # matches become decisions; changed questions remain open while old ledger
+    # entries stay available as audit history.
+    graph.warnings = sorted(
+        set(graph.warnings) | set(reconcile_answers(graph, cfg, root))
+    )
     apply_priorities(graph, cfg, root)
+    # Assessment consumes reconciled questions and target-scoped priority, but
+    # never mutates either. Keeping it last makes the provenance boundary dull
+    # and obvious—exactly what a forecasting layer deserves.
+    apply_assessments(graph, cfg, root)
     return graph

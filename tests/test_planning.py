@@ -63,6 +63,8 @@ def test_overlay_composes_with_manifest_without_overwriting_it(tmp_path):
     assert graph.priority["base_targets"] == ["story:v1"]
     assert graph.priority["effective_targets"] == ["story:new"]
     assert graph.priority["planning"]["revision"] == 1
+    assert graph.priority["planning"]["author"] == "owner"
+    assert graph.priority["planning"]["rationale"] == "Explore V2 path first"
     assert graph.priority["recommendations"] == ["story:new-base"]
     manifest = json.loads((tmp_path / "vizzer/v1-targets.json").read_text())
     assert manifest["directTargetIds"] == ["story:v1"]

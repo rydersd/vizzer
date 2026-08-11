@@ -1,9 +1,14 @@
-"""Deterministic, target-scoped story uptake recommendations.
+"""Deterministic story uptake and defect-impact ranking.
 
 The score deliberately ignores commits, mentions, and generic fan-out.  Those
 measure attention, not V1 leverage.  Only hard dependency reachability into an
 explicit/derived target set contributes graph leverage; typed lineage remains
-visible but nonblocking and non-scoring.
+visible but nonblocking and non-scoring for uptake.
+
+Defect ranking is deliberately separate: a bug gap's known blast radius is the
+hard-dependency reach of the shipped contract named by ``bug_against`` (or the
+gap story itself when that lineage is absent).  It never pretends that graph
+reach is severity, and it labels unlinked gaps so weak provenance stays visible.
 """
 from __future__ import annotations
 
@@ -252,6 +257,9 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
     base_targets = set(targets)
     course = {"promote": [], "defer": [], "order": []}
     overlay_revision = 0
+    overlay_author = "owner"
+    overlay_updated_at = None
+    overlay_rationale = ""
     overlay_warnings = []
     if bool(cfg.get("planning.enabled", False)) and root is not None:
         from .planning import read_overlay, validate_state
@@ -263,9 +271,13 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             if overlay is not None:
                 course = overlay["state"]
                 overlay_revision = overlay["revision"]
+                overlay_author = overlay.get("author", "owner")
+                overlay_updated_at = overlay.get("updatedAt")
+                overlay_rationale = overlay.get("rationale", "")
         else:
             try:
                 course = validate_state(overlay_state, graph)
+                overlay_author = "proposal"
             except ValueError as exc:
                 overlay_warnings = [f"planning proposal ignored: {exc}"]
     graph.warnings = sorted(set(graph.warnings).union(overlay_warnings))
@@ -314,6 +326,23 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             if child_depth >= 0:
                 max_depth = max(max_depth, child_depth + 1)
         reach_cache[component_id] = reached, max_depth
+
+    # All-story downstream reach is a different question from target-scoped
+    # uptake.  Keep it in a separate cache so a popular story can never leak
+    # into the feature recommendation score merely because it has fan-out.
+    downstream_cache: dict[int, set[str]] = {}
+    direct_dependents: dict[int, set[str]] = {}
+    for component_id in reversed(topo_order):
+        direct = {
+            member
+            for child in dependents[component_id]
+            for member in components[child]
+        }
+        reached = set(direct)
+        for child in dependents[component_id]:
+            reached.update(downstream_cache[child])
+        direct_dependents[component_id] = direct
+        downstream_cache[component_id] = reached
 
     role_bias = _int_map(cfg.get("priority.role_bias", {}), _DEFAULT_ROLE_BIAS)
     appetite_cost = _int_map(
@@ -420,6 +449,72 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
     for rank, item in enumerate(scored, 1):
         item.priority["rank"] = rank
 
+    # Every bug gap receives a structural burn-down rank, even when it is
+    # outside the current target set.  Explicit ``bug_against`` lineage lets a
+    # narrow repair inherit the affected shipped contract's reach; without it
+    # we rank only the gap story's own known graph reach and say so.
+    defect_items = []
+    for item in sorted(graph.items, key=lambda entry: entry.id):
+        if item.status != "bug-gap":
+            continue
+        affected_contracts = sorted({
+            relation.target
+            for relation in item.relations
+            if relation.kind == "bug_against" and relation.target in component_of
+        })
+        anchors = affected_contracts or [item.id]
+        downstream: set[str] = set()
+        direct: set[str] = set()
+        for anchor in anchors:
+            component_id = component_of[anchor]
+            downstream.update(downstream_cache[component_id])
+            direct.update(direct_dependents[component_id])
+        downstream.difference_update(anchors)
+        direct.difference_update(anchors)
+        impacted_targets = sorted(targets.intersection(set(anchors) | downstream))
+        incomplete_downstream = sorted(
+            item_id for item_id in downstream
+            if _incomplete(by_id.get(item_id), done_statuses)
+        )
+        lineage = "bug-against" if affected_contracts else "story-only"
+        lineage_detail = (
+            "bug against " + ", ".join(affected_contracts)
+            if affected_contracts
+            else "missing Bug against lineage; ranked from the gap story only"
+        )
+        defect = {
+            "rank": None,
+            "lineage": lineage,
+            "affected_contracts": affected_contracts,
+            "target_items": impacted_targets,
+            "components": {
+                "direct_target": int(any(anchor in targets for anchor in anchors)),
+                "target_impact": len(impacted_targets),
+                "direct_dependents": len(direct),
+                "incomplete_dependents": len(incomplete_downstream),
+                "total_dependents": len(downstream),
+            },
+            "rationale": (
+                f"{len(impacted_targets)} V1 target(s), "
+                f"{len(incomplete_downstream)} incomplete downstream, "
+                f"{len(downstream)} total downstream; {lineage_detail}"
+            ),
+        }
+        item.priority["defect"] = defect
+        defect_items.append(item)
+
+    defect_items.sort(key=lambda item: (
+        -item.priority["defect"]["components"]["target_impact"],
+        -item.priority["defect"]["components"]["direct_target"],
+        -item.priority["defect"]["components"]["incomplete_dependents"],
+        -item.priority["defect"]["components"]["total_dependents"],
+        -item.priority["defect"]["components"]["direct_dependents"],
+        item.priority["defect"]["lineage"] != "bug-against",
+        item.id,
+    ))
+    for rank, item in enumerate(defect_items, 1):
+        item.priority["defect"]["rank"] = rank
+
     graph.priority = {
         "method": "target-reach-v1",
         "target_tier": target_tier,
@@ -428,6 +523,9 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
         "planning": {
             "enabled": bool(cfg.get("planning.enabled", False)),
             "revision": overlay_revision,
+            "author": overlay_author,
+            "updatedAt": overlay_updated_at,
+            "rationale": overlay_rationale,
             "promote": list(course["promote"]),
             "defer": list(course["defer"]),
             "order": list(course["order"]),
@@ -437,4 +535,5 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             for item_id in sorted(targets)
         ],
         "recommendations": [item.id for item in scored[:limit]],
+        "defects": [item.id for item in defect_items],
     }

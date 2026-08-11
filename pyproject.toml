@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vizzer"
-version = "0.2.0" # codex-sequence-2026-08-08: lifecycle, relations, priority, activity lenses.
+version = "0.7.1" # Routed-view scrolling and reliable constellation pointer selection.
 description = "Portable work-graph views: normalize a project's specs/ledgers/docs into one graph and render roadmap, dashboard, and a 3D constellation."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -15,6 +15,9 @@ vizzer = "vizzer.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"vizzer.render" = ["constellation/*.html", "constellation/*.css", "constellation/*.js"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

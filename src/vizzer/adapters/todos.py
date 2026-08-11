@@ -44,6 +44,7 @@ def scan(cfg, root: Path) -> ScanResult:
                 title=title,
                 status="shipped" if marker == "x" else "backlog",
                 group=group_id,
+                role="delivery",
                 source={"adapter": "todos", "path": relpath},
             ))
 

@@ -3,6 +3,7 @@ import json, shutil
 import threading
 from pathlib import Path
 from vizzer.cli import main
+from vizzer.model import SCHEMA
 
 GOLDEN = Path(__file__).parent / "golden" / "mixed"
 
@@ -15,13 +16,14 @@ def test_sync_render_check_archive(tmp_path, make_repo, capsys):
     out = capsys.readouterr().out
     assert "conflicts" in out
     graph = json.loads((repo / "vizzer" / "vizzer-graph.json").read_text())
-    assert graph["schema"] == 1 and len(graph["items"]) > 5
+    assert graph["schema"] == SCHEMA and len(graph["items"]) > 5
 
     assert main(["render", "--root", str(repo)]) == 0
     names = [p.name for p in _views(repo)]
     assert names == sorted(["roadmap.md", "feature-index.md", "dashboard.md",
                             "completion-sheet.md", "ledger-table.md",
-                            "manifest.json", "constellation.html"])
+                            "decision-journal.md", "manifest.json",
+                            "constellation.html"])
 
     assert main(["check", "--root", str(repo), "--structural"]) == 0
 
@@ -131,6 +133,12 @@ def test_loopback_serve_open_endpoint_accepts_only_known_item_ids(tmp_path, make
         assert response.status == 302
         assert response.getheader("Location") == "/constellation.html"
         response.read()
+        connection.request("GET", "/constellation.html")
+        response = connection.getresponse()
+        assert response.status == 200
+        assert response.getheader("Content-Type") == "text/html; charset=utf-8"
+        html = response.read().decode("utf-8")
+        assert html.startswith('<meta charset="utf-8">')
         connection.close()
     finally:
         server.shutdown()
@@ -179,9 +187,22 @@ def test_refresh_syncs_and_renders_one_fresh_graph(tmp_path, make_repo, capsys):
     repo = make_repo(tmp_path, "mixed_proj")
     assert main(["refresh", "--root", str(repo)]) == 0
     output = capsys.readouterr().out
-    assert "refresh:" in output and "wrote 7 files" in output
+    assert "refresh:" in output and "wrote 8 files" in output
     assert (repo / "vizzer" / "vizzer-graph.json").is_file()
     assert main(["check", "--root", str(repo), "--structural"]) == 0
+
+
+def test_check_rejects_partial_install_with_stale_version_marker(
+    tmp_path, make_repo, capsys
+):
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    capsys.readouterr()
+    marker = repo / "vizzer" / "VERSION"
+    marker.write_text("0.0.0\n", encoding="utf-8")
+
+    assert main(["check", "--root", str(repo)]) == 1
+    assert "stale: vizzer/VERSION" in capsys.readouterr().out
 
 
 def test_refresh_does_not_render_a_stale_graph_when_sync_fails(
@@ -211,6 +232,83 @@ next = ["not-configured"]
     assert "wrote" not in output
     assert graph_path.read_text() == previous_graph
     assert dashboard_path.read_text() == previous_dashboard
+
+
+def test_decisions_command_backfills_story_evolution_event(
+    tmp_path, make_repo, capsys
+):
+    from vizzer.config import Config
+    from vizzer.cli import _read_graph
+    from vizzer.model import owner_question_fingerprint
+    from vizzer.question_answers import append_answer
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    config_path = repo / "vizzer/vizzer.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8")
+        + '\n[activity]\npath = "vizzer/active-work.json"\n',
+        encoding="utf-8",
+    )
+    (repo / "vizzer/active-work.json").write_text(json.dumps({
+        "schema": 1,
+        "work": [],
+        "questions": [{
+            "id": "question:route",
+            "storyId": "story:canvas-core",
+            "owner": "Ryder",
+            "prompt": "Which route wins?",
+            "options": [
+                {"id": "shared", "label": "Shared", "tradeoff": "Portable."},
+                {"id": "native", "label": "Native", "tradeoff": "Coupled."},
+            ],
+            "recommendation": {
+                "optionId": "shared", "rationale": "One truth path.",
+            },
+            "falsifier": "A required surface cannot consume it.",
+            "evidence": ["spec/canvas-core.md"],
+        }],
+    }), encoding="utf-8")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    graph = _read_graph(repo)
+    question = graph.owner_questions[0]
+    append_answer(
+        graph, Config.load(repo), repo, question.id,
+        expected_revision=0,
+        expected_fingerprint=owner_question_fingerprint(question),
+        kind="option", option_id="shared",
+    )
+    story = repo / "spec/drawing/epics/tools/stories/canvas-core.md"
+    before = story.read_bytes()
+
+    assert main(["decisions", "--all", "--root", str(repo)]) == 1
+    assert story.read_bytes() == before
+    assert "rerun with --yes" in capsys.readouterr().out
+
+    assert main([
+        "decisions", "--all", "--yes", "--root", str(repo)
+    ]) == 0
+    text = story.read_text(encoding="utf-8")
+    assert "question:route" in text
+    assert "## Evolution event — owner decision" in text
+    assert main(["check", "--root", str(repo)]) == 0
+
+    assert main([
+        "decisions", "question:route", "--apply",
+        "--summary", "Routed the real output through the shared authority.",
+        "--evidence", "src/shared.py", "--root", str(repo),
+    ]) == 1
+    assert "rerun with --yes" in capsys.readouterr().out
+    assert main([
+        "decisions", "question:route", "--apply",
+        "--summary", "Routed the real output through the shared authority.",
+        "--evidence", "src/shared.py", "--yes", "--root", str(repo),
+    ]) == 0
+    text = story.read_text(encoding="utf-8")
+    assert "## Decision application — question:route" in text
+    assert "Routed the real output through the shared authority." in text
+    journal = (repo / "vizzer/views/decision-journal.md").read_text(encoding="utf-8")
+    assert "Normative application:** applied" in journal
+    assert main(["check", "--root", str(repo)]) == 0
 
 
 def test_refresh_renderer_failure_does_not_publish_graph_without_views(
@@ -357,6 +455,16 @@ def test_check_rejects_an_output_dir_outside_the_project(tmp_path, make_repo, ca
     assert main(["check", "--root", str(repo)]) == 2
     assert "outside the project" in capsys.readouterr().out
     assert not (tmp_path / "escaped-check").exists()
+
+
+def test_check_accepts_documented_relative_dot_root(
+    tmp_path, make_repo, monkeypatch
+):
+    repo = make_repo(tmp_path, "mixed_proj")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    monkeypatch.chdir(repo)
+
+    assert main(["check", "--root", "."]) == 0
 
 
 def test_structural_check_ignores_activity_only_changes(tmp_path, make_repo):

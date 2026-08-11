@@ -1,5 +1,5 @@
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import Graph, Item, Milestone, MilestonePhase
+from vizzer.model import Graph, Item, Milestone, MilestonePhase, Relation
 from vizzer.priority import apply_priorities
 
 
@@ -177,3 +177,46 @@ def test_long_dependency_chain_does_not_depend_on_python_recursion_limit():
     assert graph.item_map()["story:n0"].priority["components"][
         "critical_path_depth"
     ] == 1199
+
+
+def test_defect_rank_inherits_known_blast_radius_from_bug_against_contract():
+    contract = _item("contract", status="shipped")
+    target = _item("v1", ["contract"])
+    linked_gap = _item("linked-gap", status="bug-gap")
+    linked_gap.relations = [Relation(kind="bug_against", target="story:contract")]
+    isolated_gap = _item("isolated-gap", status="bug-gap")
+    graph = Graph(items=[contract, target, linked_gap, isolated_gap])
+
+    apply_priorities(graph, _cfg())
+
+    linked = linked_gap.priority["defect"]
+    isolated = isolated_gap.priority["defect"]
+    assert linked["rank"] == 1
+    assert linked["lineage"] == "bug-against"
+    assert linked["affected_contracts"] == ["story:contract"]
+    assert linked["target_items"] == ["story:v1"]
+    assert linked["components"]["target_impact"] == 1
+    assert isolated["rank"] == 2
+    assert isolated["lineage"] == "story-only"
+    assert "missing Bug against lineage" in isolated["rationale"]
+    assert graph.priority["defects"] == ["story:linked-gap", "story:isolated-gap"]
+
+
+def test_defect_rank_uses_graph_reach_without_calling_it_severity():
+    wide = _item("wide", status="bug-gap")
+    narrow = _item("narrow", status="bug-gap")
+    graph = Graph(items=[
+        wide,
+        narrow,
+        _item("wide-child", ["wide"], status="shipped"),
+        _item("wide-grandchild", ["wide-child"], status="shipped"),
+    ])
+
+    apply_priorities(graph, _cfg(target_items=[]))
+
+    wide_defect = wide.priority["defect"]
+    narrow_defect = narrow.priority["defect"]
+    assert wide_defect["rank"] < narrow_defect["rank"]
+    assert wide_defect["components"]["total_dependents"] == 2
+    assert wide_defect["components"]["incomplete_dependents"] == 0
+    assert "severity" not in wide_defect["rationale"].lower()

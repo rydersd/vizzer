@@ -1,5 +1,8 @@
 import json
-from vizzer.model import ActiveWork, Graph, Group, Item, Milestone, MilestonePhase, Relation, SCHEMA
+from vizzer.model import (
+    ActiveWork, Graph, Group, Item, Milestone, MilestonePhase, OwnerQuestion,
+    OwnerQuestionOption, OwnerQuestionRecommendation, Relation, SCHEMA,
+)
 
 
 def _graph():
@@ -27,6 +30,21 @@ def _graph():
             stale_at="2026-08-08T19:00:00Z",
             checkpoint="negative controls", related_story_ids=["story:a"],
         )],
+        owner_questions=[OwnerQuestion(
+            id="question:overlay-route",
+            story_id="story:z",
+            owner="Ryder",
+            prompt="Which route owns the overlay?",
+            options=[
+                OwnerQuestionOption("shared", "Shared", "One authority."),
+                OwnerQuestionOption("local", "Local", "Smaller first patch."),
+            ],
+            recommendation=OwnerQuestionRecommendation(
+                "shared", "Repeated UI needs one concept.",
+            ),
+            falsifier="The overlay remains permanently single-use.",
+            evidence=["wiki/story.md:12"],
+        )],
         activity={"source": "vizzer/active-work.json", "stale_after_minutes": 120},
     )
 
@@ -42,20 +60,93 @@ def test_to_dict_is_stable_sorted():
 
 def test_dumps_roundtrip():
     g = _graph()
+    g.assessment = {
+        "schema": 1,
+        "items": {"story:z": {"size": {"assessed_band": "S"}}},
+        "portfolio": {"small": ["story:z"]},
+    }
     d = json.loads(g.dumps())
     g2 = Graph.from_dict(d)
     assert g2.dumps() == g.dumps()          # deterministic fixpoint
     assert g.dumps().endswith("\n")
     assert g2.item_map()["story:a"].status == "shipped"
     assert g2.active_work[0].checkpoint == "negative controls"
+    assert g2.owner_questions[0].recommendation.option_id == "shared"
+    assert g2.assessment == g.assessment
 
 
 def test_defaults():
     it = Item(id="x", title="X")
     assert it.status == "unknown" and it.deps == [] and it.relations == []
     assert it.activity == {} and it.priority == {}
+    assert it.role == "delivery" and it.tags == [] and it.facets == {}
     assert Group(id="g", kind="epic", title="T").meta == {}
     assert Milestone(id="M", title="T").phases == []
+    assert Graph().owner_questions == []
+    assert Graph().assessment == {}
+
+
+def test_top_level_assessment_is_additive_but_must_be_an_object():
+    data = _graph().to_dict()
+    data["assessment"] = []
+
+    with __import__("pytest").raises(ValueError, match="assessment must be an object"):
+        Graph.from_dict(data)
+
+
+def test_schema_two_roundtrips_item_roles_tags_and_many_to_many_facets():
+    graph = Graph(items=[Item(
+        id="story:shared-editor", title="Shared editor", role="delivery",
+        tags=["markdown", "shared"],
+        facets={
+            "product": ["notes", "core"],
+            "capability": ["notes/editor", "core/markdown"],
+        },
+    )])
+
+    data = graph.to_dict()
+    item = data["items"][0]
+
+    assert data["schema"] == 2
+    assert item["role"] == "delivery"
+    assert item["tags"] == ["markdown", "shared"]
+    assert item["facets"]["product"] == ["notes", "core"]
+    assert Graph.from_dict(data).to_dict() == data
+
+
+def test_schema_one_without_roles_remains_readable_with_conservative_inference():
+    data = {
+        "schema": 1,
+        "groups": [],
+        "items": [
+            {"id": "story:a", "title": "A"},
+            {"id": "product-capability:notes/editor", "title": "Editor"},
+            {"id": "phase:verification", "title": "Verification"},
+            {"id": "doc:decision", "title": "Decision"},
+        ],
+        "milestones": [], "conflicts": [], "warnings": [], "vocab": {},
+    }
+
+    roles = {item.id: item.role for item in Graph.from_dict(data).items}
+
+    assert roles == {
+        "story:a": "delivery",
+        "product-capability:notes/editor": "coverage",
+        "phase:verification": "evidence",
+        "doc:decision": "reference",
+    }
+
+
+def test_item_role_and_facets_reject_untyped_values():
+    data = _graph().to_dict()
+    data["items"][0]["role"] = "stuff"
+    with __import__("pytest").raises(ValueError, match="item role"):
+        Graph.from_dict(data)
+
+    data = _graph().to_dict()
+    data["items"][0]["facets"] = {"Product Name": ["notes"]}
+    with __import__("pytest").raises(ValueError, match="facet names"):
+        Graph.from_dict(data)
 
 
 def test_from_dict_rejects_group_parent_cycle():
@@ -88,6 +179,18 @@ def test_from_dict_rejects_ids_without_nonempty_kind_and_slug():
             assert "id" in str(exc).lower()
         else:
             raise AssertionError(f"malformed {collection} id {bad_id!r} was accepted")
+
+
+def test_from_dict_rejects_owner_question_for_unknown_item():
+    data = _graph().to_dict()
+    data["owner_questions"][0]["story_id"] = "story:missing"
+
+    try:
+        Graph.from_dict(data)
+    except ValueError as exc:
+        assert "existing items" in str(exc)
+    else:
+        raise AssertionError("orphan owner question was accepted")
 
 
 def test_from_dict_rejects_non_numeric_activity_metrics():

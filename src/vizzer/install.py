@@ -12,6 +12,10 @@ from pathlib import Path
 
 _ENGINE_MAIN = "from vizzer.cli import main\nraise SystemExit(main())\n"
 _BLOCK_BEGIN = "<!-- vizzer:begin"
+_CONTEXT_DOCS = (
+    "story-sizing-and-portfolio-selection.md",
+    "prds-and-living-product-specs.md",
+)
 _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` rewrites this block) -->
 ## Vizzer — project work-graph views
 - `vizzer/vizzer-graph.json` is the normalized index of this project's work items
@@ -25,13 +29,40 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
 - If `activity.path` is configured, update the named checkpoint feed when work
   starts, advances, blocks, pauses, or completes; activity never changes lifecycle
   or priority truth. <!-- codex-sequence-2026-08-08 -->
+- At task start and whenever work blocks, scan specs, plans, active work, and
+  implementation evidence for unresolved owner decisions. Read the surrounding
+  contracts; do not infer a question from `blocked` or keywords. For each real
+  decision, research 2–3 options with tradeoffs, recommend one, name a falsifier
+  and evidence, and add it to the feed's explicit `questions` array while
+  continuing work that does not depend on the answer.
+- Questions and accepted answers are model-neutral repo records. Claude, Codex,
+  Gemini, other agents, and the served UI must use the same validated answer
+  schema; the model or chat session is never the decision authority. Static
+  `file://` constellation output is read-only; use `python3 vizzer/engine serve`
+  for interactive Answer controls. A served answer atomically appends a structured
+  evolution event to its source story. If answers were authored directly in the
+  ledger, run `python3 vizzer/engine decisions --all --yes`; read
+  `vizzer/views/decision-journal.md` before shaping or implementing related work.
+  After the accepted decision is actually applied, run
+  `python3 vizzer/engine decisions <question-id> --apply --summary <outcome>
+  --evidence <path> --yes`; acceptance and lifecycle remain separate gates.
 - If `planning.enabled` is true, the accepted planning overlay composes over the
   target manifest. Use the refreshed graph's ranked recommendations for next-task
   selection. Analyze tradeoffs before applying a course change; never rewrite story
   headers, dependency truth, or the target manifest as a side effect.
+- Delivery assessment is deterministic and model-neutral. Read
+  `graph.assessment.items` plus the assessed portfolio; keep size, impact,
+  uncertainty, and parallel safety separate. An agent may propose researched
+  evidence, but it must not invent a universal AI speed multiplier or silently
+  promote an inference into fact. Context lives in `vizzer/docs/`.
+- To persist researched sizing evidence, refresh first, copy the item's current
+  `scope_fingerprint` into `assessment.signals_path` as `scopeFingerprint`, add
+  only authored/proposed `signals`, then refresh again. Source changes make the
+  entry stale. Observed sizes and executed-test claims are adapter-owned and may
+  not be self-certified by Claude, Codex, Gemini, or any other model.
 - `python3 vizzer/engine check` gates staleness (CI/pre-commit friendly).
 - Views live in `vizzer/views/` — dashboard.md answers "what next";
-  constellation.html is the 3D map.
+  decision-journal.md preserves owner rationale; constellation.html is the 3D map.
 <!-- vizzer:end -->"""
 _CLAUDE_SKILL = """---
 name: vizzer
@@ -47,6 +78,24 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
   story status/dependency change. It syncs and renders one newly built graph.
 - When configured, update the activity feed at named checkpoints; checkpoint
   progress is an overlay and never substitutes for story acceptance.
+- Scan repository specs, plans, activity, and implementation evidence for real
+  unresolved owner decisions. Do not equate `blocked` with a question. Research
+  2–3 options, tradeoffs, a recommendation, falsifier, and evidence before adding
+  an explicit activity-feed question; keep progressing independent work.
+- Treat the configured question-answer overlay as model-neutral repo authority.
+  Any agent may author its validated schema; do not treat chat memory as the
+  accepted decision. Static constellation files are read-only; interactive
+  answering requires `python3 vizzer/engine serve`. Served answers append
+  evolution events to their source stories. After direct ledger authorship, run
+  `python3 vizzer/engine decisions --all --yes`; inspect
+  `vizzer/views/decision-journal.md` for accepted rationale and pending application.
+- When assessment is enabled, use `graph.assessment.items` and its portfolio;
+  keep size, impact, uncertainty, and parallel safety separate. Never invent a
+  universal AI speed multiplier. Read `vizzer/docs/story-sizing-and-portfolio-selection.md`
+  and `vizzer/docs/prds-and-living-product-specs.md` for the reasoning contract.
+- Persist sizing research only in the configured schema-1 assessment-signals
+  overlay, bound to the current base scope fingerprint. Do not self-certify
+  observed size or executed tests from chat or prose evidence.
 - Run `python3 vizzer/engine check` in CI or before committing to detect stale output.
 """
 
@@ -334,6 +383,16 @@ medium = 20
 large = 50
 default = 25
 
+# Model-neutral delivery sizing and balanced portfolio suggestions. Assessment
+# never changes source appetite, lifecycle, dependencies, or owner course.
+[assessment]
+enabled = true
+signals_path = "vizzer/assessment-signals.json"
+small_limit = 4
+anchor_limit = 2
+question_limit = 1
+verification_globs = ["tests/**/*", "test/**/*", "tests-ui/**/*"]
+
 # Owner-authored, audited course changes compose with priority target authority.
 # Static views are read-only; use `vizzer serve` or `vizzer plan` to write safely.
 [planning]
@@ -380,6 +439,10 @@ def _vendor(engine: Path) -> None:
             for name in zf.namelist():
                 if not name.startswith("vizzer/") or name.endswith("/"):
                     continue
+                if name.startswith("vizzer/context/"):
+                    # Context is installed once at vizzer/docs; keeping a
+                    # second engine copy would break source/vendor parity.
+                    continue
                 if "__pycache__" in name or name.endswith((".pyc", ".DS_Store")):
                     continue
                 dest = engine / name
@@ -395,6 +458,36 @@ def _vendor(engine: Path) -> None:
         )
 
     (engine / "__main__.py").write_text(_ENGINE_MAIN, encoding="utf-8")
+
+
+def _write_context_docs(target: Path) -> None:
+    """Install the portable assessment/spec guidance beside project data."""
+    import vizzer
+
+    destination = target / "vizzer" / "docs"
+    destination.mkdir(parents=True, exist_ok=True)
+    archive = getattr(getattr(vizzer, "__loader__", None), "archive", None)
+    if archive:
+        with zipfile.ZipFile(archive) as zf:
+            for name in _CONTEXT_DOCS:
+                (destination / name).write_bytes(zf.read(f"vizzer/context/{name}"))
+        return
+
+    package_root = Path(vizzer.__file__).resolve().parent
+    candidates = (
+        package_root.parent.parent / "docs" / "context",
+        package_root / "context",
+        package_root.parent.parent / "docs",
+    )
+    source = next(
+        (candidate for candidate in candidates
+         if all((candidate / name).is_file() for name in _CONTEXT_DOCS)),
+        None,
+    )
+    if source is None:
+        raise FileNotFoundError("Vizzer assessment context documents are missing")
+    for name in _CONTEXT_DOCS:
+        shutil.copyfile(source / name, destination / name)
 
 
 def _write_version(target: Path) -> None:
@@ -459,6 +552,7 @@ def install(target: Path, *, claude_skill: bool = False,
     print(_detection_summary(found))
     engine.parent.mkdir(parents=True, exist_ok=True)
     _vendor(engine)
+    _write_context_docs(target)
     _write_version(target)
     (target / "vizzer" / "vizzer.toml").write_text(
         _config_text(target, found), encoding="utf-8"
@@ -490,6 +584,7 @@ def update(target: Path) -> int:
 
     shutil.rmtree(engine)
     _vendor(engine)
+    _write_context_docs(target)
     _write_version(target)
     harness_doc = _doc_with_block(target) or _harness_doc(target, "auto")
     _upsert_managed_block(harness_doc)

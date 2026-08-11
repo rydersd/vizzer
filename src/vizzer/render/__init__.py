@@ -15,6 +15,7 @@ RENDERERS = {
     "roadmap": "roadmap",
     "feature_index": "feature_index",
     "dashboard": "dashboard",
+    "decision_journal": "decision_journal",
     "completion_sheet": "completion_sheet",
     "ledger_table": "ledger_table",
     "manifest": "manifest",

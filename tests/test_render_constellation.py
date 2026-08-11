@@ -1,9 +1,62 @@
 import json
 import re
+import shutil
+import subprocess
 
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import ActiveWork, Graph, Group, Item, Relation
+from vizzer.model import (
+    ActiveWork, Graph, Group, Item, OwnerQuestion, OwnerQuestionOption,
+    OwnerQuestionRecommendation, Relation,
+)
 from vizzer.render import render_all
+
+
+_CONSTELLATION_COUNT_DOM_SHIM = r'''
+const fs=require('fs'),vm=require('vm');
+class ClassList{constructor(e){this.e=e;this.s=new Set()}sync(){this.e._className=[...this.s].join(' ')}add(...x){x.forEach(v=>this.s.add(v));this.sync()}remove(...x){x.forEach(v=>this.s.delete(v));this.sync()}toggle(x,f){const on=f===undefined?!this.s.has(x):!!f;on?this.s.add(x):this.s.delete(x);this.sync();return on}contains(x){return this.s.has(x)}replaceFrom(x){this.s=new Set(String(x).split(/\s+/).filter(Boolean));this.sync()}}
+const ids=new Map(),desc=r=>r.children.flatMap(c=>[c,...desc(c)]);
+class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';head.appendChild(new Element('span'));const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
+for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossieridentity','dbody','close','tip','hint','cv'])new Element(id==='cv'?'canvas':'div',id);
+const document={documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
+const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
+const sandbox={console,document,location:{protocol:'file:',hash:''},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(){},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
+const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
+const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.caphead>span').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
+const panelSnapshot=()=>{const html=ids.get('viewpanel').innerHTML;return{cards:(html.match(/data-view-node=/g)||[]).length,metrics:[...html.matchAll(/<strong>(\d+)<\/strong>/g)].map(match=>+match[1]),rows:(html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr>/g)||[]).length}};
+const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
+const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
+'''
+
+_CONSTELLATION_COUNT_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "segBtns.R1.dispatch('pointerup')", "segBtns.R1.click()",
+)
+
+_CONSTELLATION_INTERACTION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "process.stdout.write(JSON.stringify(out));",
+    r'''
+const exact=ev(`DATA.questions[0].n`);
+const neighbor=ev(`DATA.nodes.findIndex((n,i)=>i!==${exact}&&!n.foundation)`);
+if(exact<0||neighbor<0)throw new Error('exact-target fixture missing');
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=200;P[${exact}].y=200;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
+P[${neighbor}].x=205;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+cv.dispatch('pointerdown',{clientX:200,clientY:200,pointerId:21});
+cv.dispatch('pointerup',{clientX:200,clientY:200,pointerId:21})})()`);
+out.overlapTarget={selected:ev(`sel`),expected:exact,title:ev(`DATA.nodes[sel].t`)};
+const card=new Element('button');card.dataset={viewNode:String(exact)};
+ids.get('viewpanel').querySelectorAll=selector=>selector==='[data-view-node]'?[card]:[];
+ids.get('dbody').scrollTop=999;ev(`switchView('dashboard')`);card.click();
+out.cardTarget={selected:ev(`sel`),expected:exact,title:ev(`DATA.nodes[sel].t`),
+  open:ids.get('dossier').classList.contains('open'),scrollTop:ids.get('dbody').scrollTop};
+ev(`lifecycleButtons.active.dispatch('pointerdown',{button:0})`);
+setTimeout(()=>{
+  out.lifecycleHold={active:ev(`filt.active`),ready:ev(`filt.ready`),
+    activePressed:ev(`lifecycleButtons.active.getAttribute('aria-pressed')`),
+    readyPressed:ev(`lifecycleButtons.ready.getAttribute('aria-pressed')`)};
+  process.stdout.write(JSON.stringify(out));
+},725);
+''',
+)
 
 
 def _graph():
@@ -40,10 +93,228 @@ def test_constellation_injects_data(tmp_path):
     assert "__DATA__" not in html and "__TITLE__" not in html and "demo" in html
     d = _data(html)
     assert len(d["nodes"]) == 2 and d["edges"] == [[0, 1]]
+    assert d["engineVersion"]
+    assert "if(body.engineVersion!==ENGINE_VERSION)" in html
+    assert "Restart vizzer serve before answering." in html
     assert d["now"] == 900                       # max last_touched — deterministic, no wall clock
     assert d["nodes"][1]["rec"] == 1
     assert d["nodes"][0]["w"] > d["nodes"][1]["w"]   # appetite large > default
     assert "root" not in d                       # no absolute paths unless obsidian_links=true
+
+
+def test_constellation_preserves_group_hierarchy_for_structure_navigation(tmp_path):
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(
+        vocab=cfg.vocab,
+        groups=[
+            Group(id="product:notes", kind="product", title="Notes"),
+            Group(id="capability:notes/library", kind="capability",
+                  title="Library", parent="product:notes"),
+            Group(id="epic:notes/library/search", kind="epic",
+                  title="Search", parent="capability:notes/library"),
+        ],
+        items=[
+            Item(id="story:find-notes", title="Find notes", status="shipped",
+                 group="epic:notes/library/search"),
+            Item(id="doc:orphan", title="Loose reference", status="unknown",
+                 role="reference"),
+        ],
+    )
+
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+    data = _data(html)
+
+    assert data["nodes"][1]["group"] == "epic:notes/library/search"
+    assert data["groups"] == [
+        {"id": "capability:notes/library", "kind": "capability",
+         "title": "Library", "parent": "product:notes"},
+        {"id": "epic:notes/library/search", "kind": "epic",
+         "title": "Search", "parent": "capability:notes/library"},
+        {"id": "product:notes", "kind": "product",
+         "title": "Notes", "parent": ""},
+    ]
+    assert 'href="#structure" data-view="structure">Hierarchy</a>' in html
+    assert "function renderStructure(entries)" in html
+    assert "Facets describe cross-project membership" in html
+    assert "currentView==='structure'?renderStructure(entries)" in html
+    assert "grid-template-rows:28px 28px 28px" in html
+    assert "#meter{grid-column:1 / -1;grid-row:2" in html
+    assert "#chips{grid-column:1 / -1;grid-row:3" in html
+
+
+def test_constellation_serializes_roles_and_facets_and_scopes_delivery_metrics(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"area": [
+        {"id": "products", "title": "Products", "facet": "product",
+         "values": ["notes"]},
+        {"id": "core", "title": "Core", "facet": "product",
+         "values": ["core"]},
+    ]}))
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="story:done", title="Done", status="shipped", role="delivery",
+             tags=["markdown"], facets={
+                 "product": ["notes", "core"],
+                 "capability": ["notes/editor", "core/markdown"],
+             }),
+        Item(id="story:open", title="Open", status="specced", role="delivery",
+             facets={"product": ["notes"], "capability": ["notes/editor"]}),
+        Item(id="product-capability:notes/editor", title="Editor coverage",
+             status="shipped", role="coverage",
+             facets={"product": ["notes"], "capability": ["notes/editor"]}),
+    ], owner_questions=[OwnerQuestion(
+        id="question:open", story_id="story:open", owner="Ryder",
+        prompt="Choose?", options=[
+            OwnerQuestionOption(id="a", label="A", tradeoff="A tradeoff"),
+            OwnerQuestionOption(id="b", label="B", tradeoff="B tradeoff"),
+        ], recommendation=OwnerQuestionRecommendation(
+            option_id="a", rationale="A is recommended",
+        ), falsifier="Counterexample", evidence=["story.md"],
+    )])
+
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+    data = _data(html)
+    by_id = {node["id"]: node for node in data["nodes"]}
+
+    assert by_id["story:done"]["role"] == "delivery"
+    assert by_id["story:done"]["tags"] == ["markdown"]
+    assert by_id["story:done"]["facets"]["product"] == ["notes", "core"]
+    assert data["caps"] == {"": {"total": 2, "shipped": 1}}
+    assert "Products" in html and "Core" in html
+    assert "const deliveryNodes = itemNodes.filter" in html
+    assert "Lifecycle and regression debt are computed within each item role" in html
+
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    completed = subprocess.run(
+        [node, "-e", _CONSTELLATION_COUNT_DOM_SHIM], input=html,
+        text=True, capture_output=True, timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr
+    state = json.loads(completed.stdout)["initial"]
+    assert state["shipped"] == "1/2 delivery shipped"
+    assert state["completion"] == "50%"
+    assert state["items"] == "2 items"
+    assert state["capCount"] == "1/2"
+
+
+def test_constellation_composes_frontend_sources_into_one_dependency_free_artifact(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert not re.search(r"<(?:script|link)\b[^>]+(?:src|href)=", html, re.I)
+    assert len(re.findall(r"<script>", html)) == 2
+    assert len(re.findall(r"<style>", html)) == 1
+    assert not re.search(r"__VIZZER_[A-Z_]+__", html)
+    assert "const DATA=" in html
+
+
+def test_search_clear_icon_is_centered_in_its_circle(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "display:grid;place-items:center;padding:0" in html
+    assert "#searchclear .symbol{display:block;width:13px;height:13px;vertical-align:0}" in html
+
+
+def test_constellation_serializes_assessment_and_uses_assessed_size(tmp_path):
+    graph = _graph()
+    graph.assessment = {
+        "schema": 1,
+        "method": "deterministic-delivery-assessment-v1",
+        "items": {"story:b": {
+            "size": {
+                "assessed_band": "XL", "uncertainty": "U2",
+                "plausible_range": {"min": "L", "max": "XL"},
+                "provenance": "inferred",
+                "dimensions": {
+                    "integration": {"band": "L", "provenance": "inferred"},
+                },
+                "evidence": ["four integration boundaries"],
+                "unknowns": ["verification harness is not established"],
+            },
+            "impact": {
+                "structural_target_reach": 3, "immediate_unlock": 2,
+                "frontier_reach": 4, "provenance": "authored",
+            },
+            "parallelism": {"classification": "serial", "conflicts": ["shared build"]},
+        }},
+        "portfolio": {"small": [], "anchors": [], "defects": [],
+                      "questions": ["story:b"], "unknown_size": []},
+    }
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    data = _data(html)
+    node = next(value for value in data["nodes"] if value["id"] == "story:b")
+
+    assert node["assess"]["band"] == "XL"
+    assert node["assess"]["lane"] == "questions"
+    assert node["assess"]["targetReach"] == 3
+    assert node["w"] > next(value for value in data["nodes"]
+                            if value["id"] == "story:a")["w"]
+    assert data["assessment"]["method"] == "deterministic-delivery-assessment-v1"
+    assert "delivery size" in html and "assessment unknowns" in html
+    assert "sizeMode==='delivery'&&n.assess&&n.assess.band==null" in html
+
+
+def test_constellation_marks_unresolved_blocker_lane(tmp_path):
+    graph = _graph()
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:b": {
+            "size": {"assessed_band": "S", "uncertainty": "U2"},
+            "impact": {"structural_target_reach": 1, "immediate_unlock": 0},
+            "parallelism": {"classification": "unknown"},
+        }},
+        "portfolio": {"small": [], "anchors": [], "defects": [],
+                      "questions": [], "occupied": [],
+                      "blocked": ["story:b"], "unknown_size": []},
+    }
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    node = next(value for value in _data(html)["nodes"]
+                if value["id"] == "story:b")
+
+    assert node["assess"]["lane"] == "blocked"
+
+
+def test_constellation_sanitizes_persisted_assessment_before_html(tmp_path):
+    graph = _graph()
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:b": {
+            "size": {
+                "assessed_band": "<img>", "uncertainty": "U99",
+                "raw_authored_appetite": "</script><script>alert(1)</script>",
+                "plausible_range": {"min": "NOPE", "max": "XL"},
+                "provenance": "fabricated", "dimensions": {},
+                "evidence": ["<b>not markup</b>"], "unknowns": [],
+            },
+            "impact": {
+                "structural_target_reach": "<img onerror=alert(2)>",
+                "immediate_unlock": -5, "frontier_reach": 10 ** 20,
+                "provenance": "authored",
+            },
+            "parallelism": {"classification": "maybe", "conflicts": []},
+        }},
+        "portfolio": {},
+    }
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    node = next(value for value in _data(html)["nodes"] if value["id"] == "story:b")
+
+    assert node["assess"]["band"] is None
+    assert node["assess"]["uncertainty"] == "U3"
+    assert node["assess"]["targetReach"] == 0
+    assert node["assess"]["immediateUnlock"] == 0
+    assert node["assess"]["frontierReach"] == 1_000_000
+    assert node["assess"]["parallel"] == "unknown"
+    assert html.count("</script>") == 2
 
 
 def test_constellation_keeps_file_mode_source_link_relative_and_http_open_by_id(tmp_path):
@@ -57,6 +328,8 @@ def test_constellation_keeps_file_mode_source_link_relative_and_http_open_by_id(
     assert "n.h&&!SERVED" in html
     assert "n.id&&SERVED" in html
     assert "fetch('/api/open/'+encodeURIComponent(b.dataset.openItem)" in html
+    assert '>read story</button>' in html
+    assert "b.textContent = 'story opened'" in html
 
 
 def test_constellation_default_never_serializes_root(tmp_path):
@@ -96,6 +369,40 @@ def test_constellation_uses_configured_lifecycle_roles(tmp_path):
 
     assert groups == {"a": "active", "b": "buggap", "c": "buggap", "d": "shipped"}
     assert "'in-flight':'active'" not in html
+    assert "const metricNodes=deliveryNodes.filter" in html
+    assert "const bugGaps=metricNodes.filter(n=>n.st==='bug-gap').length" in html
+    assert "defectCount.textContent=`${bugGaps} bug gap${bugGaps===1?'':'s'} open`" in html
+    assert '#meterlab .defectcount{color:var(--buggap)}' in html
+    assert "const questions=metricNodes.reduce((total,n)=>total+(n.oq||[]).length,0)" in html
+    assert "currentQuestionCountLabel=`${questions} open owner question${questions===1?'':'s'} across ${questionStories}" in html
+    assert "currentQuestionButtonLabel=`${questions} answer${questions===1?'':'s'} required" in html
+    assert 'id="questionfilter" class="questioncount" aria-pressed="false"' in html
+    assert '#meterlab .questioncount:focus-visible' in html
+
+
+def test_constellation_exposes_interactive_views_and_separate_markdown_exports(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert '<details id="viewmenu"><summary>Views</summary>' in html
+    for route in ("constellation", "dashboard", "roadmap", "features",
+                  "completion", "ledgers"):
+        assert f'href="#{route}" data-view="{route}"' in html
+    assert '#viewmenu a[aria-current="page"]' in html
+    assert '<details id="exportmenu"><summary>Export</summary>' in html
+    for target in ("dashboard.md", "roadmap.md", "feature-index.md",
+                   "completion-sheet.md", "ledger-table.md"):
+        assert f'href="{target}" download' in html
+    assert '<main id="viewpanel" tabindex="-1" hidden></main>' in html
+    assert "Every panel below reads the exact DATA object" in html
+    assert "const viewEntries=()=>DATA.nodes.map" in html
+    assert "!node.foundation&&visible(node)&&searchMatches[index]" in html
+    assert "function renderDashboard(entries)" in html
+    assert "function renderRoadmap(entries)" in html
+    assert "function renderFeatures(entries)" in html
+    assert "function renderCompletion(entries)" in html
+    assert "function renderLedgers(entries)" in html
+    assert "addEventListener('hashchange',()=>switchView(requestedView(),true))" in html
 
 
 def test_titles_cannot_inject_html_or_break_out_of_the_script_block(tmp_path):
@@ -173,6 +480,12 @@ def test_constellation_keeps_typed_lineage_separate_from_hard_edges(tmp_path):
                  "rank": 1, "score": 540,
                  "rationale": "1 incomplete target dependent(s), depth 1",
                  "components": {"target_dependents": 1},
+                 "defect": {
+                     "rank": 3,
+                     "lineage": "bug-against",
+                     "rationale": "1 V1 target, 4 total downstream; bug against story:old",
+                     "components": {"target_impact": 1, "total_dependents": 4},
+                 },
              }),
     ], priority={"recommendations": ["story:new"]})
 
@@ -185,6 +498,11 @@ def test_constellation_keeps_typed_lineage_separate_from_hard_edges(tmp_path):
     assert data["relations"] == [[0, 1, "revises"]]
     assert data["nodes"][0]["rec"] == 1
     assert data["nodes"][0]["pu"] == 1
+    assert data["nodes"][0]["dr"] == 3
+    assert data["nodes"][0]["dt"] == 1
+    assert data["nodes"][0]["dd"] == 4
+    assert data["nodes"][0]["dl"] == "bug-against"
+    assert "known-reach rank" in html and "known graph reach" in html
     assert "reverse lineage" in html
 
 
@@ -250,6 +568,78 @@ def test_constellation_activity_lens_pulses_only_explicit_fresh_work_links(tmp_p
     assert "ctx.setLineDash([4,4])" in html  # typed relation, not hard dependency
 
 
+def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:b", agent="Ryder", task="Capture 588-row cadence evidence",
+        state="blocked", completed=1, total=3,
+        updated_at="2020-08-08T17:00:00Z",
+        stale_at="2020-08-08T19:00:00Z",
+        checkpoint="Run the archived corpus",
+    )]
+    graph.owner_questions = [OwnerQuestion(
+        id="question:hit-priority",
+        story_id="story:a",
+        owner="Ryder",
+        prompt="Should close-target or handle hit win?",
+        options=[
+            OwnerQuestionOption("nearest", "Nearest", "Preserves geometric priority."),
+            OwnerQuestionOption("close", "Close", "Makes path closure easier."),
+        ],
+        recommendation=OwnerQuestionRecommendation(
+            "nearest", "Shared hit-test truth should remain authoritative.",
+        ),
+        falsifier="User testing shows nearest makes closure unreliable.",
+        evidence=["wiki/product-spec/close-target.md:42"],
+    )]
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    data = _data(html)
+
+    assert data["work"][0]["state"] == "blocked"
+    assert data["nodes"][0]["oq"] == [0]
+    assert "oq" not in data["nodes"][1]
+    assert data["questions"][0]["prompt"] == "Should close-target or handle hit win?"
+    assert "const ownerQuestions = i =>\n  (DATA.nodes[i].oq||[])" in html
+    assert "const unresolved=ownerQuestions(i)" in html
+    assert "xPath(x,y,Math.max(2.5,radius*.82))" in html
+    assert "if(unresolved.length>1)" in html
+    assert "Never infer them from a" in html
+    assert "[w.state,stale?'stale':'']" in html
+    assert "questioncard" in html
+    assert ".workcard.blocked{border-color:var(--buggap)}" in html
+    assert _search_ids(data, "geometric priority") == ["story:a"]
+    assert _search_ids(data, "588 cadence") == ["story:b"]
+
+
+def test_owner_question_text_cannot_escape_script_or_dossier_html(tmp_path):
+    graph = _graph()
+    attack = "</script><img src=x onerror=alert(1)>"
+    graph.owner_questions = [OwnerQuestion(
+        id="question:payload",
+        story_id="story:a",
+        owner="Ryder",
+        prompt=attack,
+        options=[
+            OwnerQuestionOption("safe", "Safe", attack),
+            OwnerQuestionOption("unsafe", "Unsafe", "Reject this."),
+        ],
+        recommendation=OwnerQuestionRecommendation("safe", attack),
+        falsifier=attack,
+        evidence=[attack],
+    )]
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    data = _data(html)
+
+    assert data["questions"][0]["prompt"] == attack
+    assert "</script><img src=x onerror=alert(1)>" not in html
+    assert "<\\/script><img src=x onerror=alert(1)>" in html
+    assert "${esc(q.prompt)}" in html
+
+
 def test_constellation_lenses_are_accessible_and_reduced_motion_is_semantic(tmp_path):
     html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
                       only={"constellation"})["constellation.html"]
@@ -260,6 +650,22 @@ def test_constellation_lenses_are_accessible_and_reduced_motion_is_semantic(tmp_
     assert "const reducedMotion" in html
     assert "reducedMotion ? .72" in html
     assert "ctx.lineDashOffset=reducedMotion?0" in html
+
+
+def test_constellation_declares_utf8_uses_vector_icons_and_supports_command_pan(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert html.startswith('<meta charset="utf-8">')
+    assert 'id="sym-xmark"' in html
+    assert 'id="sym-star-fill"' in html
+    assert 'id="sym-arrow-up-right"' in html
+    assert '<kbd>&#8984;</kbd> + two-finger pan' in html
+    assert "let rx=-.35, ry=.6, zoom=1, panX=0, panY=0" in html
+    assert "if (e.ctrlKey){ // trackpad pinch" in html
+    assert "else if (e.metaKey){ // Command + two-finger scroll pans" in html
+    assert "panX -= e.deltaX; panY -= e.deltaY;" in html
+    assert "cxp=W/2+40+panX, cyp=H/2+panY" in html
 
 
 def test_constellation_renders_semantic_progress_trails_and_capped_stall_markers(tmp_path):
@@ -277,10 +683,431 @@ def test_constellation_renders_semantic_progress_trails_and_capped_stall_markers
     data = _data(html)
     assert data["nodes"][0]["pg"]["events"][0]["kind"] == "lifecycle"
     assert data["nodes"][0]["pg"]["stall"]["maxDays"] == 90
-    assert "Circle-plus marks are a static history trail" in html
-    assert "Math.min(blocked.maxDays,blocked.days)" in html
+    assert "Circle-check marks are a static history trail" in html
+    assert "blocked.days/Math.max(1,blocked.maxDays)" in html
+    assert "const nodeBadgeRadius = rr => Math.max(1.5,Math.min(8,rr*.42))" in html
+    assert "const {x,y}=nodeBadgePoint(p,rr,markerBase,1,order)" in html
+    assert "const {x,y}=nodeBadgePoint(p,rr,radius,-1,unresolved.length?1:0)" in html
+    assert "const distance=rr+radius*.12" in html
+    assert "order*markerBase*1.8" not in html
+    assert "const radius=Math.min(10,markerBase*(1+.25*ageRatio))" in html
+    assert "Staleness is evidence age, not an owner question" in html
+    assert "ctx.lineTo(x+markerBase*.5,y-markerBase*.34)" in html
     assert "const ageDays = at =>" in html
     assert "role=\"tooltip\"" in html and "progressText" in html
+
+
+def test_constellation_owner_questions_pulse_and_emit_reduced_motion_safe_shockwaves(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:visible",
+        story_id="story:a",
+        owner="Ryder",
+        prompt="Which authority wins?",
+        options=[OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff")],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample",
+        evidence=["s/a.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "const questionWavePhase = (i,offset=0) => reducedMotion" in html
+    assert "for(const offset of [0,.5])" in html
+    assert "Math.pow(1-phase,1.7)" in html
+    assert "rr*(1.65+phase*3.1)" in html
+    assert "const questionPulse=reducedMotion?.16" in html
+    assert "ctx.arc(p.x,p.y,rr*2.15,0,7);ctx.fill()" in html
+    assert "Explicit researched decisions use an X as the steady blocker signal" in html
+    assert "xPath(x,y,Math.max(2.5,radius*.82));ctx.stroke()" in html
+
+
+def test_constellation_question_blocker_is_explicit_and_actionable(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:visible", story_id="story:a", owner="Ryder",
+        prompt="Which authority wins?",
+        options=[OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff")],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample", evidence=["s/a.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert '<div class="questionblocker" role="status">' in html
+    assert "Blocked — answer required" in html
+    assert "must be resolved before this story is dispatchable" in html
+    assert "decision required · ${esc(q.owner)}" in html
+    assert "currentQuestionButtonLabel" in html
+    assert "blocked stor${questionStories===1?'y':'ies'}" in html
+    assert '#meterlab .questioncount{border:1px solid var(--owner-override)' in html
+
+
+def test_constellation_question_count_filters_explicit_records_independently_of_activity_lens(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:visible",
+        story_id="story:a",
+        owner="Ryder",
+        prompt="Which authority wins?",
+        options=[OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff")],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample",
+        evidence=["s/a.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "let areaFocus=null" in html
+    assert "let capFocus = null, sel = -1, hover = -1, questionOnly = false" in html
+    assert "const nodeHasOwnerQuestions = n => (n.oq||[]).length>0" in html
+    assert "(!questionOnly || nodeHasOwnerQuestions(n))" in html
+    assert "const all = k===0 || (!questionOnly && !capFocus" in html
+    assert "questionFilter.disabled=questions===0&&!questionOnly" in html
+    assert "const questionStories=metricNodes.filter(nodeHasOwnerQuestions).length" in html
+    assert "questionFilter.setAttribute('aria-pressed',String(questionOnly))" in html
+    assert "not optional Activity-lens decoration" in html
+    assert "const ownerQuestions = i =>\n  (DATA.nodes[i].oq||[])" in html
+    assert "if(questionOnly&&!lens.activity)" not in html
+    assert "if(key==='activity'&&!lens[key]&&questionOnly)setQuestionFilter(false)" not in html
+    assert "lensButtons[key]=b" in html
+    assert "if(sel>=0&&!visible(DATA.nodes[sel]))" in html
+    assert "function applyViewState(focusFallback=null)" in html
+    assert "visibleQuestionCount+=(node.oq||[]).length" in html
+    assert "No stories with owner questions match the current filters." in html
+    assert "questionOnly?'Remove owner-question filter'" in html
+    assert "bindToggleOrSolo(b,g,Object.keys(GLAB),filt,syncLifecycle)" in html
+    assert "for(const candidate of keys)state[candidate]=candidate===key" in html
+    assert "bindToggleOrSolo(b,r,RELS,rfilt,syncSeg)" in html
+    assert "capFocus=capFocus===c?null:c" in html and "applyViewState(d);" in html
+    assert "tip.style.display='none'" in html and "cv.style.cursor='grab'" in html
+    assert "let currentQuestionCountLabel=''" in html
+    assert "`${action}. ${currentQuestionCountLabel}.`" in html
+    assert "const metricNodes=deliveryNodes.filter" in html
+    assert "const nodes=deliveryNodes.filter(n=>meter.matches(n)" in html
+    assert "capabilityMeters.set(key" in html
+    assert 'id="dossier" aria-hidden="true"' in html
+    assert "dossier.setAttribute('aria-hidden','false')" in html
+    assert "if(restoreFocus)(focusFallback||cv).focus()" in html
+    assert 'id="cv" role="application" tabindex="0"' in html
+
+
+def test_constellation_filters_recompute_global_and_capability_counts(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "const metricNodes=deliveryNodes.filter" in html
+    assert "shippedCount.textContent=`${shipped}/${metricNodes.length} delivery shipped`" in html
+    assert "defectCount.textContent=`${bugGaps} bug gap${bugGaps===1?'':'s'} open`" in html
+    assert "completionCount.textContent=completion.toFixed(0)+'%'" in html
+    assert "const nodes=deliveryNodes.filter(n=>meter.matches(n)" in html
+    assert "meter.count.textContent=`${capShipped}/${nodes.length}`" in html
+    assert "meter.shipped.style.width=(100*capShipped/Math.max(1,nodes.length))" in html
+    assert "meter.bugs.style.width=(100*capBugs/Math.max(1,nodes.length))" in html
+    assert "const d=document.createElement('button')" in html
+    assert "d.setAttribute('aria-pressed','false')" in html
+    assert "meter.element.setAttribute('aria-label'" in html
+    assert "bindToggleOrSolo(b,r,RELS,rfilt,syncSeg)" in html
+    assert "updateVisibleCounts();" in html
+
+
+def test_constellation_version_filter_executes_dynamic_count_updates(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "render": {"recommended": ["story:r0-done", "story:r1-done"]},
+    }))
+    graph = Graph(
+        vocab=cfg.vocab,
+        groups=[Group(id="capability:c", kind="capability", title="Cap")],
+        items=[
+            Item(id="story:r0-done", title="R0 done", status="shipped",
+                 release="R0", group="capability:c"),
+            Item(id="story:r0-bug", title="R0 bug", status="bug-gap",
+                 release="R0", group="capability:c"),
+            Item(id="story:r1-done", title="R1 done", status="shipped",
+                 release="R1", group="capability:c"),
+            Item(id="story:r1-open", title="R1 open", status="specced",
+                 release="R1", group="capability:c"),
+        ],
+        owner_questions=[OwnerQuestion(
+            id="question:r0", story_id="story:r0-bug", owner="Ryder",
+            prompt="Choose?", options=[
+                OwnerQuestionOption(id="a", label="A", tradeoff="A tradeoff"),
+                OwnerQuestionOption(id="b", label="B", tradeoff="B tradeoff"),
+            ], recommendation=OwnerQuestionRecommendation(
+                option_id="a", rationale="A is recommended",
+            ), falsifier="Counterexample", evidence=["story.md"],
+        )],
+        active_work=[
+            ActiveWork(
+                story_id="story:r0-done", agent="Ryder", task="Ship R0",
+                state="active", completed=1, total=2,
+                updated_at="2026-08-10T17:00:00Z",
+                stale_at="2099-08-10T19:00:00Z",
+            ),
+            ActiveWork(
+                story_id="story:r1-done", agent="Ryder", task="Ship R1",
+                state="active", completed=2, total=2,
+                updated_at="2026-08-10T18:00:00Z",
+                stale_at="2099-08-10T20:00:00Z",
+            ),
+        ],
+    )
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    completed = subprocess.run(
+        [node, "-e", _CONSTELLATION_COUNT_DOM_SHIM], input=html,
+        text=True, capture_output=True, timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr
+    state = json.loads(completed.stdout)
+
+    assert state["initial"] == {
+        "shipped": "2/4 delivery shipped", "bugs": "1 bug gap open",
+        "questions": "1 answer required · 1 blocked story",
+        "completion": "50%", "items": "4 items", "capCount": "2/4",
+        "capShipped": "50.0%", "capBugs": "25.0%",
+        "capLabel": "c, 2 of 4 delivery items shipped, 1 bug gap open",
+    }
+    assert state["r0"] == {
+        "shipped": "1/2 delivery shipped", "bugs": "1 bug gap open",
+        "questions": "1 answer required · 1 blocked story",
+        "completion": "50%", "items": "2 items", "capCount": "1/2",
+        "capShipped": "50.0%", "capBugs": "50.0%",
+        "capLabel": "c, 1 of 2 delivery items shipped, 1 bug gap open",
+    }
+    assert state["routes"] == {
+        "dashboard": {"cards": 2, "metrics": [], "rows": 0},
+        "roadmap": {"cards": 4, "metrics": [], "rows": 0},
+        "structure": {"cards": 4, "metrics": [], "rows": 0},
+        "features": {"cards": 4, "metrics": [], "rows": 0},
+        "completion": {
+            "cards": 0,
+            "metrics": [2, 1, 0, 0, 1, 0, 0, 0, 1],
+            "rows": 0,
+        },
+        "ledgers": {"cards": 2, "metrics": [], "rows": 2},
+    }
+    assert state["routesR0"] == {
+        "dashboard": {"cards": 1, "metrics": [], "rows": 0},
+        "roadmap": {"cards": 2, "metrics": [], "rows": 0},
+        "structure": {"cards": 2, "metrics": [], "rows": 0},
+        "features": {"cards": 2, "metrics": [], "rows": 0},
+        "completion": {
+            "cards": 0,
+            "metrics": [1, 1, 0, 0, 0, 0, 0, 0, 1],
+            "rows": 0,
+        },
+        "ledgers": {"cards": 1, "metrics": [], "rows": 1},
+    }
+    assert state["reconcile"] == {
+        "view": "roadmap",
+        "selectedTitle": "R0 bug",
+        "dossierOpen": True,
+        "dossierHidden": "false",
+        "search": "R0 bug",
+        "r1": False,
+        "camera": [.125, .75, 1.4, 31, -19, 2, 3, 4, 5, 6, 7],
+        "openQuestions": 0,
+        "decisions": 1,
+    }
+    assert state["constellation"] == {
+        "panelHidden": True, "canvasHidden": False,
+    }
+    assert state["microJitterClick"] == {
+        "selected": True, "dossierOpen": True, "cameraStable": True,
+    }
+    assert state["expandedHitTarget"] == {
+        "selected": True, "dossierOpen": True,
+    }
+    assert state["cancelGesture"] == {
+        "pointerDown": False, "orbiting": False, "drag": False,
+        "captured": False,
+    }
+    assert state["orbitGesture"] == {
+        "selected": False, "dossierOpen": False,
+    }
+
+
+def test_constellation_question_cards_are_selectable_but_static_files_are_read_only(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:visible", story_id="story:a", owner="Ryder",
+        prompt="Which authority wins?",
+        options=[
+            OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff A"),
+            OwnerQuestionOption(id="b", label="B", tradeoff="Tradeoff B"),
+        ],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample", evidence=["s/a.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert '<form class="questioncard" data-question-id=' in html
+    assert 'type="radio"' in html and 'data-question-option' in html
+    assert 'data-question-custom' in html and "Suggest something else" in html
+    assert 'maxlength="2000"' in html and 'data-question-text' in html
+    assert 'data-question-queue' in html
+    assert "Provide ${unresolvedOwnerQuestions.length===1?'answer'" in html
+    assert "0 of ${unresolvedOwnerQuestions.length} ready" in html
+    assert "const writable=Boolean(SERVED&&questionContext&&!questionError)" in html
+    assert "Read-only file · run vizzer serve to answer" in html
+    assert "expectedFingerprint:q.fingerprint" in html
+    assert "fetch('/api/questions/answers'" in html
+    assert "reconcileAcceptedDecisions(body.decisions,body.revision)" in html
+    assert "location.reload()" not in html.split("function bindQuestionControls(){", 1)[1].split("function planSection", 1)[0]
+    assert "if(sel>=0)openNode(sel)" in html
+    # Recommendation is a visible hint; it must not silently preselect a radio.
+    assert "draft.kind==='option'&&draft.optionId===option.id?'checked':''" in html
+    queue_logic = html.split("function bindQuestionControls(){", 1)[1].split(
+        "function planSection", 1)[0]
+    assert "location.reload()" not in queue_logic
+    assert "fetch('/api/questions/answers'" in queue_logic
+    assert "count!==forms.length" in queue_logic
+    assert "reconcileAcceptedDecisions(body.decisions,body.revision)" in queue_logic
+    reconcile = html.split("function reconcileAcceptedDecisions", 1)[1].split(
+        "function planSection", 1)[0]
+    assert "if(sel>=0)openNode(sel)" in reconcile
+    for reset in ("rx=", "ry=", "zoom=", "panX=", "panY=", "currentView="):
+        assert reset not in reconcile
+    assert "const ownerDecisions = i =>\n  (DATA.nodes[i].od||[])" in html
+
+
+def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:exact", story_id="story:b", owner="Ryder",
+        prompt="Choose the exact story?", options=[
+            OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff A"),
+            OwnerQuestionOption(id="b", label="B", tradeoff="Tradeoff B"),
+        ], recommendation=OwnerQuestionRecommendation(
+            option_id="a", rationale="Because",
+        ), falsifier="Counterexample", evidence=["s/b.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    completed = subprocess.run(
+        [node, "-e", _CONSTELLATION_INTERACTION_DOM_SHIM], input=html,
+        text=True, capture_output=True, timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr
+    state = json.loads(completed.stdout)
+
+    assert state["overlapTarget"] == {
+        "selected": 1, "expected": 1, "title": "B",
+    }
+    assert state["cardTarget"] == {
+        "selected": 1, "expected": 1, "title": "B",
+        "open": True, "scrollTop": 0,
+    }
+    assert state["lifecycleHold"] == {
+        "active": True, "ready": False,
+        "activePressed": "true", "readyPressed": "false",
+    }
+
+
+def test_constellation_dossier_pins_identity_and_compact_summary_above_scroll_body(tmp_path):
+    graph = _graph()
+    graph.items[0].one_liner = "A concise story summary that remains visible while evidence scrolls."
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    data = _data(html)
+
+    assert data["nodes"][0]["summary"] == graph.items[0].one_liner
+    assert '<header id="dossierhead"><div id="dossieridentity"></div>' in html
+    assert '<div id="dbody"></div>' in html
+    assert "#dossier{position:fixed;right:0;top:106px;bottom:0;width:320px;display:flex;flex-direction:column;overflow:hidden" in html
+    assert "#dossierhead{position:relative;z-index:3;flex:none" in html
+    assert "#dbody{min-height:0;flex:1;overflow-y:auto" in html
+    assert "-webkit-line-clamp:2" in html
+    assert 'dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills">' in html
+    assert 'const pinnedSummary=n.summary||trail||\'\'' in html
+    body_assignment = html.split("dbody.innerHTML = `", 1)[1].split("`;", 1)[0]
+    assert "<h2>" not in body_assignment
+    assert "class=\"pill\"" not in body_assignment
+
+
+def test_constellation_separates_progress_version_opacity_and_has_proximity_hit_states(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    # Fill progress and version ring are independently decodable and each
+    # clamps to the owner-requested 50–100% range.
+    assert "const progressOpacity = n => .5+.5*(LIFECYCLE_PROGRESS[n.st]??0)" in html
+    assert "const VERSION_OPACITY={R0:1,R1:.83,R2:.67,R3:.5,'R?':.5}" in html
+    assert "ctx.globalAlpha = progressOpacity(n)*focusAlpha" in html
+    assert "ctx.globalAlpha=versionOpacity(n)*focusAlpha" in html
+    assert "% fill progress" in html and "% version ring" in html
+
+    # Proximity is continuous; exact hit and persistent selection are distinct
+    # rings. The old abrupt 1.7x hover-size mutation must not return.
+    assert "const nodeHitRadius = i => Math.max(14,nodeRadius(i)+4)" in html
+    assert "p.near=Math.max(0,1-Math.max(0,distance-hitRadius)/32)" in html
+    assert "if(i===hover&&!dim)" in html
+    assert "if(i===sel)" in html
+    assert "i===hover||i===sel?1.7:1" not in html
+    assert "distance<bestDistance-.25" in html
+    assert "let pointerDown=false, orbiting=false, downTarget=-1" in html
+    assert "if(target>=0&&P[target].on)openNode(target)" in html
+    assert "const orbitThreshold=6" in html
+    assert "Math.hypot(e.clientX-downX,e.clientY-downY)>orbitThreshold" in html
+    assert "project();updatePointerState(e.clientX,e.clientY)" in html
+    assert "cv.addEventListener('pointercancel'" in html
+
+
+def test_constellation_routed_views_own_vertical_scroll_and_do_not_leave_canvas_event_shields(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "#viewpanel{position:fixed" in html
+    assert "bottom:0;z-index:3;min-height:0;overflow-x:hidden;overflow-y:scroll" in html
+    assert "overscroll-behavior:contain;touch-action:pan-y;scrollbar-gutter:stable" in html
+    assert "#viewpanel[hidden]{display:none;pointer-events:none}" in html
+    assert "#cv[hidden]{display:none;pointer-events:none}" in html
+    assert "#top{position:fixed;top:0;left:0;right:0;display:grid" in html
+    assert "#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:nowrap" in html
+    assert "overflow-x:auto" in html
+
+
+def test_constellation_marks_owner_overrides_and_traces_punt_effects_on_real_edges(tmp_path):
+    graph = _graph()
+    graph.priority = {
+        "planning": {
+            "enabled": True,
+            "revision": 3,
+            "author": "owner",
+            "rationale": "Change course deliberately",
+            "promote": ["story:a"],
+            "defer": ["story:b"],
+            "order": ["story:a"],
+        },
+        "base_targets": ["story:b"],
+        "effective_targets": ["story:a"],
+    }
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    data = _data(html)
+
+    assert data["planning"]["author"] == "owner"
+    assert data["planning"]["promote"] == ["story:a"]
+    assert data["planning"]["defer"] == ["story:b"]
+    assert "--owner-override:#E879F9" in html
+    assert "--owner-override:#B832B8" in html
+    assert "const ownerPromoted=new Set" in html
+    assert "const ownerDeferred=new Set" in html
+    assert "const ownerOrdered=new Map" in html
+    assert "ownerOrdered.has(i)?'prioritized'" in html
+    assert "puntImpactLinks.push([parent,child,source])" in html
+    assert "downstream effects:" in html
+    assert "affected by owner punt:" in html
+    assert "ctx.strokeStyle=C.owner" in html
+    assert "course==='punted'?[4,3]:[]" in html
+    assert "owner ${ownerCourseText(hover)}" in html
 
 
 def test_constellation_boot_failure_is_visible_and_older_webkit_is_supported(tmp_path):
@@ -327,7 +1154,7 @@ def test_constellation_has_portable_path_escaped_markdown_anchor(tmp_path):
     assert node["h"] == "../../stories/a%20story%231.md"
     assert node["id"] == "story:linked"
     assert str(tmp_path) not in html
-    assert 'open Markdown ↗' in html
+    assert 'open Markdown ${icon(\'arrow-up-right\')}' in html
     assert "n.h&&!SERVED" in html and "n.id&&SERVED" in html
     assert "data-source-path" not in html
 

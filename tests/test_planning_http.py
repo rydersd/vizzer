@@ -2,6 +2,7 @@ import http.client
 import json
 import threading
 
+from vizzer import __version__
 from vizzer.cli import _make_serve_server, _read_graph, main
 
 
@@ -39,6 +40,7 @@ def test_loopback_planning_requires_origin_csrf_and_current_revision(
     try:
         status, context = _request(connection, "GET", "/api/plan")
         assert status == 200
+        assert context["engineVersion"] == __version__
         assert context["csrfToken"] == "test-token"
         assert context["overlay"]["revision"] == 0
 

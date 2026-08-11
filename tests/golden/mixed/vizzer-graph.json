@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "groups": [
     {
       "id": "capability:drawing",
@@ -59,9 +59,11 @@
       "group": "folder:docs/design",
       "deps": [],
       "appetite": null,
-      "flags": [
+      "role": "reference",
+      "tags": [
         "reference"
       ],
+      "flags": [],
       "source": {
         "adapter": "loose_docs",
         "path": "docs/design/tokens.md"
@@ -84,6 +86,7 @@
       "group": "folder:docs",
       "deps": [],
       "appetite": null,
+      "role": "reference",
       "flags": [],
       "source": {
         "adapter": "loose_docs",
@@ -107,6 +110,7 @@
       "group": "ledger:widget-refactor",
       "deps": [],
       "appetite": null,
+      "role": "evidence",
       "flags": [],
       "source": {
         "adapter": "ledgers",
@@ -130,6 +134,7 @@
       "group": "ledger:widget-refactor",
       "deps": [],
       "appetite": null,
+      "role": "evidence",
       "flags": [],
       "source": {
         "adapter": "ledgers",
@@ -153,6 +158,7 @@
       "group": "ledger:widget-refactor",
       "deps": [],
       "appetite": null,
+      "role": "evidence",
       "flags": [],
       "source": {
         "adapter": "ledgers",
@@ -176,6 +182,7 @@
       "group": "epic:drawing/tools",
       "deps": [],
       "appetite": null,
+      "role": "delivery",
       "flags": [],
       "source": {
         "adapter": "spec_tree",
@@ -202,6 +209,7 @@
         "story:canvas-core"
       ],
       "appetite": "medium",
+      "role": "delivery",
       "flags": [
         "debt"
       ],
@@ -228,6 +236,7 @@
       "group": "todo-file:TODO.md",
       "deps": [],
       "appetite": null,
+      "role": "delivery",
       "flags": [],
       "source": {
         "adapter": "todos",
@@ -251,6 +260,7 @@
       "group": "todo-file:TODO.md",
       "deps": [],
       "appetite": null,
+      "role": "delivery",
       "flags": [],
       "source": {
         "adapter": "todos",

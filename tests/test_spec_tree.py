@@ -30,6 +30,27 @@ def test_scan_items_and_groups():
     assert snap.group == "epic:drawing/tools"
     assert "story:_Index_of_stories" not in items
 
+
+@pytest.mark.parametrize(("authored", "expected"), [
+    ("small-to-medium (one pass plus review)", "small-to-medium"),
+    ("small/medium · Wave: A1", "small/medium"),
+    ("**not yet assessable** — owner question changes scope", "not yet assessable"),
+    ("small–medium (Unicode range)", "small–medium"),
+    ("time-boxed to **1 pass** — hard stop", "time-boxed to **1 pass**"),
+])
+def test_appetite_parser_preserves_full_label_without_rationale(
+    tmp_path, authored, expected,
+):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text(
+        f"# Story: A\n\n> Status: specced · Release: R1 · Appetite: {authored}\n"
+    )
+
+    [item] = spec_tree.scan(cfg(), tmp_path).items
+
+    assert item.appetite == expected
+
 def test_dag_import_emits_parallel_items():
     res = spec_tree.scan(cfg(dag="dag.json"), FIX)
     dag_items = [i for i in res.items if i.source["adapter"] == "dag_import"]
@@ -76,6 +97,47 @@ def test_front_matter_release_is_honored(tmp_path):
     [item] = [i for i in st.scan(cfg, tmp_path).items if i.id == "story:a"]
     assert item.release == "R2"
     assert item.wave == "W1"
+
+
+def test_story_tags_and_product_capabilities_are_preserved_as_distinct_dimensions(tmp_path):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "shared-editor.md").write_text(
+        "# Story: Shared editor\n\n"
+        "> Status: specced\n"
+        "> Tags: markdown, research\n"
+        "> Product capabilities: notes/editor, core/markdown\n",
+        encoding="utf-8",
+    )
+
+    [item] = spec_tree.scan(cfg(), tmp_path).items
+
+    assert item.role == "delivery"
+    assert item.tags == ["markdown", "research"]
+    assert item.facets == {
+        "product": ["notes", "core"],
+        "capability": ["notes/editor", "core/markdown"],
+    }
+
+
+def test_configured_product_tags_add_cross_product_membership_without_promoting_every_tag(tmp_path):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "research.md").write_text(
+        "# Story: Research\n\n> Status: specced\n"
+        "> Tags: core, research\n"
+        "> Product capabilities: notes/research\n",
+        encoding="utf-8",
+    )
+    configured = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True, "glob": "spec/*/epics/*/stories/*.md",
+        "levels": ["capability", "epic"], "product_tags": ["core", "notes"],
+    }}}))
+
+    [item] = spec_tree.scan(configured, tmp_path).items
+
+    assert item.tags == ["core", "research"]
+    assert item.facets["product"] == ["notes", "core"]
 
 
 def test_undecodable_file_degrades_with_warning(tmp_path):

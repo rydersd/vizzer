@@ -1,1 +1,1 @@
-__version__ = "0.2.0"  # codex-sequence-2026-08-08
+__version__ = "0.7.1"  # routed-view scrolling and reliable pointer selection

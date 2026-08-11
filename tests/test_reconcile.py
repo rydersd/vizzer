@@ -24,6 +24,28 @@ def test_status_conflict_recorded_higher_precedence_wins(tmp_path):
                             "dropped": {"adapter": "dag_import", "value": "specced"}}]
 
 
+def test_tags_and_facets_union_while_role_disagreement_is_a_visible_conflict(tmp_path):
+    scans = [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "s/a.md", role="delivery",
+              tags=["markdown"], facets={"product": ["notes"]}),
+        _item("story:a", "dag_import", "dag.json", role="coverage",
+              tags=["shared"], facets={
+                  "product": ["core"], "capability": ["core/markdown"],
+              }),
+    ]))]
+
+    graph = build_graph(_cfg(), tmp_path, scans)
+    item = graph.item_map()["story:a"]
+
+    assert item.role == "delivery"
+    assert item.tags == ["markdown", "shared"]
+    assert item.facets == {
+        "product": ["notes", "core"],
+        "capability": ["core/markdown"],
+    }
+    assert any(conflict["field"] == "role" for conflict in graph.conflicts)
+
+
 def test_explicit_empty_story_dependencies_beat_imported_dag(tmp_path):
     """codex-sequence-2026-08-08: explicit [] is data, not a missing value."""
     scans = [("spec_tree", ScanResult(items=[
@@ -125,6 +147,16 @@ def test_groups_first_writer_wins_and_vocab_attached(tmp_path):
     g = build_graph(_cfg(), tmp_path, scans)
     assert [gr.title for gr in g.groups] == ["One"]
     assert any(s["name"] == "shipped" for s in g.vocab["statuses"])
+
+
+def test_reconcile_applies_opt_in_assessment_after_priority_and_questions(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
+    graph = build_graph(cfg, tmp_path, [("spec_tree", ScanResult(items=[
+        _item("story:a", "spec_tree", "a.md", appetite="small"),
+    ]))])
+
+    assert graph.assessment["method"] == "deterministic-delivery-assessment-v1"
+    assert graph.assessment["items"]["story:a"]["size"]["assessed_band"] == "S"
 
 
 def test_duplicate_ids_from_different_files_are_reported(tmp_path):

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager, suppress
+from datetime import datetime, timezone
+import hashlib
 import http.server
 import json
 import os
@@ -9,12 +12,22 @@ import secrets
 import tempfile
 import subprocess
 import sys
-from contextlib import suppress
+import threading
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+try:  # Unix gets cross-process exclusion; other platforms retain process safety.
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None
+
 from .adapters import get_adapters
+from . import __version__
 from .config import Config, ConfigError
+from .decision_journal import (
+    DecisionJournalError, append_application_event, append_evolution_events,
+    restore_story_snapshots, story_snapshots,
+)
 from .model import Graph
 from .progress_history import ProgressHistory, prepare_progress_history
 from .reconcile import build_graph
@@ -23,9 +36,50 @@ from .planning import (
     PlanningError, StaleRevisionError, analyze_change, apply_change,
     read_overlay, restore_overlay, undo_change, validate_state,
 )
+from .question_answers import (
+    QuestionAnswerConflict, QuestionAnswerError, QuestionNotFoundError,
+    append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
+    read_answers, restore_answers,
+)
 
 
 GRAPH_RELPATH = Path("vizzer/vizzer-graph.json")
+_PROCESS_MUTATION_LOCK = threading.RLock()
+
+
+def _serve_version_error(root: Path) -> str | None:
+    """Explain when a long-running server no longer matches its installation."""
+    marker = root / "vizzer" / "VERSION"
+    if not marker.exists():
+        return None
+    try:
+        installed = marker.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError):
+        return "Vizzer could not verify its installed engine version; restart vizzer serve"
+    if installed and installed != __version__:
+        return (
+            f"Vizzer server {__version__} is out of date; installed engine is "
+            f"{installed}. Restart vizzer serve"
+        )
+    return None
+
+
+@contextmanager
+def _mutation_guard(root: Path):
+    """Serialize accepted owner mutations across threads and, on Unix, processes."""
+    with _PROCESS_MUTATION_LOCK:
+        digest = hashlib.sha256(str(root.resolve()).encode("utf-8")).hexdigest()[:24]
+        lock_path = Path(tempfile.gettempdir()) / f"vizzer-mutation-{digest}.lock"
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(lock_path, flags, 0o600)
+        try:
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
 
 
 # codex-sequence-2026-08-08: source opening is graph-id-only and root-contained.
@@ -96,6 +150,12 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(views), **kwargs)
 
+        def guess_type(self, path):
+            media_type = super().guess_type(path)
+            if media_type.startswith("text/"):
+                return f"{media_type}; charset=utf-8"
+            return media_type
+
         def log_message(self, format, *args):  # pragma: no cover - keeps CLI quiet
             return
 
@@ -119,28 +179,64 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 and self.headers.get("X-Vizzer-CSRF", "") == csrf_token
             )
 
-        def _read_json_body(self) -> dict:
+        def _require_current_engine(self) -> bool:
+            error = _serve_version_error(root)
+            if error is None:
+                return True
+            self._send_json(409, {
+                "error": error,
+                "runningEngineVersion": __version__,
+            })
+            return False
+
+        def _read_json_body(self, subject: str = "planning") -> dict:
             raw_length = self.headers.get("Content-Length", "")
             try:
                 length = int(raw_length)
             except ValueError:
-                raise PlanningError("request needs a valid Content-Length") from None
+                raise QuestionAnswerError(
+                    "request needs a valid Content-Length"
+                ) from None
             if length <= 0 or length > 65536:
-                raise PlanningError("planning request body must be 1..65536 bytes")
+                raise QuestionAnswerError(
+                    f"{subject} request body must be 1..65536 bytes"
+                )
             if self.headers.get_content_type() != "application/json":
-                raise PlanningError("planning request must be application/json")
+                raise QuestionAnswerError(
+                    f"{subject} request must be application/json"
+                )
             try:
                 value = json.loads(self.rfile.read(length).decode("utf-8"))
             except (UnicodeError, json.JSONDecodeError):
-                raise PlanningError("planning request is malformed JSON") from None
+                raise QuestionAnswerError(
+                    f"{subject} request is malformed JSON"
+                ) from None
             if not isinstance(value, dict):
-                raise PlanningError("planning request must be a JSON object")
+                raise QuestionAnswerError(
+                    f"{subject} request must be a JSON object"
+                )
             return value
 
         def _planning_post(self, action: str) -> None:
+            if not self._require_current_engine():
+                return
             if not self._same_origin():
                 self._send_json(403, {"error": "same-origin CSRF check failed"})
                 return
+            try:
+                if action == "apply":
+                    with _mutation_guard(root):
+                        self._planning_post_inner(action)
+                else:
+                    self._planning_post_inner(action)
+            except StaleRevisionError as exc:
+                self._send_json(409, {"error": str(exc)})
+            except (PlanningError, QuestionAnswerError) as exc:
+                self._send_json(400, {"error": str(exc)})
+            except OSError as exc:
+                self._send_json(500, {"error": f"could not lock planning mutation: {exc}"})
+
+        def _planning_post_inner(self, action: str) -> None:
             try:
                 built = _build_fresh_graph(root, "plan")
                 if built is None:
@@ -150,7 +246,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 if not bool(live_cfg.get("planning.enabled", False)):
                     self._send_json(404, {"error": "planning is disabled"})
                     return
-                body = self._read_json_body()
+                body = self._read_json_body("planning")
                 state = validate_state(body.get("state"), live_graph)
                 analysis = analyze_change(live_graph, live_cfg, root, state)
                 if action == "analyze":
@@ -175,9 +271,201 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     "overlay": overlay, "analysis": analysis, "reloadRequired": True,
                 })
             except StaleRevisionError as exc:
+                raise exc
+            except (PlanningError, QuestionAnswerError) as exc:
+                raise exc
+
+        def _question_post(self, question_id: str) -> None:
+            if not self._require_current_engine():
+                return
+            if not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                body = self._read_json_body("question answer")
+                required = {"expectedRevision", "expectedFingerprint", "answer"}
+                allowed = required
+                missing = sorted(required - set(body))
+                unknown = sorted(set(body) - allowed)
+                if missing or unknown:
+                    field = (missing or unknown)[0]
+                    raise QuestionAnswerError(
+                        f"question answer has unknown or missing field: {field}"
+                    )
+                answer = body["answer"]
+                if not isinstance(answer, dict):
+                    raise QuestionAnswerError("answer must be a JSON object")
+                answer_required = {"kind"}
+                answer_allowed = answer_required | {"optionId", "text"}
+                answer_missing = sorted(answer_required - set(answer))
+                answer_unknown = sorted(set(answer) - answer_allowed)
+                if answer_missing or answer_unknown:
+                    field = (answer_missing or answer_unknown)[0]
+                    raise QuestionAnswerError(
+                        f"answer has unknown or missing field: {field}"
+                    )
+                with _mutation_guard(root):
+                    built = _build_fresh_graph(root, "questions")
+                    if built is None:
+                        self._send_json(
+                            500, {"error": "current work graph could not be built"}
+                        )
+                        return
+                    live_cfg, live_graph, _ = built
+                    snapshot = ledger_snapshot(live_cfg, root)
+                    ledger, decision = append_answer(
+                        live_graph, live_cfg, root, question_id,
+                        expected_revision=body["expectedRevision"],
+                        expected_fingerprint=body["expectedFingerprint"],
+                        kind=answer["kind"], option_id=answer.get("optionId"),
+                        text=answer.get("text"),
+                    )
+                    source_snapshots = {}
+                    try:
+                        source_snapshots = story_snapshots(
+                            live_graph, root, [decision]
+                        )
+                        append_evolution_events(live_graph, root, [decision])
+                        refresh_result = _refresh(root)
+                    except Exception:
+                        refresh_result = 2
+                    if refresh_result != 0:
+                        try:
+                            restore_story_snapshots(source_snapshots)
+                            restore_answers(live_cfg, root, snapshot)
+                        except (OSError, QuestionAnswerError,
+                                DecisionJournalError) as exc:
+                            self._send_json(500, {
+                                "error": "answer journaling/refresh failed and rollback "
+                                         f"also failed: {exc}",
+                            })
+                            return
+                        self._send_json(500, {
+                            "error": "answer was not accepted because its story "
+                                     "evolution event or derived views could not be "
+                                     "updated",
+                            "revision": ledger["revision"] - 1,
+                        })
+                        return
+                self._send_json(200, {
+                    "revision": ledger["revision"],
+                    "decision": decision_to_api(decision),
+                    "reloadRequired": True,
+                })
+            except QuestionAnswerConflict as exc:
                 self._send_json(409, {"error": str(exc)})
-            except PlanningError as exc:
+            except QuestionNotFoundError as exc:
+                self._send_json(404, {"error": str(exc)})
+            except QuestionAnswerError as exc:
                 self._send_json(400, {"error": str(exc)})
+            except (OSError, UnicodeError) as exc:
+                self._send_json(500, {"error": f"could not persist answer: {exc}"})
+
+        def _question_batch_post(self) -> None:
+            if not self._require_current_engine():
+                return
+            if not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                body = self._read_json_body("question answers")
+                required = {"expectedRevision", "answers"}
+                missing = sorted(required - set(body))
+                unknown = sorted(set(body) - required)
+                if missing or unknown:
+                    field = (missing or unknown)[0]
+                    raise QuestionAnswerError(
+                        f"question answers have unknown or missing field: {field}"
+                    )
+                raw_answers = body["answers"]
+                if not isinstance(raw_answers, list):
+                    raise QuestionAnswerError("answers must be an array")
+                flattened = []
+                for raw in raw_answers:
+                    if not isinstance(raw, dict):
+                        raise QuestionAnswerError("each answer must be a JSON object")
+                    answer_required = {
+                        "questionId", "expectedFingerprint", "answer"
+                    }
+                    answer_missing = sorted(answer_required - set(raw))
+                    answer_unknown = sorted(set(raw) - answer_required)
+                    if answer_missing or answer_unknown:
+                        field = (answer_missing or answer_unknown)[0]
+                        raise QuestionAnswerError(
+                            f"answer has unknown or missing field: {field}"
+                        )
+                    value = raw["answer"]
+                    if not isinstance(value, dict):
+                        raise QuestionAnswerError("answer must be a JSON object")
+                    value_required = {"kind"}
+                    value_allowed = value_required | {"optionId", "text"}
+                    value_missing = sorted(value_required - set(value))
+                    value_unknown = sorted(set(value) - value_allowed)
+                    if value_missing or value_unknown:
+                        field = (value_missing or value_unknown)[0]
+                        raise QuestionAnswerError(
+                            f"answer value has unknown or missing field: {field}"
+                        )
+                    flattened.append({
+                        "questionId": raw["questionId"],
+                        "expectedFingerprint": raw["expectedFingerprint"],
+                        "kind": value["kind"],
+                        "optionId": value.get("optionId"),
+                        "text": value.get("text"),
+                    })
+                with _mutation_guard(root):
+                    built = _build_fresh_graph(root, "questions")
+                    if built is None:
+                        self._send_json(
+                            500, {"error": "current work graph could not be built"}
+                        )
+                        return
+                    live_cfg, live_graph, _ = built
+                    snapshot = ledger_snapshot(live_cfg, root)
+                    ledger, decisions = append_answers(
+                        live_graph, live_cfg, root, flattened,
+                        expected_revision=body["expectedRevision"],
+                    )
+                    source_snapshots = {}
+                    try:
+                        source_snapshots = story_snapshots(
+                            live_graph, root, decisions
+                        )
+                        append_evolution_events(live_graph, root, decisions)
+                        refresh_result = _refresh(root)
+                    except Exception:
+                        refresh_result = 2
+                    if refresh_result != 0:
+                        try:
+                            restore_story_snapshots(source_snapshots)
+                            restore_answers(live_cfg, root, snapshot)
+                        except (OSError, QuestionAnswerError,
+                                DecisionJournalError) as exc:
+                            self._send_json(500, {
+                                "error": "answer journaling/refresh failed and rollback "
+                                         f"also failed: {exc}",
+                            })
+                            return
+                        self._send_json(500, {
+                            "error": "answers were not accepted because their story "
+                                     "evolution events or derived views could not be "
+                                     "updated",
+                            "revision": ledger["revision"] - len(decisions),
+                        })
+                        return
+                self._send_json(200, {
+                    "revision": ledger["revision"],
+                    "decisions": [decision_to_api(value) for value in decisions],
+                    "reloadRequired": False,
+                })
+            except QuestionAnswerConflict as exc:
+                self._send_json(409, {"error": str(exc)})
+            except QuestionNotFoundError as exc:
+                self._send_json(404, {"error": str(exc)})
+            except QuestionAnswerError as exc:
+                self._send_json(400, {"error": str(exc)})
+            except (OSError, UnicodeError) as exc:
+                self._send_json(500, {"error": f"could not persist answers: {exc}"})
 
         def do_POST(self):
             parsed = urlsplit(self.path)
@@ -186,6 +474,20 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             }:
                 self._planning_post(parsed.path.rsplit("/", 1)[1])
                 return
+            if not parsed.query and parsed.path == "/api/questions/answers":
+                self._question_batch_post()
+                return
+            question_prefix = "/api/questions/"
+            question_suffix = "/answer"
+            if (not parsed.query and parsed.path.startswith(question_prefix)
+                    and parsed.path.endswith(question_suffix)):
+                encoded = parsed.path[
+                    len(question_prefix):-len(question_suffix)
+                ].rstrip("/")
+                question_id = unquote(encoded)
+                if question_id:
+                    self._question_post(question_id)
+                    return
             prefix = "/api/open/"
             if parsed.query or not parsed.path.startswith(prefix):
                 self._send_json(404, {"error": "not found"})
@@ -207,7 +509,46 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
 
         def do_GET(self):
             parsed = urlsplit(self.path)
+            if parsed.path == "/api/questions" and not parsed.query:
+                if not self._require_current_engine():
+                    return
+                # GET serves authority for the exact derived snapshot the user
+                # is reading.  Rebuilding every adapter here made opening a
+                # question an O(repo) operation and could return a fingerprint
+                # for prose different from the already-rendered card.  Writes
+                # still rebuild below and reject stale fingerprints before any
+                # decision is accepted.
+                live_graph = _read_graph(root)
+                if live_graph is None:
+                    self._send_json(500, {
+                        "error": "current work graph is unavailable; run vizzer refresh",
+                    })
+                    return
+                live_cfg = cfg
+                try:
+                    ledger, _ = read_answers(live_cfg, root)
+                except QuestionAnswerError as exc:
+                    self._send_json(500, {"error": str(exc)})
+                    return
+                assert ledger is not None
+                self._send_json(200, {
+                    "engineVersion": __version__,
+                    "schema": 1,
+                    "csrfToken": csrf_token,
+                    "revision": ledger["revision"],
+                    "questions": [
+                        question_to_api(question)
+                        for question in live_graph.owner_questions
+                    ],
+                    "decisions": [
+                        decision_to_api(decision)
+                        for decision in live_graph.owner_decisions
+                    ],
+                })
+                return
             if parsed.path == "/api/plan" and not parsed.query:
+                if not self._require_current_engine():
+                    return
                 built = _build_fresh_graph(root, "plan")
                 if built is None:
                     self._send_json(500, {"error": "current work graph could not be built"})
@@ -221,7 +562,11 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 except PlanningError as exc:
                     self._send_json(500, {"error": str(exc)})
                     return
-                self._send_json(200, {"csrfToken": csrf_token, "overlay": overlay})
+                self._send_json(200, {
+                    "engineVersion": __version__,
+                    "csrfToken": csrf_token,
+                    "overlay": overlay,
+                })
                 return
             if parsed.path.startswith("/api/open/"):
                 self._send_json(405, {"error": "POST required"})
@@ -590,6 +935,10 @@ def _structural_graph(data: dict) -> dict:
 
 
 def _check(root: Path, structural: bool) -> int:
+    # Normalize once: render/output helpers may return resolved paths, and a
+    # documented relative `--root .` must compare in the same coordinate
+    # system instead of crashing in Path.relative_to.
+    root = root.resolve()
     disk_graph = _read_graph(root)
     if disk_graph is None:
         print("check: run 'sync' first")
@@ -610,6 +959,19 @@ def _check(root: Path, structural: bool) -> int:
         return 2
     graph_path = root / GRAPH_RELPATH
     stale: set[str] = set()
+
+    # Installed copies carry a marker beside the vendored engine. A partial
+    # update can render static files while every guarded HTTP API rejects the
+    # mismatch, so ``check`` must audit the installation contract too.
+    marker_path = root / "vizzer" / "VERSION"
+    if marker_path.exists():
+        try:
+            installed_version = marker_path.read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeError):
+            stale.add("vizzer/VERSION")
+        else:
+            if installed_version != __version__:
+                stale.add("vizzer/VERSION")
 
     try:
         disk_text = graph_path.read_text(encoding="utf-8")
@@ -877,6 +1239,17 @@ def _course_state_from_args(current: dict, args: argparse.Namespace) -> dict:
 
 
 def _plan(root: Path, args: argparse.Namespace) -> int:
+    if args.plan_action in {"apply", "undo"}:
+        try:
+            with _mutation_guard(root):
+                return _plan_inner(root, args)
+        except OSError as exc:
+            print(f"plan: could not acquire mutation lock: {exc}")
+            return 2
+    return _plan_inner(root, args)
+
+
+def _plan_inner(root: Path, args: argparse.Namespace) -> int:
     built = _build_fresh_graph(root, "plan")
     if built is None:
         return 2
@@ -922,6 +1295,93 @@ def _plan(root: Path, args: argparse.Namespace) -> int:
     except PlanningError as exc:
         print(f"plan: {exc}")
         return 2
+
+
+def _journal_owner_decisions(root: Path, args: argparse.Namespace) -> int:
+    """Backfill accepted answer events into their source stories."""
+    with _mutation_guard(root):
+        built = _build_fresh_graph(root, "decisions")
+        if built is None:
+            return 2
+        _cfg, graph, _progress = built
+        by_id = {
+            decision.question.id: decision for decision in graph.owner_decisions
+        }
+        requested = list(args.question_id or [])
+        if args.apply and (args.all or len(requested) != 1):
+            print("decisions: --apply requires exactly one question id")
+            return 2
+        if args.all:
+            if requested:
+                print("decisions: use question ids or --all, not both")
+                return 2
+            decisions = list(by_id.values())
+        else:
+            if not requested:
+                print("decisions: provide at least one question id or --all")
+                return 2
+            unknown = sorted(set(requested) - set(by_id))
+            if unknown:
+                print(f"decisions: unknown accepted decision {unknown[0]}")
+                return 2
+            decisions = [by_id[value] for value in requested]
+
+        if args.apply and (not isinstance(args.summary, str) or not args.summary.strip()):
+            print("decisions: --apply requires a nonempty --summary")
+            return 2
+
+        if not args.yes:
+            action = "apply" if args.apply else "journal"
+            print(
+                f"decisions: would {action} {len(decisions)} accepted decision(s); "
+                "rerun with --yes"
+            )
+            return 1
+
+        try:
+            snapshots = story_snapshots(graph, root, decisions)
+            if args.apply:
+                changed = append_application_event(
+                    graph,
+                    root,
+                    decisions[0],
+                    applied_at=datetime.now(timezone.utc).isoformat(
+                        timespec="seconds"
+                    ).replace("+00:00", "Z"),
+                    summary=args.summary,
+                    evidence=list(args.evidence or []),
+                )
+            else:
+                changed = append_evolution_events(graph, root, decisions)
+        except (OSError, UnicodeError, DecisionJournalError) as exc:
+            print(f"decisions: {exc}")
+            return 2
+        try:
+            refresh_result = _refresh(root)
+        except Exception:
+            refresh_result = 2
+        if refresh_result != 0:
+            try:
+                restore_story_snapshots(snapshots)
+            except (OSError, DecisionJournalError) as exc:
+                print(
+                    "decisions: refresh failed and story rollback also failed: "
+                    f"{exc}"
+                )
+                return 2
+            print("decisions: journaling was rolled back because views could not refresh")
+            return 2
+        if args.apply:
+            print(
+                f"decisions: recorded application in {len(changed)} story "
+                f"file(s) for {decisions[0].question.id}"
+            )
+        else:
+            print(
+                f"decisions: journaled {len(changed)} story file(s) for "
+                f"{len(decisions)} accepted decision(s)"
+            )
+        return 0
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1001,6 +1461,28 @@ def _parser() -> argparse.ArgumentParser:
     plan_undo.add_argument("--expected-revision", type=int, required=True)
     plan_undo.add_argument("--rationale", required=True)
     plan_undo.set_defaults(handler=lambda args: _plan(Path(args.root), args))
+
+    decisions = subparsers.add_parser(
+        "decisions", help="journal accepted answers into evolving source stories"
+    )
+    decisions.add_argument("question_id", nargs="*")
+    decisions.add_argument("--all", action="store_true")
+    decisions.add_argument(
+        "--apply", action="store_true",
+        help="record normative follow-through for one accepted decision",
+    )
+    decisions.add_argument(
+        "--summary", help="what scope, acceptance, or dependencies changed",
+    )
+    decisions.add_argument(
+        "--evidence", action="append", default=[],
+        help="repeatable source, test, or receipt supporting application",
+    )
+    decisions.add_argument("--yes", action="store_true")
+    decisions.add_argument("--root", default=".")
+    decisions.set_defaults(
+        handler=lambda args: _journal_owner_decisions(Path(args.root), args)
+    )
 
     install_parser = subparsers.add_parser("install")
     install_parser.add_argument("path")

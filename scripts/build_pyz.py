@@ -55,6 +55,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         staging = Path(tmp) / "app"
         _stage_tree(ROOT / "src" / "vizzer", staging / "vizzer")
+        _stage_tree(ROOT / "docs" / "context", staging / "vizzer" / "context")
         (staging / "__main__.py").write_text(
             "from vizzer.cli import main\nraise SystemExit(main())\n")
         epoch = int(os.environ.get("SOURCE_DATE_EPOCH",
