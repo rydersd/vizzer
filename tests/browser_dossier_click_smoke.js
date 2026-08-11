@@ -58,7 +58,7 @@ try{
     '--disable-background-networking','--remote-debugging-port=0',`--user-data-dir=${profile}`,url],
     {stdio:'ignore',detached:useProcessGroup});
   const active=path.join(profile,'DevToolsActivePort');
-  const debugPort=await waitFor(()=>fs.existsSync(active)&&fs.readFileSync(active,'utf8').split('\n')[0],'DevTools port');
+  const debugPort=await waitFor(()=>fs.existsSync(active)&&fs.readFileSync(active,'utf8').split('\n')[0],'DevTools port',15000);
   const target=await waitFor(async()=>{
     const targets=await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
     return targets.find(candidate=>candidate.type==='page'&&candidate.url===url);

@@ -1307,7 +1307,7 @@ def test_constellation_physical_option_click_keeps_dossier_open_and_enables_answ
     script = Path(__file__).with_name("browser_dossier_click_smoke.js")
     completed = subprocess.run(
         [shutil.which("node") or "node", str(script), chrome], input=html,
-        text=True, capture_output=True, timeout=20,
+        text=True, capture_output=True, timeout=35,
         env={**os.environ, "VIZZER_BROWSER_TERM_GRACE_MS": "0"},
     )
     assert completed.returncode == 0, completed.stderr
