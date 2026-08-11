@@ -1389,7 +1389,7 @@ def test_constellation_physical_option_click_keeps_dossier_open_and_enables_answ
             "viewport": [360, 320], "pageFits": True,
             "headerFits": True, "navOneRow": True,
             "countsSecond": True, "chipsAfterCounts": True,
-            "panelScroll": 103, "panelScrollable": True,
+            "panelMoved": True, "panelScrollable": True,
             "canvasHidden": True, "panelVisible": True,
             "wideCard": {
                 "route": "dashboard", "dossierOpen": True, "selected": 0,

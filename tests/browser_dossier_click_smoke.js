@@ -21,12 +21,12 @@ const signalBrowser=(child,signal)=>{
   try{
     if(useProcessGroup&&Number.isInteger(child.pid)){process.kill(-child.pid,signal);return true;}
     return child.kill(signal);
-  }catch(error){if(error.code==='ESRCH')return false;throw error;}
+  }catch(error){if(error.code==='ESRCH'||error.code==='EPERM')return false;throw error;}
 };
 const browserRunning=child=>{
   if(useProcessGroup&&Number.isInteger(child.pid)){
     try{process.kill(-child.pid,0);return true;}
-    catch(error){if(error.code==='ESRCH')return false;throw error;}
+    catch(error){if(error.code==='ESRCH'||error.code==='EPERM')return false;throw error;}
   }
   return child.exitCode===null&&child.signalCode===null;
 };
@@ -111,9 +111,9 @@ try{
         headerFits:top.left>=0&&top.right<=innerWidth&&top.top>=0,
         navOneRow:Math.max(...nav.map(r=>r.top))-Math.min(...nav.map(r=>r.top))<2,
         countsSecond:counts.top>Math.max(...nav.map(r=>r.top)),chipsAfterCounts:chips.top>counts.top,
-        panelScroll:viewPanel.scrollTop,panelScrollable:viewPanel.scrollHeight>viewPanel.clientHeight,
+        panelMoved:viewPanel.scrollTop>0,panelScrollable:viewPanel.scrollHeight>viewPanel.clientHeight,
         canvasHidden:cv.hidden&&bgcv.hidden,panelVisible:!viewPanel.hidden,wideCard:${JSON.stringify(wideCard)}}})()`);
-    return value.panelScroll>0&&value;
+    return value.panelMoved&&value;
   },'contracted dashboard scroll');
   responsive.narrowDrawer=narrowDrawer;
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
