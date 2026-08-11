@@ -48,7 +48,8 @@ def _template_text() -> str:
         lambda match: resources[match.group(0)],
         shell,
     )
-    unresolved = re.findall(r"__VIZZER_[A-Z_]+__", composed)
+    composed = composed.replace("__ENGINE_VERSION__", html.escape(__version__))
+    unresolved = re.findall(r"__(?:VIZZER|ENGINE)_[A-Z_]+__", composed)
     if unresolved:
         raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
     return composed

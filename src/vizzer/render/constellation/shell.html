@@ -10,9 +10,10 @@ __VIZZER_VIEWS_CSS__
   <symbol id="sym-star-fill" viewBox="0 0 16 16"><path d="M8 1.5l1.92 3.9 4.3.62-3.11 3.03.73 4.28L8 11.31l-3.84 2.02.73-4.28-3.11-3.03 4.3-.62z"/></symbol>
   <symbol id="sym-arrow-up-right" viewBox="0 0 16 16"><path d="M4 12 12 4m-6 0h6v6"/></symbol>
 </svg>
+<canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
-  <div id="title"><b>__TITLE__</b></div>
+  <div id="title"><b>__TITLE__</b><small>v__ENGINE_VERSION__</small></div>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -29,6 +30,7 @@ __VIZZER_VIEWS_CSS__
     <a href="feature-index.md" download>Feature index Markdown</a>
     <a href="completion-sheet.md" download>Completion Markdown</a>
     <a href="ledger-table.md" download>Ledgers Markdown</a>
+    <a href="discussion-queue.md" download>Discussion queue Markdown</a>
     <a href="manifest.json" download>Graph manifest JSON</a>
   </div></details>
   <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
@@ -45,8 +47,10 @@ __VIZZER_VIEWS_CSS__
 <div id="rail"></div>
 <main id="viewpanel" tabindex="-1" hidden></main>
 <div id="dossier" aria-hidden="true">
+  <button id="dossierresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize Story drawer" aria-valuemin="320" aria-valuemax="720" aria-valuenow="360"></button>
   <header id="dossierhead"><div id="dossieridentity"></div><button id="close" aria-label="Close"><svg class="symbol" aria-hidden="true"><use href="#sym-xmark"/></svg></button></header>
   <div id="dbody"></div>
+  <div id="dossierfooter"></div>
 </div>
 <div id="tip" role="tooltip"></div>
 <div id="viewempty" role="status" aria-live="polite"></div>

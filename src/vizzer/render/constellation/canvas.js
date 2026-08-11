@@ -1,7 +1,11 @@
 // ---- 3d render ----
-const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const bgcv=document.getElementById('bgcv'), bgctx=bgcv.getContext('2d');
+const cv=document.getElementById('cv'), nodeCtx=cv.getContext('2d');
+let ctx=nodeCtx;
 let W,H,DPR; function size(){ DPR=Math.min(devicePixelRatio,2); W=innerWidth; H=innerHeight;
-  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);} size(); addEventListener('resize',size);
+  for(const canvas of [bgcv,cv]){canvas.width=W*DPR;canvas.height=H*DPR;}
+  for(const context of [bgctx,nodeCtx])context.setTransform(DPR,0,0,DPR,0,0);
+  ctx=nodeCtx;} size(); addEventListener('resize',size);
 let rx=-.35, ry=.6, zoom=1, panX=0, panY=0, vx=0, vy=0;
 const P = DATA.nodes.map(()=>({x:0,y:0,s:0,d:0,on:true,near:0}));
 const nodeRadius = i => P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1));
@@ -9,6 +13,30 @@ const nodeRadius = i => P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nod
 // Fourteen screen pixels keeps adjacent nodes distinguishable while making a
 // normal mouse click survive sub-pixel projection and hand jitter.
 const nodeHitRadius = i => Math.max(14,nodeRadius(i)+4);
+// Distinguish pixels occupied by a Story glyph from its generous pointer halo.
+// Visible paint wins dense overlaps; an invisible halo must not steal a nearby
+// Story or its centered question X.
+const nodePaintRadius = i => Math.max(2.5,nodeRadius(i)*1.6);
+const questionGlyphRadius = i => Math.max(4,nodeRadius(i)*.72);
+function questionGlyphPaintDistance(i,x,y){
+  const dx=x-P[i].x,dy=y-P[i].y,radius=questionGlyphRadius(i);
+  if(Math.max(Math.abs(dx),Math.abs(dy))>radius+2)return Infinity;
+  return Math.min(Math.abs(dy-dx),Math.abs(dy+dx))/Math.SQRT2;
+}
+const questionAttentionRadius = i => actionableQuestion(i)
+  ?Math.max(28,nodeRadius(i)*3.25):Math.max(22,nodeRadius(i)*2.5);
+let questionRingFractions=reducedMotion?[.72,.9]:[.68,.9];
+const questionRingRadii = i => {
+  const radius=questionAttentionRadius(i);
+  return questionRingFractions.map(fraction=>radius*fraction);
+};
+function canvasInteractionBounds(){
+  const compact=W<=760,drawerOpen=dossier.classList.contains('open');
+  return {left:compact?0:236,top:106,
+    right:drawerOpen?(compact?0:Math.max(236,dossier.getBoundingClientRect().left)):W,bottom:H};
+}
+const insideCanvasInteractionBounds=(x,y,bounds=canvasInteractionBounds())=>
+  x>=bounds.left&&x<=bounds.right&&y>=bounds.top&&y<=bounds.bottom;
 function trianglePath(x,y,radius){
   ctx.beginPath();ctx.moveTo(x,y-radius);ctx.lineTo(x+radius*.88,y+radius*.68);ctx.lineTo(x-radius*.88,y+radius*.68);ctx.closePath();
 }
@@ -39,12 +67,14 @@ const nodeBadgePoint = (p,rr,radius,side=1,slot=0) => {
   const distance=rr+radius*.12;
   return {x:p.x+Math.cos(angle)*distance,y:p.y+Math.sin(angle)*distance};
 };
-const questionWavePhase = (i,offset=0) => reducedMotion
-  ? offset
-  : (performance.now()/1900+i*.173+offset)%1;
 function project(){
+  // Resize delivery and pointer input are separate browser tasks. A click can
+  // arrive after innerWidth changes but before the resize listener runs; using
+  // stale W/H then shifts every projected target by half the viewport delta.
+  if(W!==innerWidth||H!==innerHeight)size();
   const cy=Math.cos(ry), sy=Math.sin(ry), cx=Math.cos(rx), sx=Math.sin(rx);
   const F = 900*zoom, cxp=W/2+40+panX, cyp=H/2+panY;
+  const bounds=canvasInteractionBounds();
   DATA.nodes.forEach((n,i)=>{
     const nx = n.x-cc.x, ny = n.y-cc.y, nz = n.z-cc.z;
     const x1 = nx*cy + nz*sy, z1 = -nx*sy + nz*cy;
@@ -52,14 +82,22 @@ function project(){
     const w = F/(F+z2+520);
     const p = P[i]; p.x = cxp + x1*w*zoom; p.y = cyp + y2*w*zoom; p.d = z2;
     p.s = Math.max(1.6, 4.6*w*zoom);
-    p.on = visible(n);
+    // Never advertise a canvas target underneath interactive HTML chrome. A
+    // visible-but-unclickable node is worse than a clipped node: it lies.
+    p.on = visible(n)&&insideCanvasInteractionBounds(p.x,p.y,bounds);
   });
 }
 function draw(){
-  ctx.clearRect(0,0,W,H);
+  bgctx.clearRect(0,0,W,H);nodeCtx.clearRect(0,0,W,H);ctx=bgctx;
+  const bounds=canvasInteractionBounds();
+  for(const context of [bgctx,nodeCtx]){
+    context.save();context.beginPath();context.rect(bounds.left,bounds.top,
+      Math.max(0,bounds.right-bounds.left),Math.max(0,bounds.bottom-bounds.top));context.clip();
+  }
   const activeWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/300);
   const pulse=reducedMotion?.78:.55+.45*activeWave;
   const xWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/620);
+  questionRingFractions=reducedMotion?[.72,.9]:[.62+.12*activeWave,.82+.16*activeWave];
   const selSet = new Set();
   if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
   if (sel>=0){ relNbr[sel].out.forEach(([j])=>selSet.add(j)); relNbr[sel].inc.forEach(([j])=>selSet.add(j)); }
@@ -134,6 +172,37 @@ function draw(){
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
   const order = DATA.nodes.map((_,i)=>i).filter(i=>P[i].on).sort((a,b)=>P[b].d-P[a].d);
+  // Animated pulses and ambient echoes are paint only. Keeping them on the
+  // pointer-transparent backdrop makes that architectural fact inspectable,
+  // instead of relying on every future hit-test author to remember it.
+  for(const i of order){
+    const p=P[i],n=DATA.nodes[i],rr=nodeRadius(i);
+    const searchDim=searchTerms.length>0&&!searchMatches[i];
+    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    const rgb=RGB[n.g],rec=lens.delivery&&n.rec&&!dim;
+    if(rec){
+      ctx.globalAlpha=.16;ctx.fillStyle=rgbCss(mixA(rgb,[255,255,255],.5));
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*2.6,0,7);ctx.fill();
+    }
+    if(n.g==='shipped'&&!dim){
+      ctx.globalAlpha=.12;ctx.strokeStyle=rgbCss(rgb);ctx.lineWidth=1.5;
+      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke();
+    }
+    if(activeNode(i)&&!dim){
+      ctx.globalAlpha=pulse;ctx.strokeStyle=C.active;ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7);ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
+    }
+    if(actionableQuestion(i)&&!dim){
+      const [innerRadius,outerRadius]=questionRingRadii(i);
+      ctx.globalAlpha=reducedMotion?.72:.42+.48*activeWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(p.x,p.y,innerRadius,0,7);ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.1:.07+.18*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,outerRadius,0,7);ctx.stroke();
+    }
+  }
+  ctx=nodeCtx;
   for (let position=0;position<order.length;position++){
     const i=order[position],p=P[i];
     const n = DATA.nodes[i];
@@ -199,48 +268,19 @@ function draw(){
       ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=1.5;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.58,0,7); ctx.stroke();
     }
-    if (rec){ // recommended-next: soft glow + bright ring so it pops off the muted field
-      ctx.globalAlpha = .16;
-      ctx.fillStyle = rgbCss(mixA(rgb,[255,255,255],.5));
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*2.6,0,7); ctx.fill();
+    if (rec){ // recommended-next: bright ring over its background glow
       ctx.globalAlpha = 1;
       ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
     }
-    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.12; ctx.strokeStyle=col;ctx.lineWidth=1.5;
-      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke(); }
     if (activeNode(i) && !dim){
-      // Motion is optional; the steady ring and checkpoint arc preserve meaning
-      // under prefers-reduced-motion.
-      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7); ctx.stroke();
-      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
-      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
+      // The static checkpoint arc is node information; the moving pulse is on bgcv.
       const progress=nodeProgress(i);
-      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=1;
+      if(progress.total>0){ ctx.globalAlpha=.95;ctx.strokeStyle=C.active;ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.28,-Math.PI/2,
           -Math.PI/2+2*Math.PI*(progress.done/progress.total)); ctx.stroke(); }
     }
-    // Explicit researched decisions use an X as the steady blocker signal.
-    // Faint shockwaves attract attention without making another circular cue
-    // look like a neighboring clickable story.
     const unresolved=ownerQuestions(i);
-    if(unresolved.length&&!dim){
-      const questionPulse=reducedMotion?.16:.1+.08*(.5+.5*Math.sin(performance.now()/430+i*1.618));
-      ctx.globalAlpha=questionPulse;ctx.fillStyle=C.owner;
-      ctx.beginPath();ctx.arc(p.x,p.y,rr*2.15,0,7);ctx.fill();
-      for(const offset of [0,.5]){
-        const phase=questionWavePhase(i,offset);
-        ctx.globalAlpha=reducedMotion?(offset===0?.13:.07):.2*Math.pow(1-phase,1.7);
-        ctx.strokeStyle=C.owner;ctx.lineWidth=1;
-        ctx.beginPath();ctx.arc(p.x,p.y,rr*(1.65+phase*3.1),0,7);ctx.stroke();
-      }
-      const radius=nodeBadgeRadius(rr);
-      const {x,y}=nodeBadgePoint(p,rr,radius,-1,0);
-      ctx.globalAlpha=.86+.14*xWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
-      xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke();
-      if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(5,radius*1.25)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),x+radius,y);}
-    }
     // Circle-check marks are a static history trail: the newest overlaps the
     // story envelope and older verified progress fans along that same envelope.
     // Motion never carries it, and none of the badges can read as a peer node.
@@ -272,17 +312,65 @@ function draw(){
       }
     }
   }
-  ctx.globalAlpha = 1;
+  // Owner decisions use one centered, static X on a dedicated top layer.
+  // Pulses and offset badges made the signal look like a neighboring Story;
+  // letting ordinary nodes paint over the X made its advertised target lie.
+  for(const i of order){
+    const p=P[i],rr=nodeRadius(i),unresolved=ownerQuestions(i);
+    const searchDim=searchTerms.length>0&&!searchMatches[i];
+    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    if(!unresolved.length||dim)continue;
+    ctx.globalAlpha=.95;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+    xPath(p.x,p.y,Math.max(4,rr*.72));ctx.stroke();
+    if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(6,rr*.52)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),p.x+rr*.82,p.y);}
+  }
+  ctx.globalAlpha = 1;ctx=nodeCtx;
+  for(const context of [bgctx,nodeCtx])context.restore();
 }
 const snapCam = reducedMotion;
 function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
-  project(); if(pointerActive&&!orbiting)updatePointerState(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
+  project(); if(pointerActive&&!orbiting)updatePointerAt(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
 // ---- input ----
 let pointerDown=false, orbiting=false, downTarget=-1, lx=0, ly=0, downX=0, downY=0,
   pointerActive=false, pointerX=0, pointerY=0;
 const orbitThreshold=6;
+const hitDebugEnabled=/(?:^|[?&])hitdebug(?:=1|=true|&|$)/.test(location.search||'');
+let hitDebugPanel=null,hitDebugLine=null;
+const debugNodeLabel=index=>index>=0&&DATA.nodes[index]
+  ?`${index}:${DATA.nodes[index].t}`:String(index);
+function publishHitDebug(stage,event,extra={}){
+  if(!hitDebugEnabled)return;
+  if(!hitDebugPanel){
+    hitDebugPanel=document.createElement('pre');hitDebugPanel.id='hitdebug';
+    Object.assign(hitDebugPanel.style,{position:'fixed',left:'8px',bottom:'8px',zIndex:'99',
+      maxWidth:'min(720px,calc(100vw - 16px))',maxHeight:'42vh',overflow:'auto',margin:'0',
+      padding:'8px',border:'1px solid #ff5cff',borderRadius:'6px',background:'#090b10ee',
+      color:'#f6d8ff',font:'11px/1.35 ui-monospace,monospace',pointerEvents:'none'});
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    Object.assign(svg.style,{position:'fixed',inset:'0',width:'100vw',height:'100vh',
+      zIndex:'98',pointerEvents:'none'});
+    hitDebugLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+    hitDebugLine.setAttribute('stroke','#00ffff');hitDebugLine.setAttribute('stroke-width','2');
+    svg.appendChild(hitDebugLine);document.body.append(svg,hitDebugPanel);
+  }
+  const rect=cv.getBoundingClientRect(),target=extra.chosen??extra.opened??hover;
+  const point=target>=0&&P[target]?P[target]:null;
+  const receipt={stage,pointer:[event.clientX,event.clientY],offset:[event.offsetX,event.offsetY],
+    canvas:[rect.left,rect.top,rect.width,rect.height],backing:[cv.width,cv.height],
+    viewport:[innerWidth,innerHeight],dpr:devicePixelRatio,
+    visualViewport:visualViewport?[visualViewport.offsetLeft,visualViewport.offsetTop,
+      visualViewport.width,visualViewport.height,visualViewport.scale]:null,
+    hover:debugNodeLabel(hover),presented:debugNodeLabel(presentedHover),
+    down:debugNodeLabel(downTarget),selected:debugNodeLabel(sel),
+    target:point?[point.x,point.y]:null,
+    delta:point?[point.x-event.clientX,point.y-event.clientY]:null,...extra};
+  hitDebugPanel.textContent=JSON.stringify(receipt,null,2);window.__vizzerHitDebug=receipt;
+  if(point){hitDebugLine.setAttribute('x1',event.clientX);hitDebugLine.setAttribute('y1',event.clientY);
+    hitDebugLine.setAttribute('x2',point.x);hitDebugLine.setAttribute('y2',point.y);}
+  document.title=`HIT ${stage} adv=${extra.advertised??presentedHover} geo=${extra.geometric??hover} open=${extra.opened??'-'} sel=${sel} p=${Math.round(event.clientX)},${Math.round(event.clientY)}`;
+}
 function capturePointer(e){
   if(e.pointerId==null||!cv.setPointerCapture)return;
   try{cv.setPointerCapture(e.pointerId);}catch(_error){}
@@ -296,36 +384,79 @@ function releasePointer(e){
 function updatePointerState(x,y){
   pointerActive=true; pointerX=x; pointerY=y;
   let best=-1,bestDistance=Infinity,bestDepth=Infinity;
-  let questionBest=-1,questionDistance=Infinity,questionDepth=Infinity;
+  let questionGlyphBest=-1,questionGlyphPaintDistanceBest=Infinity,
+    questionGlyphCenterDistanceBest=Infinity,questionGlyphDepth=Infinity;
+  let paintBest=-1,paintDepth=Infinity;
   for(let i=0;i<P.length;i++){
     const p=P[i];
     if(!p.on){p.near=0;continue;}
     const distance=Math.hypot(p.x-x,p.y-y), hitRadius=nodeHitRadius(i);
     p.near=Math.max(0,1-Math.max(0,distance-hitRadius)/32);
     if(distance<=hitRadius&&(distance<bestDistance-.25||(Math.abs(distance-bestDistance)<=.25&&p.d<bestDepth))){best=i;bestDistance=distance;bestDepth=p.d;}
+    if(distance<=nodePaintRadius(i)&&p.d<paintDepth){
+      paintBest=i;paintDepth=p.d;
+    }
     if(ownerQuestions(i).length){
-      const rr=nodeRadius(i),radius=nodeBadgeRadius(rr);
-      const badge=nodeBadgePoint(p,rr,radius,-1,0);
-      const badgeDistance=Math.hypot(badge.x-x,badge.y-y);
-      const badgeHitRadius=Math.max(8,radius+4);
-      if(badgeDistance<=badgeHitRadius&&(badgeDistance<questionDistance-.25||
-          (Math.abs(badgeDistance-questionDistance)<=.25&&p.d<questionDepth))){
-        questionBest=i;questionDistance=badgeDistance;questionDepth=p.d;
+      const glyphPaintDistance=questionGlyphPaintDistance(i,x,y);
+      // Two centered Xs can cross at minimum zoom. Rank materially closer
+      // strokes first, then the nearest owning center; depth is only the final
+      // tie-breaker. Treating every sub-quarter-pixel miss as a depth tie made
+      // a front neighbor seven pixels away steal an exact center click.
+      const sameStroke=Math.abs(glyphPaintDistance-questionGlyphPaintDistanceBest)<=.05;
+      const sameCenter=Math.abs(distance-questionGlyphCenterDistanceBest)<=.05;
+      if(glyphPaintDistance<=2.5&&(glyphPaintDistance<questionGlyphPaintDistanceBest-.05||
+          (sameStroke&&(distance<questionGlyphCenterDistanceBest-.05||
+            (sameCenter&&p.d<questionGlyphDepth))))){
+        questionGlyphBest=i;questionGlyphPaintDistanceBest=glyphPaintDistance;
+        questionGlyphCenterDistanceBest=distance;questionGlyphDepth=p.d;
       }
     }
   }
-  // The blocker X is drawn outside the story circle, so it needs its own hit
-  // region. Clicking either target opens the same story/question dossier.
-  hover=questionBest>=0?questionBest:best;
+  // The static X and node paint are interaction. Animated rings are attention
+  // only on pointer-transparent bgcv and must never steal a nearby Story.
+  // Generous invisible halos remain the final fallback for tiny nodes.
+  hover=questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best);
 }
+let presentedHover=-1;
+function presentPointerState(x,y){
+  const best=hover,tip=document.getElementById('tip');
+  if(best>=0){
+    if(presentedHover!==best){
+      const n=DATA.nodes[best];
+      const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
+      const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
+      const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
+      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ring`;
+      const courseText=ownerCourseText(best)?` · owner ${ownerCourseText(best)}`:(puntedBy[best].length?` · affected by ${puntedBy[best].length} punt${puntedBy[best].length===1?'':'s'}`:'');
+      tip.innerHTML=`${lens.delivery&&n.rec?icon('star-fill',true)+' ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(opacityText)}${esc(courseText)}${esc(liveText)}${esc(trailText)}</small>`;
+    }
+    tip.style.display='block';tip.style.left=(x+14)+'px';tip.style.top=(y+10)+'px';
+    cv.classList.add('hover-target');
+  }else{
+    tip.style.display='none';cv.classList.remove('hover-target');
+  }
+  presentedHover=best;
+}
+function updatePointerAt(x,y){updatePointerState(x,y);presentPointerState(x,y);}
 function clearPointerState(){
-  pointerActive=false;hover=-1;P.forEach(p=>{p.near=0;});
+  pointerActive=false;hover=-1;presentedHover=-1;P.forEach(p=>{p.near=0;});
   const tip=document.getElementById('tip');if(tip)tip.style.display='none';
-  cv.style.cursor='grab';
+  cv.classList.remove('hover-target');
 }
 cv.addEventListener('pointerdown',e=>{
-  updatePointerState(e.clientX,e.clientY);
-  pointerDown=true;orbiting=false;downTarget=hover;downX=lx=e.clientX;downY=ly=e.clientY;
+  // A press within ordinary hand jitter belongs to the Story whose tooltip
+  // the UI is already advertising. Re-running dense-scene ranking first can
+  // silently replace that Story with a neighbor between hover and press.
+  const advertisedTarget=pointerActive&&presentedHover>=0&&P[presentedHover]?.on&&
+    Math.hypot(e.clientX-pointerX,e.clientY-pointerY)<=orbitThreshold
+    ?presentedHover:-1;
+  updatePointerState(e.clientX,e.clientY);const geometricTarget=hover;
+  if(advertisedTarget>=0)hover=advertisedTarget;
+  presentPointerState(e.clientX,e.clientY);
+  pointerDown=true;orbiting=false;downTarget=advertisedTarget>=0?advertisedTarget:hover;
+  downX=lx=e.clientX;downY=ly=e.clientY;
+  publishHitDebug('down',e,{advertised:advertisedTarget,geometric:geometricTarget,chosen:downTarget,
+    pointerType:e.pointerType||'unknown'});
   capturePointer(e);
 });
 cv.addEventListener('pointermove',e=>{
@@ -338,22 +469,11 @@ cv.addEventListener('pointermove',e=>{
     lx=e.clientX;ly=e.clientY;
   }
   else {
-    updatePointerState(e.clientX,e.clientY);
-    const best=hover;
-    const tip = document.getElementById('tip');
-    if (best>=0){ const n=DATA.nodes[best];
-      const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
-      const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
-      const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
-      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ring`;
-      tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+10)+'px';
-      const courseText=ownerCourseText(hover)?` · owner ${ownerCourseText(hover)}`:(puntedBy[hover].length?` · affected by ${puntedBy[hover].length} punt${puntedBy[hover].length===1?'':'s'}`:'');
-      tip.innerHTML = `${lens.delivery&&n.rec?icon('star-fill',true)+' ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(opacityText)}${esc(courseText)}${esc(liveText)}${esc(trailText)}</small>`;
-      cv.style.cursor='pointer';
-    } else { tip.style.display='none'; cv.style.cursor='grab'; }
+    updatePointerAt(e.clientX,e.clientY);
+    publishHitDebug('move',e,{chosen:hover,pointerType:e.pointerType||'unknown'});
   }
 });
-cv.addEventListener('pointerleave',()=>{if(!pointerDown){clearPointerState();document.getElementById('tip').style.display='none';cv.style.cursor='grab';}});
+cv.addEventListener('pointerleave',()=>{if(!pointerDown){clearPointerState();document.getElementById('tip').style.display='none';}});
 cv.addEventListener('pointerup',e=>{
   const wasOrbiting=orbiting;
   pointerDown=false;orbiting=false;cv.classList.remove('drag');
@@ -363,9 +483,15 @@ cv.addEventListener('pointerup',e=>{
     // easing. Re-hit-testing at release could select a neighboring front-most
     // node after the projection moved under the pointer.
     const target=downTarget;
-    project();updatePointerState(e.clientX,e.clientY);
-    if(target>=0&&P[target].on)openNode(target);
-    else if(sel>=0){sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');}
+    project();updatePointerAt(e.clientX,e.clientY);
+    // Visibility was already proven when downTarget was captured. Requiring it
+    // again after projection lets easing or a chrome boundary cancel a valid
+    // press between pointer-down and pointer-up.
+    if(target>=0)openNode(target);
+    publishHitDebug('up',e,{opened:target,pointerType:e.pointerType||'unknown'});
+  }else{
+    project();updatePointerAt(e.clientX,e.clientY);
+    publishHitDebug('orbit-up',e,{opened:-1,pointerType:e.pointerType||'unknown'});
   }
   downTarget=-1;
 });
@@ -381,4 +507,5 @@ cv.addEventListener('wheel',e=>{ e.preventDefault();
   } else { // two-finger scroll orbits
     ry += e.deltaX*.0035; rx += e.deltaY*.0035;
   }
+  project();updatePointerAt(e.clientX,e.clientY);
 },{passive:false});

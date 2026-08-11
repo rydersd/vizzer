@@ -99,6 +99,17 @@ def test_managed_block_upsert_prefers_existing_claude_md(tmp_path, make_repo):
     assert "A shipped story stays shipped" in (repo / "CLAUDE.md").read_text()
 
 
+def test_auto_install_updates_both_existing_provider_instruction_files(tmp_path, make_repo):
+    repo = make_repo(tmp_path, "mixed_proj")
+    (repo / "CLAUDE.md").write_text("# Claude rules\n")
+    (repo / "AGENTS.md").write_text("# Codex rules\n")
+    assert main(["install", str(repo)]) == 0
+    for name in ("CLAUDE.md", "AGENTS.md"):
+        text = (repo / name).read_text()
+        assert text.count("vizzer:begin") == 1
+        assert "vizzer/views/discussion-queue.md" in text
+
+
 def test_detect_finds_dag_json_for_migration(tmp_path):
     """A repo whose deps live in a DAG JSON must get dag_import wired automatically."""
     import json

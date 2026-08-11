@@ -68,15 +68,10 @@ function updateViewStatus(){
   renderCurrentView();
 }
 function applyViewState(focusFallback=null){
-  if(sel>=0&&!visible(DATA.nodes[sel])){
-    const restoreFocus=dossier.contains(document.activeElement);
-    sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');
-    if(restoreFocus)(focusFallback||cv).focus();
-  }
   clearPointerState();
   retarget();
   updateViewStatus();
-  if(sel>=0)openNode(sel);
+  refreshDossier();
 }
 function setQuestionFilter(active){
   questionOnly=Boolean(active&&questionStoryN);
@@ -95,7 +90,8 @@ searchForm.addEventListener('submit',event=>event.preventDefault());
 searchInput.addEventListener('input',updateSearch);
 searchClear.addEventListener('click',()=>{ searchInput.value=''; updateSearch(); searchInput.focus(); });
 addEventListener('keydown',event=>{
-  if(event.key==='Escape' && searchTerms.length){
+  if(event.key==='Escape'&&searchTerms.length&&
+      !document.getElementById('dossier').classList.contains('open')){
     event.preventDefault(); searchInput.value=''; updateSearch(); searchInput.focus();
   }
 });
@@ -198,7 +194,7 @@ for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['str
   b.setAttribute('aria-pressed','true'); b.setAttribute('aria-label',label+' lens');
   b.onclick=()=>{ lens[key]=!lens[key]; b.classList.toggle('on',lens[key]);
     b.setAttribute('aria-pressed',String(lens[key]));
-    if(sel>=0)openNode(sel); };
+    refreshDossier(); };
   lensButtons[key]=b;
   lensSeg.appendChild(b);
 }

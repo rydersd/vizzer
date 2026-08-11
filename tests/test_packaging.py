@@ -41,9 +41,14 @@ def test_build_pyz(tmp_path):
         names = z.namelist()
     assert "__main__.py" in names and "vizzer/model.py" in names
     assert "vizzer/assessment.py" in names
+    assert "vizzer/discussion_queue.py" in names
     assert "vizzer/context/story-sizing-and-portfolio-selection.md" in names
     assert "vizzer/context/prds-and-living-product-specs.md" in names
     assert FRONTEND_RESOURCES <= set(names)
+    assert not any(
+        name.endswith((".DS_Store", ".pyc", ".pyo")) or ".egg-info/" in name
+        for name in names
+    )
     r2 = subprocess.run([sys.executable, str(out), "--help"], capture_output=True, text=True)
     assert r2.returncode == 0 and "sync" in r2.stdout
 
@@ -64,16 +69,19 @@ def test_install_from_pyz(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (project / "vizzer" / "engine" / "vizzer" / "model.py").exists()
     assert (project / "vizzer" / "engine" / "vizzer" / "assessment.py").exists()
+    assert (project / "vizzer" / "engine" / "vizzer" / "discussion_queue.py").exists()
     installed_frontend = project / "vizzer" / "engine" / "vizzer" / "render" / "constellation"
     for relative in FRONTEND_RESOURCES:
         assert (installed_frontend / Path(relative).name).is_file()
     assert (project / "vizzer" / "views" / "dashboard.md").exists()
+    assert (project / "vizzer" / "views" / "discussion-queue.md").exists()
     assert (project / "vizzer" / "docs" /
             "story-sizing-and-portfolio-selection.md").exists()
     assert (project / "vizzer" / "docs" /
             "prds-and-living-product-specs.md").exists()
     config = (project / "vizzer" / "vizzer.toml").read_text()
     assert "[assessment]" in config and "enabled = true" in config
+    assert "[discussions]" in config and 'queue_path = "vizzer/discussion-queue.json"' in config
     graph = json.loads((project / "vizzer" / "vizzer-graph.json").read_text())
     assert graph["assessment"]["method"] == "deterministic-delivery-assessment-v1"
 
@@ -87,6 +95,7 @@ def test_install_from_pyz(tmp_path):
         "assessment-signals.json": '{"schema":1,"items":{}}\n',
         "planning-overlay.json": '{"schema":1,"revision":7}\n',
         "question-answers.json": '{"schema":1,"revision":3,"history":[]}\n',
+        "discussion-queue.json": '{"schema":1,"revision":2,"updatedAt":"2026-08-11T00:00:00Z","queues":{"codex":[],"claude":[]},"history":[]}\n',
         "semantic-history.json": '{"schema":1,"events":[]}\n',
     }
     for name, content in sidecars.items():

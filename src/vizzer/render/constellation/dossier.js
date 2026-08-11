@@ -1,10 +1,78 @@
 // ---- dossier ----
-const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierIdentity = document.getElementById('dossieridentity');
-document.getElementById('close').onclick = ()=>{
-  sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');cv.focus();
-};
-function openNode(i){
+const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierFooter = document.getElementById('dossierfooter'), dossierIdentity = document.getElementById('dossieridentity'), dossierResize = document.getElementById('dossierresize');
+const DOSSIER_MIN=320,DOSSIER_MAX=720,DOSSIER_CANVAS_MIN=260,DOSSIER_COMPACT=760;
+const dossierStorageKey=`vizzer:dossier-width:${document.title}`;
+let dossierWidth=0,preferredDossierWidth=0,dossierResizeState=null,dossierUserSized=false;
+function dossierWidthBounds(){
+  return{min:DOSSIER_MIN,max:Math.max(DOSSIER_MIN,Math.min(DOSSIER_MAX,innerWidth-DOSSIER_CANVAS_MIN))};
+}
+function defaultDossierWidth(){
+  const bounds=dossierWidthBounds();return Math.max(bounds.min,Math.min(bounds.max,innerWidth*.36));
+}
+function applyDossierWidth(value,{persist=false,remember=true}={}){
+  const bounds=dossierWidthBounds(),parsed=Number(value);
+  dossierWidth=Math.round(Math.max(bounds.min,Math.min(bounds.max,Number.isFinite(parsed)?parsed:defaultDossierWidth())));
+  if(remember&&innerWidth>DOSSIER_COMPACT)preferredDossierWidth=dossierWidth;
+  document.documentElement.style.setProperty('--dossier-width',`${dossierWidth}px`);
+  dossierResize.setAttribute('aria-valuemin',String(bounds.min));
+  dossierResize.setAttribute('aria-valuemax',String(bounds.max));
+  dossierResize.setAttribute('aria-valuenow',String(dossierWidth));
+  if(persist){try{sessionStorage.setItem(dossierStorageKey,String(dossierWidth));}catch(_){}}
+}
+let storedDossierWidth=null;try{storedDossierWidth=sessionStorage.getItem(dossierStorageKey);}catch(_){}
+dossierUserSized=storedDossierWidth!==null;
+if(dossierUserSized&&Number.isFinite(Number(storedDossierWidth)))preferredDossierWidth=Number(storedDossierWidth);
+applyDossierWidth(storedDossierWidth||defaultDossierWidth());
+dossierResize.addEventListener('pointerdown',event=>{
+  if(innerWidth<=DOSSIER_COMPACT)return;
+  event.preventDefault();dossierResize.setPointerCapture(event.pointerId);
+  dossierResizeState={pointerId:event.pointerId,startX:event.clientX,startWidth:dossier.getBoundingClientRect().width};
+  dossierResize.classList.add('dragging');
+});
+dossierResize.addEventListener('pointermove',event=>{
+  if(!dossierResizeState||event.pointerId!==dossierResizeState.pointerId)return;
+  applyDossierWidth(dossierResizeState.startWidth+dossierResizeState.startX-event.clientX);
+});
+function finishDossierResize(event){
+  if(!dossierResizeState||event.pointerId!==dossierResizeState.pointerId)return;
+  if(dossierResize.hasPointerCapture(event.pointerId))dossierResize.releasePointerCapture(event.pointerId);
+  dossierResizeState=null;dossierResize.classList.remove('dragging');dossierUserSized=true;applyDossierWidth(dossierWidth,{persist:true});
+}
+dossierResize.addEventListener('pointerup',finishDossierResize);
+dossierResize.addEventListener('pointercancel',finishDossierResize);
+dossierResize.addEventListener('dblclick',()=>{dossierUserSized=true;applyDossierWidth(defaultDossierWidth(),{persist:true});});
+dossierResize.addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home'].includes(event.key)||innerWidth<=DOSSIER_COMPACT)return;
+  event.preventDefault();const step=event.shiftKey?48:16;
+  dossierUserSized=true;
+  applyDossierWidth(event.key==='Home'?defaultDossierWidth():dossierWidth+(event.key==='ArrowLeft'?step:-step),{persist:true});
+});
+addEventListener('resize',()=>{
+  // The compact layout is always full-width. Keep the desktop preference
+  // intact so rotating a tablet or narrowing a window does not erase it.
+  if(innerWidth<=DOSSIER_COMPACT)return;
+  applyDossierWidth(dossierUserSized?(preferredDossierWidth||dossierWidth):defaultDossierWidth(),{remember:false});
+});
+function dismissDossier({focusCanvas=true}={}){
+  sel=-1;
+  dossier.classList.remove('open');
+  dossier.setAttribute('aria-hidden','true');
+  document.documentElement.classList.remove('dossier-open');
+  if(focusCanvas)cv.focus();
+}
+document.getElementById('close').onclick = ()=>dismissDossier();
+addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&dossier.classList.contains('open')){
+    event.preventDefault();dismissDossier();
+  }
+});
+function refreshDossier(){
+  if(sel>=0)openNode(sel,{inPlace:true});
+}
+function openNode(i,{inPlace=false}={}){
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
+  const previousScroll=inPlace&&sel===i?dbody.scrollTop:0;
+  const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0;
   sel = i; const n = DATA.nodes[i];
   const dep = (list,label)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(j=>{
     const m = DATA.nodes[j];
@@ -26,8 +94,7 @@ function openNode(i){
   const ownerQuestionCards=unresolvedOwnerQuestions.map(questionCard).join('');
   const questionBlocker=unresolvedOwnerQuestions.length
     ?`<div class="questionblocker" role="status"><strong>Blocked — answer required</strong><span>${unresolvedOwnerQuestions.length} owner decision${unresolvedOwnerQuestions.length===1?'':'s'} must be resolved before this story is dispatchable. Select an option below or suggest something else.</span></div>`:'';
-  const questionQueueActions=unresolvedOwnerQuestions.length
-    ?`<div class="questionqueuefooter" data-question-queue><span>0 of ${unresolvedOwnerQuestions.length} ready</span><button type="button" disabled>Provide ${unresolvedOwnerQuestions.length===1?'answer':unresolvedOwnerQuestions.length+' answers'}</button></div>`:'';
+  const storyActions=storyDiscussionActions(n,unresolvedOwnerQuestions);
   const ownerDecisionCards=ownerDecisions(i).map(decisionCard).join('');
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
   const trail = lens.progress ? progressText(n) : '';
@@ -66,7 +133,6 @@ function openNode(i){
     ${questionBlocker}
     ${agentWork}
     ${ownerQuestionCards}
-    ${questionQueueActions}
     ${ownerDecisionCards}
     ${planSection(n)}
     ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ${icon('arrow-up-right')}</a>`:''}
@@ -75,6 +141,7 @@ function openNode(i){
     ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ${icon('arrow-up-right')}</a>`:''}
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
+  dossierFooter.innerHTML=storyActions;
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
     b.disabled = true;
@@ -86,8 +153,18 @@ function openNode(i){
       b.textContent = 'could not open'; b.disabled = false;
     }
   });
-  bindQuestionControls();
+  bindQuestionControls(n);
   bindPlanControls(n);
-  dbody.scrollTop=0;
+  // Reconciliation can replace long question forms with compact answer cards.
+  // Preserve the old scrollable extent until an explicit close/reopen, or the
+  // browser clamps the requested scrollTop to zero and makes the drawer jump.
+  if(previousScrollExtent>(dbody.scrollHeight||0)){
+    const spacer=document.createElement('div');
+    spacer.setAttribute('data-scroll-preserver','');spacer.setAttribute('aria-hidden','true');
+    spacer.style.height=(previousScrollExtent-dbody.scrollHeight)+'px';
+    spacer.style.pointerEvents='none';dbody.appendChild(spacer);
+  }
+  dbody.scrollTop=previousScroll;
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
+  document.documentElement.classList.add('dossier-open');
 }
