@@ -22,7 +22,7 @@ def test_sync_render_check_archive(tmp_path, make_repo, capsys):
     names = [p.name for p in _views(repo)]
     assert names == sorted(["roadmap.md", "feature-index.md", "dashboard.md",
                             "completion-sheet.md", "ledger-table.md",
-                            "decision-journal.md", "manifest.json",
+                            "decision-journal.md", "discussion-queue.md", "manifest.json",
                             "constellation.html"])
 
     assert main(["check", "--root", str(repo), "--structural"]) == 0
@@ -133,6 +133,11 @@ def test_loopback_serve_open_endpoint_accepts_only_known_item_ids(tmp_path, make
         assert response.status == 302
         assert response.getheader("Location") == "/constellation.html"
         response.read()
+        connection.request("GET", "/?v=review-smoke")
+        response = connection.getresponse()
+        assert response.status == 302
+        assert response.getheader("Location") == "/constellation.html?v=review-smoke"
+        response.read()
         connection.request("GET", "/constellation.html")
         response = connection.getresponse()
         assert response.status == 200
@@ -187,7 +192,7 @@ def test_refresh_syncs_and_renders_one_fresh_graph(tmp_path, make_repo, capsys):
     repo = make_repo(tmp_path, "mixed_proj")
     assert main(["refresh", "--root", str(repo)]) == 0
     output = capsys.readouterr().out
-    assert "refresh:" in output and "wrote 8 files" in output
+    assert "refresh:" in output and "wrote 9 files" in output
     assert (repo / "vizzer" / "vizzer-graph.json").is_file()
     assert main(["check", "--root", str(repo), "--structural"]) == 0
 

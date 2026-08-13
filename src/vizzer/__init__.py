@@ -1,1 +1,1 @@
-__version__ = "0.8.2"  # agent trails and lightweight glyphs without canvas blur
+__version__ = "0.8.31"  # reviewed rollback, packaging, and launch boundaries

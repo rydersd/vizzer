@@ -34,15 +34,19 @@
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
-#cv{position:fixed;inset:0;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-#cv[hidden]{display:none;pointer-events:none}
+#bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}
+#bgcv{pointer-events:none}
+#bgcv[hidden],#cv[hidden]{display:none;pointer-events:none}
+#cv{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 #cv.drag{cursor:grabbing}
+#cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
 #top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;grid-template-rows:28px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 #title b{color:var(--ink);font-weight:600}
+#title small{margin-left:8px;color:var(--mut);font-size:9px;letter-spacing:.06em}
 #viewmenu{position:relative;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut)}
 #viewmenu summary{list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--ink)}
 #viewmenu summary::-webkit-details-marker{display:none}
@@ -122,20 +126,31 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
-#dossier{position:fixed;right:0;top:106px;bottom:0;width:320px;display:flex;flex-direction:column;overflow:hidden;z-index:6;
+:root{--dossier-width:clamp(360px,36vw,560px)}
+#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
-  transform:translateX(105%);transition:transform .22s ease}
+  transform:translateX(105%);transition:none}
 #dossier.open{transform:none}
-@media (prefers-reduced-motion:reduce){#dossier{transition:none}.chip{scroll-behavior:auto}}
-#dossierhead{position:relative;z-index:3;flex:none;padding:16px 42px 11px 16px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 30%,transparent)}
+html.dossier-open #viewpanel{right:var(--dossier-width)}
+@media (prefers-reduced-motion:reduce){.chip{scroll-behavior:auto}}
+#dossierresize{position:absolute;z-index:8;left:0;top:0;bottom:0;width:10px;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}
+#dossierresize::after{content:'';position:absolute;left:2px;top:50%;width:3px;height:44px;border-radius:2px;background:var(--line);transform:translateY(-50%)}
+#dossierresize:hover::after,#dossierresize:focus-visible::after,#dossierresize.dragging::after{background:var(--accent)}
+#dossierresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#dossierhead{position:relative;z-index:3;flex:none;min-width:0;padding:16px 42px 11px 16px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 30%,transparent)}
+#dossieridentity{min-width:0}
 #dossieridentity h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:8px}
 .dossierpills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
-#dbody{min-height:0;flex:1;overflow-y:auto;padding:12px 16px 16px;scrollbar-gutter:stable}
+.dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
+.dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
+#dossierfooter{flex:none;min-width:0}
+#dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}
 .pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 10px;border-radius:20px;color:var(--bg);font-weight:600}
-.kv{font-size:12px;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:3px 10px;margin-bottom:14px}
-.kv b{color:var(--ink);font-weight:500}
+.kv{font-size:12px;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
+.kv span,.kv b{min-width:0;overflow-wrap:anywhere}.kv b{color:var(--ink);font-weight:500}
 #dossier .story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
   border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0;background:transparent;cursor:pointer}
 #dossier .story:hover{background:var(--accent);color:var(--bg)}
@@ -160,7 +175,8 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .questioncustom textarea:focus{outline:2px solid var(--owner-override);outline-offset:1px}.questionactions{display:flex;align-items:center;gap:8px;margin-top:8px}.questionanswer{border:1px solid var(--owner-override);border-radius:6px;background:transparent;color:var(--owner-override);padding:6px 10px;cursor:pointer;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}
 .questionanswer:disabled,.questioncard fieldset:disabled .questionoption{opacity:.45;cursor:not-allowed}.questionstatus{color:var(--mut)}
 .questioncard .recommendation,.questioncard .acceptedanswer{color:var(--owner-override);margin-top:6px}.questioncard small{display:block;color:var(--mut);line-height:1.4;margin-top:5px}.questioncard code{font-size:10px}
-.questionstatus.ready{color:var(--ready);font-weight:700}.questionqueuefooter{position:sticky;bottom:-16px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px -16px 14px;padding:11px 16px;border-top:1px solid var(--owner-override);background:var(--panel);backdrop-filter:blur(10px)}.questionqueuefooter span{color:var(--mut);font:10px/1.3 ui-monospace,"SF Mono",Menlo,monospace}.questionqueuefooter button{flex:none;border:1px solid var(--owner-override);border-radius:7px;background:var(--owner-override);color:var(--bg);padding:7px 11px;cursor:pointer;font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.questionqueuefooter button:disabled{opacity:.4;cursor:not-allowed}
+.questionstatus.ready{color:var(--ready);font-weight:700}.questionqueuefooter{position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:9px;margin:10px -16px -16px;padding:11px 16px 14px;border-top:1px solid var(--owner-override);background:var(--panel);backdrop-filter:blur(10px);box-shadow:0 -8px 18px color-mix(in srgb,var(--bg) 32%,transparent)}.actionstatus{display:grid;gap:3px;width:100%;min-width:0}.questionqueuefooter span{display:block;color:var(--mut);font:10px/1.3 ui-monospace,"SF Mono",Menlo,monospace;overflow-wrap:anywhere}.dossieractions{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px;position:relative;width:100%}.questionqueuefooter button{flex:none;border:1px solid var(--owner-override);border-radius:7px;background:var(--owner-override);color:var(--bg);padding:7px 11px;cursor:pointer;font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.questionqueuefooter button:disabled{opacity:.4;cursor:not-allowed}.chatsplit{display:flex;position:relative}.chatsplit>[data-chat-primary]{border-radius:7px 0 0 7px}.chatsplit>[data-chat-overflow]{border-left-color:color-mix(in srgb,var(--bg) 35%,transparent);border-radius:0 7px 7px 0;padding-inline:8px}.chatmenu{position:absolute;left:0;bottom:calc(100% + 6px);display:grid;min-width:110px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--panel);box-shadow:0 8px 24px #0008}.chatmenu[hidden]{display:none}.chatmenu button{border-color:transparent;border-radius:5px;background:transparent;color:var(--ink);text-align:left}.chatmenu button:hover{background:var(--bg2)}
+.questionqueuefooter{position:static;bottom:auto;margin:0}
 @media (forced-colors:active){.questionradio:checked+.questionoption{border-color:Highlight}.questionanswer{border-color:ButtonText;color:ButtonText}.questionblocker{border-color:Highlight}}
 .plancard{border-top:1px solid var(--line);padding-top:12px;margin-top:8px;font-size:12px}
 .plancard h3{font:600 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:8px}
@@ -184,7 +200,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #viewempty{position:fixed;left:50%;top:50%;z-index:3;display:none;transform:translate(-50%,-50%);max-width:320px;
   color:var(--mut);font:12px/1.45 ui-monospace,"SF Mono",Menlo,monospace;text-align:center;pointer-events:none}
 #viewempty.show{display:block}
-#viewpanel{position:fixed;left:236px;right:0;top:106px;bottom:0;z-index:3;min-height:0;overflow-x:hidden;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
+#viewpanel{position:fixed;left:236px;right:0;top:106px;bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
 #viewpanel[hidden]{display:none;pointer-events:none}
 .viewhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.viewhead h1{font:700 22px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}.viewhead p{max-width:620px;color:var(--mut);font-size:12px}
 .viewgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.viewsection{margin:0 0 24px}.viewsection h2{font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0 0 9px}.viewsection h2 span{color:var(--ink)}
@@ -197,14 +213,14 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .workstreamgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}.workstreamcard{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.workstreamcard>header{display:flex;justify-content:space-between;gap:14px}.workstreamcard h2{margin:4px 0;font-size:18px}.workstreamcard p{margin:4px 0;color:var(--mut)}.workstatus{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--active)}.workprogress{height:5px;margin:12px 0;border-radius:999px;background:var(--line);overflow:hidden}.workprogress i{display:block;height:100%;background:var(--active)}
 .workstreamcard dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.workstreamcard dl div{min-width:0}.workstreamcard dt{font-size:10px;text-transform:uppercase;color:var(--mut)}.workstreamcard dd{margin:2px 0;overflow-wrap:anywhere}.workstories{display:grid;gap:6px;margin:10px 0}.workstreamcard details{border-top:1px solid var(--line);padding:9px 0}.workstreamcard summary{cursor:pointer}.workstreamcard ul{list-style:none;padding:0;margin:8px 0 0}.worksession,.workdiscussion{display:grid;gap:2px;padding:7px 0}.worksession span,.workdiscussion span{overflow-wrap:anywhere}.worksession small,.workdiscussion small{color:var(--mut)}.worksession.stale{opacity:.58}.worksession.fresh b{color:var(--active)}.workdiscussion.escalation b{color:var(--owner-override)}
 @media(max-width:720px){.workstreamgrid{grid-template-columns:1fr}.workstreamalert{grid-template-columns:1fr}.workstreamcard dl{grid-template-columns:1fr}}
-#hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+#hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em;display:flex;align-items:center;gap:8px;pointer-events:none}
 #hint>span+span{border-left:1px solid var(--line);padding-left:8px}
 #hint kbd{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:0 3px}
 #boot{position:fixed;inset:50% auto auto 50%;z-index:20;max-width:min(560px,calc(100vw - 32px));transform:translate(-50%,-50%);
   padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--mut);
   font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;white-space:pre-wrap}
 #boot.error{border-color:var(--buggap);color:var(--ink)}
-@media (max-width:760px){#rail{display:none}#dossier{width:100%}#viewpanel{left:0;padding:14px}}
+@media (max-width:760px){#rail{display:none}#dossier{width:100%;min-width:0;max-width:none;border-left:0}#dossierresize{display:none}html.dossier-open #viewpanel{right:0}#viewpanel{left:0;right:0;padding:14px}}
 
 </style>
 <svg class="symbol-defs" aria-hidden="true">
@@ -212,9 +228,10 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
   <symbol id="sym-star-fill" viewBox="0 0 16 16"><path d="M8 1.5l1.92 3.9 4.3.62-3.11 3.03.73 4.28L8 11.31l-3.84 2.02.73-4.28-3.11-3.03 4.3-.62z"/></symbol>
   <symbol id="sym-arrow-up-right" viewBox="0 0 16 16"><path d="M4 12 12 4m-6 0h6v6"/></symbol>
 </svg>
+<canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
-  <div id="title"><b>project — constellation</b></div>
+  <div id="title"><b>project — constellation</b><small>v0.8.31</small></div>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -231,6 +248,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
     <a href="feature-index.md" download>Feature index Markdown</a>
     <a href="completion-sheet.md" download>Completion Markdown</a>
     <a href="ledger-table.md" download>Ledgers Markdown</a>
+    <a href="discussion-queue.md" download>Discussion queue Markdown</a>
     <a href="manifest.json" download>Graph manifest JSON</a>
   </div></details>
   <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
@@ -247,8 +265,10 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 <div id="rail"></div>
 <main id="viewpanel" tabindex="-1" hidden></main>
 <div id="dossier" aria-hidden="true">
+  <button id="dossierresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize Story drawer" aria-valuemin="320" aria-valuemax="720" aria-valuenow="360"></button>
   <header id="dossierhead"><div id="dossieridentity"></div><button id="close" aria-label="Close"><svg class="symbol" aria-hidden="true"><use href="#sym-xmark"/></svg></button></header>
   <div id="dbody"></div>
+  <div id="dossierfooter"></div>
 </div>
 <div id="tip" role="tooltip"></div>
 <div id="viewempty" role="status" aria-live="polite"></div>
@@ -275,7 +295,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 
 </script>
 <script>
-const DATA={"engineVersion":"0.8.2","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.31","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -448,6 +468,11 @@ const activeNode = i => lens.activity && (DATA.nodes[i].aw||[]).some(wi=>freshWo
 // when another lens is switched off.
 const ownerQuestions = i =>
   (DATA.nodes[i].oq||[]).map(qi=>(DATA.questions||[])[qi]).filter(Boolean);
+const questionStopsWork = i => (DATA.nodes[i].aw||[]).some(wi=>DATA.work[wi]?.state==='blocked');
+// A pulse is an interrupt, not decoration: reserve it for an unresolved owner
+// decision that is stopping current work or sits on the recommended next item.
+const actionableQuestion = i => ownerQuestions(i).length>0
+  && (questionStopsWork(i)||Boolean(DATA.nodes[i].rec));
 const ownerDecisions = i =>
   (DATA.nodes[i].od||[]).map(di=>(DATA.decisions||[])[di]).filter(Boolean);
 const nodeProgress = i => (DATA.nodes[i].aw||[]).reduce((p,wi)=>{
@@ -484,6 +509,7 @@ const progressText = n => {
 const viewPanel=document.getElementById('viewpanel');
 const viewMenu=document.getElementById('viewmenu');
 const exportMenu=document.getElementById('exportmenu');
+const viewBackdrop=document.getElementById('bgcv');
 const viewCanvas=document.getElementById('cv');
 const viewEntries=()=>DATA.nodes.map((node,index)=>({node,index})).filter(({node,index})=>
   !node.foundation&&visible(node)&&searchMatches[index]);
@@ -654,6 +680,7 @@ function renderCurrentView(){
 function switchView(view,focus=false){
   currentView=ROUTE_VIEWS.has(view)?view:'constellation';
   document.documentElement.setAttribute('data-view',currentView);
+  viewBackdrop.hidden=currentView!=='constellation';
   viewCanvas.hidden=currentView!=='constellation';
   document.getElementById('hint').hidden=currentView!=='constellation';
   viewMenu.querySelectorAll('[data-view]').forEach(link=>{
@@ -736,15 +763,10 @@ function updateViewStatus(){
   renderCurrentView();
 }
 function applyViewState(focusFallback=null){
-  if(sel>=0&&!visible(DATA.nodes[sel])){
-    const restoreFocus=dossier.contains(document.activeElement);
-    sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');
-    if(restoreFocus)(focusFallback||cv).focus();
-  }
   clearPointerState();
   retarget();
   updateViewStatus();
-  if(sel>=0)openNode(sel);
+  refreshDossier();
 }
 function setQuestionFilter(active){
   questionOnly=Boolean(active&&questionStoryN);
@@ -763,7 +785,8 @@ searchForm.addEventListener('submit',event=>event.preventDefault());
 searchInput.addEventListener('input',updateSearch);
 searchClear.addEventListener('click',()=>{ searchInput.value=''; updateSearch(); searchInput.focus(); });
 addEventListener('keydown',event=>{
-  if(event.key==='Escape' && searchTerms.length){
+  if(event.key==='Escape'&&searchTerms.length&&
+      !document.getElementById('dossier').classList.contains('open')){
     event.preventDefault(); searchInput.value=''; updateSearch(); searchInput.focus();
   }
 });
@@ -866,7 +889,7 @@ for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['str
   b.setAttribute('aria-pressed','true'); b.setAttribute('aria-label',label+' lens');
   b.onclick=()=>{ lens[key]=!lens[key]; b.classList.toggle('on',lens[key]);
     b.setAttribute('aria-pressed',String(lens[key]));
-    if(sel>=0)openNode(sel); };
+    refreshDossier(); };
   lensButtons[key]=b;
   lensSeg.appendChild(b);
 }
@@ -919,8 +942,52 @@ renderRail();
 updateViewStatus();
 switchView(currentView);
 
-let questionContext=null, questionError='';
+let questionContext=null, questionError='', questionSubmissionError='';
 const questionDrafts=new Map();
+let discussionContext=null, discussionError='';
+const discussionMessages=new Map();
+const discussionProviderFrom=text=>{
+  const value=String(text||'').toLowerCase();
+  if(value.includes('claude'))return'claude';
+  if(value.includes('codex'))return'codex';
+  return'';
+};
+function defaultDiscussionProvider(n){
+  const work=(n.aw||[]).map(index=>DATA.work[index]).filter(Boolean)
+    .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  for(const entry of work){const provider=discussionProviderFrom(entry.agent);if(provider)return provider;}
+  const streams=DATA.workstreams?.workstreams||[], sessions=DATA.workstreams?.sessions||[];
+  const streamIds=new Set(streams.filter(stream=>(stream.storyIds||[]).includes(n.id)).map(stream=>stream.id));
+  const relevant=sessions.filter(session=>streamIds.has(session.workstreamId))
+    .sort((a,b)=>String(b.heartbeatAt||'').localeCompare(String(a.heartbeatAt||'')));
+  for(const session of relevant){const provider=discussionProviderFrom(session.actor);if(provider)return provider;}
+  return'codex';
+}
+function discussionQueuePosition(storyId){
+  const queues=discussionContext?.queue?.queues||{};
+  for(const provider of ['codex','claude']){
+    const index=(queues[provider]||[]).indexOf(storyId);
+    if(index>=0)return{provider,index};
+  }
+  return null;
+}
+function storyDiscussionActions(n,questions){
+  const provider=defaultDiscussionProvider(n), queued=discussionQueuePosition(n.id);
+  const message=discussionMessages.get(n.id)||discussionError||(
+    queued?`Queued #${queued.index+1} · ${queued.provider}`:
+    !SERVED?'Read-only file · run vizzer serve to queue discussion':
+    !discussionContext?'Loading discussion queue…':`Default · ${provider} (last relevant touch)`
+  );
+  const answerButton=questions.length
+    ?`<button type="button" data-question-submit disabled>Provide ${questions.length===1?'answer':questions.length+' answers'}</button>`:'';
+  return `<div class="questionqueuefooter" data-story-actions${questions.length?' data-question-queue':''}>
+    <div class="actionstatus">${questions.length?`<span data-question-queue-status>0 of ${questions.length} ready</span>`:''}<span data-discussion-status>${esc(message)}</span></div>
+    <div class="dossieractions">${answerButton}<div class="chatsplit" data-chat-split>
+      <button type="button" data-chat-primary data-provider="${provider}" ${discussionContext?'':'disabled'}>Chat · ${provider==='claude'?'Claude':'Codex'}</button>
+      <button type="button" data-chat-overflow aria-label="Choose discussion provider" aria-expanded="false" ${discussionContext?'':'disabled'}>…</button>
+      <div class="chatmenu" data-chat-menu hidden><button type="button" data-chat-provider="codex">Codex</button><button type="button" data-chat-provider="claude">Claude</button></div>
+    </div></div></div>`;
+}
 const questionToken=q=>'question-'+Math.max(0,(DATA.questions||[]).indexOf(q));
 function questionCard(q){
   const token=questionToken(q), draft=questionDrafts.get(q.id)||{kind:'',optionId:'',text:''};
@@ -934,7 +1001,7 @@ function questionCard(q){
   const customId=`${token}-custom`, custom=draft.kind==='freeform';
   const evidence=q.evidence.map(value=>`<code>${esc(value)}</code>`).join('<br>');
   const ready=(draft.kind==='option'&&draft.optionId)||(custom&&draft.text.trim());
-  const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Ready':'Not answered';
+  const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Selected · ready to answer':'Not answered';
   return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
@@ -952,9 +1019,73 @@ function decisionCard(decision){
     <div class="acceptedanswer">${decision.kind==='option'?'accepted option':'owner suggestion'} · ${esc(chosen||'')}</div>
     <small>recorded ${esc(decision.answeredAt||'')} · decision r${esc(decision.revision||1)} · fingerprint <code>${esc((decision.fingerprint||'').slice(0,12))}</code></small></div>`;
 }
-function bindQuestionControls(){
+async function preflightQuestionAuthority(forms){
+  const response=await fetch('/api/questions',{cache:'no-store'});
+  const body=await response.json();
+  if(!response.ok)throw new Error(body.error||'question authority unavailable');
+  if(body.engineVersion!==ENGINE_VERSION)throw new Error(
+    `Vizzer version mismatch (page ${ENGINE_VERSION||'unknown'}, server ${body.engineVersion||'unknown'}). Reload this page before answering.`);
+  const liveQuestions=new Map((body.questions||[]).map(question=>[question.id,question]));
+  for(const form of forms){
+    const rendered=(DATA.questions||[]).find(question=>question.id===form.dataset.questionId);
+    const live=liveQuestions.get(form.dataset.questionId);
+    if(!rendered||!live)throw new Error(
+      'Question authority changed while this page was open. Reload before answering.');
+    if(live.fingerprint!==rendered.fingerprint)throw new Error(
+      `Question ${rendered.id} changed while this page was open. Reload before answering.`);
+  }
+  // A same-version restart rotates the CSRF token. Refreshing the complete
+  // authority also advances an unrelated ledger revision without discarding
+  // any local draft; the exact questions/fingerprints above remain the CAS.
+  questionContext=body;questionError='';
+}
+async function preflightDiscussionAuthority(){
+  const [questionResponse,discussionResponse]=await Promise.all([
+    fetch('/api/questions',{cache:'no-store'}),fetch('/api/discussions',{cache:'no-store'}),
+  ]);
+  const questionBody=await questionResponse.json(), discussionBody=await discussionResponse.json();
+  if(!questionResponse.ok)throw new Error(questionBody.error||'question authority unavailable');
+  if(!discussionResponse.ok)throw new Error(discussionBody.error||'discussion queue unavailable');
+  if(questionBody.engineVersion!==ENGINE_VERSION||discussionBody.engineVersion!==ENGINE_VERSION)throw new Error(
+    `Vizzer version mismatch (page ${ENGINE_VERSION||'unknown'}, server ${questionBody.engineVersion||discussionBody.engineVersion||'unknown'}). Reload before queuing discussion.`);
+  questionContext=questionBody;discussionContext=discussionBody;discussionError='';
+  return questionBody;
+}
+function bindDiscussionControls(n,actions){
+  if(!actions)return;
+  const primary=actions.querySelector('[data-chat-primary]'), overflow=actions.querySelector('[data-chat-overflow]');
+  const menu=actions.querySelector('[data-chat-menu]');
+  overflow?.addEventListener('click',()=>{
+    const opening=menu.hidden;menu.hidden=!opening;overflow.setAttribute('aria-expanded',String(opening));
+  });
+  const enqueue=async provider=>{
+    if(!discussionContext)return;
+    discussionMessages.set(n.id,`Queuing at top · ${provider}…`);refreshDossier();
+    const currentActions=dossierFooter.querySelector('[data-story-actions]');
+    currentActions?.querySelectorAll('[data-chat-primary],[data-chat-overflow],[data-chat-provider]').forEach(button=>button.disabled=true);
+    try{
+      const authority=await preflightDiscussionAuthority();
+      const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id)
+        .map(question=>({id:question.id,fingerprint:question.fingerprint}));
+      const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({
+        expectedRevision:discussionContext.queue.revision,provider,storyId:n.id,questions:liveQuestions,
+      })});
+      const body=await response.json();if(!response.ok)throw new Error(body.error||'discussion queue failed');
+      discussionContext.queue=body.queue;
+      discussionMessages.set(n.id,body.changed?`Queued first · ${provider}`:`Already first · ${provider}`);
+      refreshDossier();
+    }catch(error){
+      discussionMessages.set(n.id,error.message||String(error));refreshDossier();
+      dossierFooter.querySelector('[data-chat-primary]')?.focus();
+    }
+  };
+  primary?.addEventListener('click',()=>enqueue(primary.dataset.provider));
+  menu?.querySelectorAll('[data-chat-provider]').forEach(button=>button.addEventListener('click',()=>enqueue(button.dataset.chatProvider)));
+}
+function bindQuestionControls(n){
   const forms=[...dbody.querySelectorAll('form[data-question-id]')];
-  const queue=dbody.querySelector('[data-question-queue]');
+  const queue=dossierFooter.querySelector('[data-question-queue]');
+  bindDiscussionControls(n,dossierFooter.querySelector('[data-story-actions]'));
   if(!forms.length||!queue)return;
   const draftFor=id=>{
     if(!questionDrafts.has(id))questionDrafts.set(id,{kind:'',optionId:'',text:''});
@@ -973,32 +1104,37 @@ function bindQuestionControls(){
       const isReady=ready(draft);
       status.classList.toggle('ready',isReady);
       status.textContent=!SERVED?'Read-only file · run vizzer serve to answer'
-        :questionError?questionError:!questionContext?'Loading answer authority…':isReady?'Ready':'Not answered';
+        :questionError?questionError:!questionContext?'Loading answer authority…':isReady?'Selected · ready to answer':'Not answered';
       syncQueue();
     };
     form.querySelectorAll('[data-question-option]').forEach(input=>input.addEventListener('change',()=>{
-      if(!input.checked)return;const draft=draftFor(id);draft.kind='option';draft.optionId=input.value;sync();
+      if(!input.checked)return;questionSubmissionError='';const draft=draftFor(id);draft.kind='option';draft.optionId=input.value;sync();
     }));
     form.querySelector('[data-question-custom]')?.addEventListener('change',event=>{
-      if(!event.currentTarget.checked)return;const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();
+      if(!event.currentTarget.checked)return;questionSubmissionError='';const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();
     });
     const text=form.querySelector('[data-question-text]');
     text?.addEventListener('focus',()=>{
-      const custom=form.querySelector('[data-question-custom]');if(custom&&!custom.checked){custom.checked=true;const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();}
+      const custom=form.querySelector('[data-question-custom]');if(custom&&!custom.checked){questionSubmissionError='';custom.checked=true;const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();}
     });
-    text?.addEventListener('input',event=>{const draft=draftFor(id);draft.kind='freeform';draft.optionId='';draft.text=event.currentTarget.value;sync();});
+    text?.addEventListener('input',event=>{questionSubmissionError='';const draft=draftFor(id);draft.kind='freeform';draft.optionId='';draft.text=event.currentTarget.value;sync();});
     form.addEventListener('submit',event=>event.preventDefault());
     sync();
   });
-  const queueButton=queue.querySelector('button'), queueStatus=queue.querySelector('span');
+  const queueButton=queue.querySelector('[data-question-submit]'), queueStatus=queue.querySelector('[data-question-queue-status]');
   syncQueue=()=>{
     const count=forms.filter(form=>ready(draftFor(form.dataset.questionId))).length;
-    queueStatus.textContent=`${count} of ${forms.length} ready`;
+    const countText=forms.length===1
+      ?(count?'Selected · ready to answer':'0 of 1 ready')
+      :`${count} selected · ${forms.length-count} remaining`;
+    queueStatus.textContent=questionSubmissionError||countText;
     queueButton.disabled=!questionContext||count!==forms.length;
+    queueButton.setAttribute('aria-disabled',String(queueButton.disabled));
   };
   syncQueue();
   queueButton.addEventListener('click',async()=>{
     if(!questionContext)return;
+    questionSubmissionError='';
     const answers=forms.map(form=>{
       const id=form.dataset.questionId;
       const q=(DATA.questions||[]).find(value=>value.id===id);
@@ -1008,20 +1144,29 @@ function bindQuestionControls(){
         :{kind:'freeform',text:draft.text.trim()}};
     });
     if(answers.length!==forms.length||forms.some(form=>!ready(draftFor(form.dataset.questionId))))return;
-    queue.setAttribute('aria-busy','true');queueButton.disabled=true;queueButton.textContent='Providing…';queueStatus.textContent='Recording owner decisions…';
+    queue.setAttribute('aria-busy','true');queueButton.disabled=true;queueButton.textContent='Providing…';queueStatus.textContent='Checking current Vizzer and question authority…';
     forms.forEach(form=>form.querySelector('fieldset').disabled=true);
     try{
+      await preflightQuestionAuthority(forms);
+      queueStatus.textContent='Recording owner decisions…';
       const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
       const body=await response.json();if(!response.ok)throw new Error(body.error||'answers failed');
-      reconcileAcceptedDecisions(body.decisions,body.revision);
+      reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
     }catch(error){
-      queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;queueStatus.textContent=error.message||String(error);
-      forms.forEach(form=>form.querySelector('fieldset').disabled=false);syncQueue();queueButton.focus();
+      queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
+      forms.forEach(form=>form.querySelector('fieldset').disabled=false);
+      questionSubmissionError=error.message||String(error);
+      // Planning/question bootstrap may rebuild the dossier while this async
+      // request is pending. Never write the useful failure into a detached
+      // footer; reconcile the current dossier from durable state instead.
+      if(dossierFooter.contains(queue))syncQueue();else refreshDossier();
+      dossierFooter.querySelector('[data-question-queue] button')?.focus();
     }
   });
 }
 
-function reconcileAcceptedDecisions(decisions,revision){
+function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
+  questionSubmissionError='';
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
     const q=(DATA.questions||[]).find(value=>value.id===snapshot.id);
@@ -1033,7 +1178,6 @@ function reconcileAcceptedDecisions(decisions,revision){
       optionId:decision.optionId,text:decision.text};
     const decisionIndex=DATA.decisions.push(accepted)-1;
     node.od=[...(node.od||[]),decisionIndex];
-    questionDrafts.delete(q.id);
     const questionLane=DATA.assessment?.portfolio?.questions;
     if(Array.isArray(questionLane))DATA.assessment.portfolio.questions=questionLane.filter(id=>id!==node.id);
   }
@@ -1042,7 +1186,10 @@ function reconcileAcceptedDecisions(decisions,revision){
     !decisions.some(decision=>decision.question?.id===question.id));
   questionContext.decisions=[...(questionContext.decisions||[]),...(decisions||[])];
   updateViewStatus();
-  if(sel>=0)openNode(sel);
+  // Draft edits and failures preserve the exact scroll position. Once the
+  // Story update succeeds, rebuild the complete dossier from its top instead
+  // of preserving a now-invalid question-form scroll extent and spacer.
+  if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
 }
 
 let planContext=null, planDraft=null, planAnalysis=null, planError='', planRationale='';
@@ -1089,7 +1236,7 @@ function bindPlanControls(n){
     if(index>=0) values.splice(index,1); else values.push(n.id);
     const opposite=field==='promote'?'defer':'promote';
     const oi=planDraft[opposite].indexOf(n.id); if(oi>=0) planDraft[opposite].splice(oi,1);
-    planAnalysis=null; openNode(sel);
+    planAnalysis=null; refreshDossier();
   };
   dbody.querySelector('[data-plan="promote"]')?.addEventListener('click',()=>toggle('promote'));
   dbody.querySelector('[data-plan="defer"]')?.addEventListener('click',()=>toggle('defer'));
@@ -1097,7 +1244,7 @@ function bindPlanControls(n){
     if(!(ACCEPTED_PLAN.baseTargets||[]).includes(n.id)&&!planDraft.promote.includes(n.id)) planDraft.promote.push(n.id);
     planDraft.defer=planDraft.defer.filter(id=>id!==n.id);
     planDraft.order=planDraft.order.filter(id=>id!==n.id); planDraft.order.unshift(n.id);
-    planAnalysis=null; openNode(sel);
+    planAnalysis=null; refreshDossier();
   });
   dbody.querySelector('#planreason')?.addEventListener('input',event=>{
     planRationale=event.currentTarget.value;
@@ -1107,8 +1254,8 @@ function bindPlanControls(n){
     try{
       const response=await fetch('/api/plan/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft})});
       const body=await response.json(); if(!response.ok) throw new Error(body.error||'analysis failed');
-      planAnalysis=body.analysis; openNode(sel);
-    }catch(error){planError=error.message||String(error);openNode(sel);}
+      planAnalysis=body.analysis; refreshDossier();
+    }catch(error){planError=error.message||String(error);refreshDossier();}
   });
   dbody.querySelector('[data-plan="apply"]')?.addEventListener('click',async event=>{
     const rationale=planRationale.trim();
@@ -1118,17 +1265,85 @@ function bindPlanControls(n){
       const response=await fetch('/api/plan/apply',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft,expectedRevision:planContext.overlay.revision,rationale})});
       const body=await response.json(); if(!response.ok) throw new Error(body.error||'course apply failed');
       location.reload();
-    }catch(error){planError=error.message||String(error);openNode(sel);}
+    }catch(error){planError=error.message||String(error);refreshDossier();}
   });
 }
 
 // ---- dossier ----
-const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierIdentity = document.getElementById('dossieridentity');
-document.getElementById('close').onclick = ()=>{
-  sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');cv.focus();
-};
-function openNode(i){
+const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierFooter = document.getElementById('dossierfooter'), dossierIdentity = document.getElementById('dossieridentity'), dossierResize = document.getElementById('dossierresize');
+const DOSSIER_MIN=320,DOSSIER_MAX=720,DOSSIER_CANVAS_MIN=260,DOSSIER_COMPACT=760;
+const dossierStorageKey=`vizzer:dossier-width:${document.title}`;
+let dossierWidth=0,preferredDossierWidth=0,dossierResizeState=null,dossierUserSized=false;
+function dossierWidthBounds(){
+  return{min:DOSSIER_MIN,max:Math.max(DOSSIER_MIN,Math.min(DOSSIER_MAX,innerWidth-DOSSIER_CANVAS_MIN))};
+}
+function defaultDossierWidth(){
+  const bounds=dossierWidthBounds();return Math.max(bounds.min,Math.min(bounds.max,innerWidth*.36));
+}
+function applyDossierWidth(value,{persist=false,remember=true}={}){
+  const bounds=dossierWidthBounds(),parsed=Number(value);
+  dossierWidth=Math.round(Math.max(bounds.min,Math.min(bounds.max,Number.isFinite(parsed)?parsed:defaultDossierWidth())));
+  if(remember&&innerWidth>DOSSIER_COMPACT)preferredDossierWidth=dossierWidth;
+  document.documentElement.style.setProperty('--dossier-width',`${dossierWidth}px`);
+  dossierResize.setAttribute('aria-valuemin',String(bounds.min));
+  dossierResize.setAttribute('aria-valuemax',String(bounds.max));
+  dossierResize.setAttribute('aria-valuenow',String(dossierWidth));
+  if(persist){try{sessionStorage.setItem(dossierStorageKey,String(dossierWidth));}catch(_){}}
+}
+let storedDossierWidth=null;try{storedDossierWidth=sessionStorage.getItem(dossierStorageKey);}catch(_){}
+dossierUserSized=storedDossierWidth!==null;
+if(dossierUserSized&&Number.isFinite(Number(storedDossierWidth)))preferredDossierWidth=Number(storedDossierWidth);
+applyDossierWidth(storedDossierWidth||defaultDossierWidth());
+dossierResize.addEventListener('pointerdown',event=>{
+  if(innerWidth<=DOSSIER_COMPACT)return;
+  event.preventDefault();dossierResize.setPointerCapture(event.pointerId);
+  dossierResizeState={pointerId:event.pointerId,startX:event.clientX,startWidth:dossier.getBoundingClientRect().width};
+  dossierResize.classList.add('dragging');
+});
+dossierResize.addEventListener('pointermove',event=>{
+  if(!dossierResizeState||event.pointerId!==dossierResizeState.pointerId)return;
+  applyDossierWidth(dossierResizeState.startWidth+dossierResizeState.startX-event.clientX);
+});
+function finishDossierResize(event){
+  if(!dossierResizeState||event.pointerId!==dossierResizeState.pointerId)return;
+  if(dossierResize.hasPointerCapture(event.pointerId))dossierResize.releasePointerCapture(event.pointerId);
+  dossierResizeState=null;dossierResize.classList.remove('dragging');dossierUserSized=true;applyDossierWidth(dossierWidth,{persist:true});
+}
+dossierResize.addEventListener('pointerup',finishDossierResize);
+dossierResize.addEventListener('pointercancel',finishDossierResize);
+dossierResize.addEventListener('dblclick',()=>{dossierUserSized=true;applyDossierWidth(defaultDossierWidth(),{persist:true});});
+dossierResize.addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home'].includes(event.key)||innerWidth<=DOSSIER_COMPACT)return;
+  event.preventDefault();const step=event.shiftKey?48:16;
+  dossierUserSized=true;
+  applyDossierWidth(event.key==='Home'?defaultDossierWidth():dossierWidth+(event.key==='ArrowLeft'?step:-step),{persist:true});
+});
+addEventListener('resize',()=>{
+  // The compact layout is always full-width. Keep the desktop preference
+  // intact so rotating a tablet or narrowing a window does not erase it.
+  if(innerWidth<=DOSSIER_COMPACT)return;
+  applyDossierWidth(dossierUserSized?(preferredDossierWidth||dossierWidth):defaultDossierWidth(),{remember:false});
+});
+function dismissDossier({focusCanvas=true}={}){
+  sel=-1;
+  dossier.classList.remove('open');
+  dossier.setAttribute('aria-hidden','true');
+  document.documentElement.classList.remove('dossier-open');
+  if(focusCanvas)cv.focus();
+}
+document.getElementById('close').onclick = ()=>dismissDossier();
+addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&dossier.classList.contains('open')){
+    event.preventDefault();dismissDossier();
+  }
+});
+function refreshDossier(){
+  if(sel>=0)openNode(sel,{inPlace:true});
+}
+function openNode(i,{inPlace=false}={}){
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
+  const previousScroll=inPlace&&sel===i?dbody.scrollTop:0;
+  const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0;
   sel = i; const n = DATA.nodes[i];
   const dep = (list,label)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(j=>{
     const m = DATA.nodes[j];
@@ -1150,8 +1365,7 @@ function openNode(i){
   const ownerQuestionCards=unresolvedOwnerQuestions.map(questionCard).join('');
   const questionBlocker=unresolvedOwnerQuestions.length
     ?`<div class="questionblocker" role="status"><strong>Blocked — answer required</strong><span>${unresolvedOwnerQuestions.length} owner decision${unresolvedOwnerQuestions.length===1?'':'s'} must be resolved before this story is dispatchable. Select an option below or suggest something else.</span></div>`:'';
-  const questionQueueActions=unresolvedOwnerQuestions.length
-    ?`<div class="questionqueuefooter" data-question-queue><span>0 of ${unresolvedOwnerQuestions.length} ready</span><button type="button" disabled>Provide ${unresolvedOwnerQuestions.length===1?'answer':unresolvedOwnerQuestions.length+' answers'}</button></div>`:'';
+  const storyActions=storyDiscussionActions(n,unresolvedOwnerQuestions);
   const ownerDecisionCards=ownerDecisions(i).map(decisionCard).join('');
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
   const trail = lens.progress ? progressText(n) : '';
@@ -1166,7 +1380,7 @@ function openNode(i){
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}`;
+  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -1190,7 +1404,6 @@ function openNode(i){
     ${questionBlocker}
     ${agentWork}
     ${ownerQuestionCards}
-    ${questionQueueActions}
     ${ownerDecisionCards}
     ${planSection(n)}
     ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ${icon('arrow-up-right')}</a>`:''}
@@ -1199,6 +1412,7 @@ function openNode(i){
     ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ${icon('arrow-up-right')}</a>`:''}
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
+  dossierFooter.innerHTML=storyActions;
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
     b.disabled = true;
@@ -1210,16 +1424,78 @@ function openNode(i){
       b.textContent = 'could not open'; b.disabled = false;
     }
   });
-  bindQuestionControls();
+  bindQuestionControls(n);
   bindPlanControls(n);
-  dbody.scrollTop=0;
+  // Reconciliation can replace long question forms with compact answer cards.
+  // Preserve the old scrollable extent until an explicit close/reopen, or the
+  // browser clamps the requested scrollTop to zero and makes the drawer jump.
+  if(previousScrollExtent>(dbody.scrollHeight||0)){
+    const spacer=document.createElement('div');
+    spacer.setAttribute('data-scroll-preserver','');spacer.setAttribute('aria-hidden','true');
+    spacer.style.height=(previousScrollExtent-dbody.scrollHeight)+'px';
+    spacer.style.pointerEvents='none';dbody.appendChild(spacer);
+  }
+  dbody.scrollTop=previousScroll;
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
+  document.documentElement.classList.add('dossier-open');
 }
 
+// ---- keyboard traversal over authoritative activity records ----
+// DATA.work is serialized for deterministic artifacts, not presentation order.
+// Derive both lanes from timestamps and deduplicate by Story before navigating.
+function workNavigationIndexes(lane){
+  const latestByNode=new Map();
+  for(const work of DATA.work||[]){
+    if(!work||!Number.isInteger(work.n)||work.n<0||work.n>=DATA.nodes.length)continue;
+    if(lane==='active'&&!freshWork(work))continue;
+    const stamp=Date.parse(work.updatedAt);
+    if(!Number.isFinite(stamp))continue;
+    const previous=latestByNode.get(work.n);
+    if(previous==null||stamp>previous)latestByNode.set(work.n,stamp);
+  }
+  return [...latestByNode.entries()]
+    .sort((a,b)=>b[1]-a[1]||DATA.nodes[a[0]].id.localeCompare(DATA.nodes[b[0]].id))
+    .map(([index])=>index);
+}
+function workNavigationHint(){
+  const active=workNavigationIndexes('active').length,recent=workNavigationIndexes('recent').length;
+  const lanes=[];
+  if(active)lanes.push(`<span><kbd>←</kbd><kbd>→</kbd> active ${active}</span>`);
+  if(recent)lanes.push(`<span><kbd>↑</kbd><kbd>↓</kbd> recent ${recent}</span>`);
+  dossier.setAttribute('aria-keyshortcuts',lanes.length?'ArrowLeft ArrowRight ArrowUp ArrowDown':'');
+  return lanes.length?`<p class="dossierkeyboard" aria-label="Keyboard Story navigation">${lanes.join('')}</p>`:'';
+}
+function navigateWorkLane(lane,step){
+  const indexes=workNavigationIndexes(lane);
+  if(!indexes.length)return false;
+  const position=indexes.indexOf(sel);
+  const target=position<0?indexes[0]:indexes[(position+step+indexes.length)%indexes.length];
+  openNode(target);
+  return true;
+}
+function arrowKeyOwnedByControl(target){
+  if(!target)return false;
+  const tag=String(target.tagName||'').toUpperCase();
+  const role=target.getAttribute?.('role')||'';
+  return target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(tag)||
+    ['separator','slider','spinbutton','listbox','menu','menubar','tree','grid'].includes(role);
+}
+addEventListener('keydown',event=>{
+  const route={ArrowLeft:['active',-1],ArrowRight:['active',1],ArrowUp:['recent',-1],ArrowDown:['recent',1]}[event.key];
+  if(!route||event.defaultPrevented||event.isComposing||event.altKey||event.ctrlKey||
+      event.metaKey||event.shiftKey||!dossier.classList.contains('open')||
+      arrowKeyOwnedByControl(event.target))return;
+  if(navigateWorkLane(route[0],route[1]))event.preventDefault();
+});
+
 // ---- 3d render ----
-const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const bgcv=document.getElementById('bgcv'), bgctx=bgcv.getContext('2d');
+const cv=document.getElementById('cv'), nodeCtx=cv.getContext('2d');
+let ctx=nodeCtx;
 let W,H,DPR; function size(){ DPR=Math.min(devicePixelRatio,2); W=innerWidth; H=innerHeight;
-  cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);} size(); addEventListener('resize',size);
+  for(const canvas of [bgcv,cv]){canvas.width=W*DPR;canvas.height=H*DPR;}
+  for(const context of [bgctx,nodeCtx])context.setTransform(DPR,0,0,DPR,0,0);
+  ctx=nodeCtx;} size(); addEventListener('resize',size);
 let rx=-.35, ry=.6, zoom=1, panX=0, panY=0, vx=0, vy=0;
 const P = DATA.nodes.map(()=>({x:0,y:0,s:0,d:0,on:true,near:0}));
 const nodeRadius = i => P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1));
@@ -1227,6 +1503,30 @@ const nodeRadius = i => P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nod
 // Fourteen screen pixels keeps adjacent nodes distinguishable while making a
 // normal mouse click survive sub-pixel projection and hand jitter.
 const nodeHitRadius = i => Math.max(14,nodeRadius(i)+4);
+// Distinguish pixels occupied by a Story glyph from its generous pointer halo.
+// Visible paint wins dense overlaps; an invisible halo must not steal a nearby
+// Story or its centered question X.
+const nodePaintRadius = i => Math.max(2.5,nodeRadius(i)*1.6);
+const questionGlyphRadius = i => Math.max(4,nodeRadius(i)*.72);
+function questionGlyphPaintDistance(i,x,y){
+  const dx=x-P[i].x,dy=y-P[i].y,radius=questionGlyphRadius(i);
+  if(Math.max(Math.abs(dx),Math.abs(dy))>radius+2)return Infinity;
+  return Math.min(Math.abs(dy-dx),Math.abs(dy+dx))/Math.SQRT2;
+}
+const questionAttentionRadius = i => actionableQuestion(i)
+  ?Math.max(28,nodeRadius(i)*3.25):Math.max(22,nodeRadius(i)*2.5);
+let questionRingFractions=reducedMotion?[.72,.9]:[.68,.9];
+const questionRingRadii = i => {
+  const radius=questionAttentionRadius(i);
+  return questionRingFractions.map(fraction=>radius*fraction);
+};
+function canvasInteractionBounds(){
+  const compact=W<=760,drawerOpen=dossier.classList.contains('open');
+  return {left:compact?0:236,top:106,
+    right:drawerOpen?(compact?0:Math.max(236,dossier.getBoundingClientRect().left)):W,bottom:H};
+}
+const insideCanvasInteractionBounds=(x,y,bounds=canvasInteractionBounds())=>
+  x>=bounds.left&&x<=bounds.right&&y>=bounds.top&&y<=bounds.bottom;
 function trianglePath(x,y,radius){
   ctx.beginPath();ctx.moveTo(x,y-radius);ctx.lineTo(x+radius*.88,y+radius*.68);ctx.lineTo(x-radius*.88,y+radius*.68);ctx.closePath();
 }
@@ -1257,12 +1557,14 @@ const nodeBadgePoint = (p,rr,radius,side=1,slot=0) => {
   const distance=rr+radius*.12;
   return {x:p.x+Math.cos(angle)*distance,y:p.y+Math.sin(angle)*distance};
 };
-const questionWavePhase = (i,offset=0) => reducedMotion
-  ? offset
-  : (performance.now()/1900+i*.173+offset)%1;
 function project(){
+  // Resize delivery and pointer input are separate browser tasks. A click can
+  // arrive after innerWidth changes but before the resize listener runs; using
+  // stale W/H then shifts every projected target by half the viewport delta.
+  if(W!==innerWidth||H!==innerHeight)size();
   const cy=Math.cos(ry), sy=Math.sin(ry), cx=Math.cos(rx), sx=Math.sin(rx);
   const F = 900*zoom, cxp=W/2+40+panX, cyp=H/2+panY;
+  const bounds=canvasInteractionBounds();
   DATA.nodes.forEach((n,i)=>{
     const nx = n.x-cc.x, ny = n.y-cc.y, nz = n.z-cc.z;
     const x1 = nx*cy + nz*sy, z1 = -nx*sy + nz*cy;
@@ -1270,14 +1572,22 @@ function project(){
     const w = F/(F+z2+520);
     const p = P[i]; p.x = cxp + x1*w*zoom; p.y = cyp + y2*w*zoom; p.d = z2;
     p.s = Math.max(1.6, 4.6*w*zoom);
-    p.on = visible(n);
+    // Never advertise a canvas target underneath interactive HTML chrome. A
+    // visible-but-unclickable node is worse than a clipped node: it lies.
+    p.on = visible(n)&&insideCanvasInteractionBounds(p.x,p.y,bounds);
   });
 }
 function draw(){
-  ctx.clearRect(0,0,W,H);
+  bgctx.clearRect(0,0,W,H);nodeCtx.clearRect(0,0,W,H);ctx=bgctx;
+  const bounds=canvasInteractionBounds();
+  for(const context of [bgctx,nodeCtx]){
+    context.save();context.beginPath();context.rect(bounds.left,bounds.top,
+      Math.max(0,bounds.right-bounds.left),Math.max(0,bounds.bottom-bounds.top));context.clip();
+  }
   const activeWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/300);
   const pulse=reducedMotion?.78:.55+.45*activeWave;
   const xWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/620);
+  questionRingFractions=reducedMotion?[.72,.9]:[.62+.12*activeWave,.82+.16*activeWave];
   const selSet = new Set();
   if (sel>=0){ selSet.add(sel); nbr[sel].up.forEach(j=>selSet.add(j)); nbr[sel].dn.forEach(j=>selSet.add(j)); }
   if (sel>=0){ relNbr[sel].out.forEach(([j])=>selSet.add(j)); relNbr[sel].inc.forEach(([j])=>selSet.add(j)); }
@@ -1352,6 +1662,37 @@ function draw(){
   ctx.globalAlpha = 1;
   // nodes, painter-sorted
   const order = DATA.nodes.map((_,i)=>i).filter(i=>P[i].on).sort((a,b)=>P[b].d-P[a].d);
+  // Animated pulses and ambient echoes are paint only. Keeping them on the
+  // pointer-transparent backdrop makes that architectural fact inspectable,
+  // instead of relying on every future hit-test author to remember it.
+  for(const i of order){
+    const p=P[i],n=DATA.nodes[i],rr=nodeRadius(i);
+    const searchDim=searchTerms.length>0&&!searchMatches[i];
+    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    const rgb=RGB[n.g],rec=lens.delivery&&n.rec&&!dim;
+    if(rec){
+      ctx.globalAlpha=.16;ctx.fillStyle=rgbCss(mixA(rgb,[255,255,255],.5));
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*2.6,0,7);ctx.fill();
+    }
+    if(n.g==='shipped'&&!dim){
+      ctx.globalAlpha=.12;ctx.strokeStyle=rgbCss(rgb);ctx.lineWidth=1.5;
+      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke();
+    }
+    if(activeNode(i)&&!dim){
+      ctx.globalAlpha=pulse;ctx.strokeStyle=C.active;ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7);ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
+    }
+    if(actionableQuestion(i)&&!dim){
+      const [innerRadius,outerRadius]=questionRingRadii(i);
+      ctx.globalAlpha=reducedMotion?.72:.42+.48*activeWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(p.x,p.y,innerRadius,0,7);ctx.stroke();
+      ctx.globalAlpha=reducedMotion?.1:.07+.18*activeWave;
+      ctx.beginPath();ctx.arc(p.x,p.y,outerRadius,0,7);ctx.stroke();
+    }
+  }
+  ctx=nodeCtx;
   for (let position=0;position<order.length;position++){
     const i=order[position],p=P[i];
     const n = DATA.nodes[i];
@@ -1417,48 +1758,19 @@ function draw(){
       ctx.globalAlpha=1; ctx.strokeStyle=C.shipped; ctx.lineWidth=1.5;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.58,0,7); ctx.stroke();
     }
-    if (rec){ // recommended-next: soft glow + bright ring so it pops off the muted field
-      ctx.globalAlpha = .16;
-      ctx.fillStyle = rgbCss(mixA(rgb,[255,255,255],.5));
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*2.6,0,7); ctx.fill();
+    if (rec){ // recommended-next: bright ring over its background glow
       ctx.globalAlpha = 1;
       ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
     }
-    if (n.g==='shipped' && !dim){ ctx.globalAlpha=.12; ctx.strokeStyle=col;ctx.lineWidth=1.5;
-      trianglePath(p.x,p.y,p.s*2.45);ctx.stroke(); }
     if (activeNode(i) && !dim){
-      // Motion is optional; the steady ring and checkpoint arc preserve meaning
-      // under prefers-reduced-motion.
-      ctx.globalAlpha=pulse; ctx.strokeStyle=C.active; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*(reducedMotion?1.9:1.72+.58*activeWave),0,7); ctx.stroke();
-      ctx.globalAlpha=reducedMotion?.12:.1+.22*activeWave;
-      ctx.beginPath();ctx.arc(p.x,p.y,rr*(reducedMotion?2.45:2.35+.42*activeWave),0,7);ctx.stroke();
+      // The static checkpoint arc is node information; the moving pulse is on bgcv.
       const progress=nodeProgress(i);
-      if(progress.total>0){ ctx.globalAlpha=.95; ctx.lineWidth=1;
+      if(progress.total>0){ ctx.globalAlpha=.95;ctx.strokeStyle=C.active;ctx.lineWidth=1;
         ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.28,-Math.PI/2,
           -Math.PI/2+2*Math.PI*(progress.done/progress.total)); ctx.stroke(); }
     }
-    // Explicit researched decisions use an X as the steady blocker signal.
-    // Faint shockwaves attract attention without making another circular cue
-    // look like a neighboring clickable story.
     const unresolved=ownerQuestions(i);
-    if(unresolved.length&&!dim){
-      const questionPulse=reducedMotion?.16:.1+.08*(.5+.5*Math.sin(performance.now()/430+i*1.618));
-      ctx.globalAlpha=questionPulse;ctx.fillStyle=C.owner;
-      ctx.beginPath();ctx.arc(p.x,p.y,rr*2.15,0,7);ctx.fill();
-      for(const offset of [0,.5]){
-        const phase=questionWavePhase(i,offset);
-        ctx.globalAlpha=reducedMotion?(offset===0?.13:.07):.2*Math.pow(1-phase,1.7);
-        ctx.strokeStyle=C.owner;ctx.lineWidth=1;
-        ctx.beginPath();ctx.arc(p.x,p.y,rr*(1.65+phase*3.1),0,7);ctx.stroke();
-      }
-      const radius=nodeBadgeRadius(rr);
-      const {x,y}=nodeBadgePoint(p,rr,radius,-1,0);
-      ctx.globalAlpha=.86+.14*xWave;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
-      xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke();
-      if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(5,radius*1.25)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),x+radius,y);}
-    }
     // Circle-check marks are a static history trail: the newest overlaps the
     // story envelope and older verified progress fans along that same envelope.
     // Motion never carries it, and none of the badges can read as a peer node.
@@ -1490,17 +1802,65 @@ function draw(){
       }
     }
   }
-  ctx.globalAlpha = 1;
+  // Owner decisions use one centered, static X on a dedicated top layer.
+  // Pulses and offset badges made the signal look like a neighboring Story;
+  // letting ordinary nodes paint over the X made its advertised target lie.
+  for(const i of order){
+    const p=P[i],rr=nodeRadius(i),unresolved=ownerQuestions(i);
+    const searchDim=searchTerms.length>0&&!searchMatches[i];
+    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    if(!unresolved.length||dim)continue;
+    ctx.globalAlpha=.95;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
+    xPath(p.x,p.y,Math.max(4,rr*.72));ctx.stroke();
+    if(unresolved.length>1){ctx.fillStyle=C.owner;ctx.font=`${Math.max(6,rr*.52)}px ui-monospace,monospace`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(String(unresolved.length),p.x+rr*.82,p.y);}
+  }
+  ctx.globalAlpha = 1;ctx=nodeCtx;
+  for(const context of [bgctx,nodeCtx])context.restore();
 }
 const snapCam = reducedMotion;
 function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
-  project(); if(pointerActive&&!orbiting)updatePointerState(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
+  project(); if(pointerActive&&!orbiting)updatePointerAt(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
 // ---- input ----
 let pointerDown=false, orbiting=false, downTarget=-1, lx=0, ly=0, downX=0, downY=0,
   pointerActive=false, pointerX=0, pointerY=0;
 const orbitThreshold=6;
+const hitDebugEnabled=/(?:^|[?&])hitdebug(?:=1|=true|&|$)/.test(location.search||'');
+let hitDebugPanel=null,hitDebugLine=null;
+const debugNodeLabel=index=>index>=0&&DATA.nodes[index]
+  ?`${index}:${DATA.nodes[index].t}`:String(index);
+function publishHitDebug(stage,event,extra={}){
+  if(!hitDebugEnabled)return;
+  if(!hitDebugPanel){
+    hitDebugPanel=document.createElement('pre');hitDebugPanel.id='hitdebug';
+    Object.assign(hitDebugPanel.style,{position:'fixed',left:'8px',bottom:'8px',zIndex:'99',
+      maxWidth:'min(720px,calc(100vw - 16px))',maxHeight:'42vh',overflow:'auto',margin:'0',
+      padding:'8px',border:'1px solid #ff5cff',borderRadius:'6px',background:'#090b10ee',
+      color:'#f6d8ff',font:'11px/1.35 ui-monospace,monospace',pointerEvents:'none'});
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    Object.assign(svg.style,{position:'fixed',inset:'0',width:'100vw',height:'100vh',
+      zIndex:'98',pointerEvents:'none'});
+    hitDebugLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+    hitDebugLine.setAttribute('stroke','#00ffff');hitDebugLine.setAttribute('stroke-width','2');
+    svg.appendChild(hitDebugLine);document.body.append(svg,hitDebugPanel);
+  }
+  const rect=cv.getBoundingClientRect(),target=extra.chosen??extra.opened??hover;
+  const point=target>=0&&P[target]?P[target]:null;
+  const receipt={stage,pointer:[event.clientX,event.clientY],offset:[event.offsetX,event.offsetY],
+    canvas:[rect.left,rect.top,rect.width,rect.height],backing:[cv.width,cv.height],
+    viewport:[innerWidth,innerHeight],dpr:devicePixelRatio,
+    visualViewport:visualViewport?[visualViewport.offsetLeft,visualViewport.offsetTop,
+      visualViewport.width,visualViewport.height,visualViewport.scale]:null,
+    hover:debugNodeLabel(hover),presented:debugNodeLabel(presentedHover),
+    down:debugNodeLabel(downTarget),selected:debugNodeLabel(sel),
+    target:point?[point.x,point.y]:null,
+    delta:point?[point.x-event.clientX,point.y-event.clientY]:null,...extra};
+  hitDebugPanel.textContent=JSON.stringify(receipt,null,2);window.__vizzerHitDebug=receipt;
+  if(point){hitDebugLine.setAttribute('x1',event.clientX);hitDebugLine.setAttribute('y1',event.clientY);
+    hitDebugLine.setAttribute('x2',point.x);hitDebugLine.setAttribute('y2',point.y);}
+  document.title=`HIT ${stage} adv=${extra.advertised??presentedHover} geo=${extra.geometric??hover} open=${extra.opened??'-'} sel=${sel} p=${Math.round(event.clientX)},${Math.round(event.clientY)}`;
+}
 function capturePointer(e){
   if(e.pointerId==null||!cv.setPointerCapture)return;
   try{cv.setPointerCapture(e.pointerId);}catch(_error){}
@@ -1514,36 +1874,79 @@ function releasePointer(e){
 function updatePointerState(x,y){
   pointerActive=true; pointerX=x; pointerY=y;
   let best=-1,bestDistance=Infinity,bestDepth=Infinity;
-  let questionBest=-1,questionDistance=Infinity,questionDepth=Infinity;
+  let questionGlyphBest=-1,questionGlyphPaintDistanceBest=Infinity,
+    questionGlyphCenterDistanceBest=Infinity,questionGlyphDepth=Infinity;
+  let paintBest=-1,paintDepth=Infinity;
   for(let i=0;i<P.length;i++){
     const p=P[i];
     if(!p.on){p.near=0;continue;}
     const distance=Math.hypot(p.x-x,p.y-y), hitRadius=nodeHitRadius(i);
     p.near=Math.max(0,1-Math.max(0,distance-hitRadius)/32);
     if(distance<=hitRadius&&(distance<bestDistance-.25||(Math.abs(distance-bestDistance)<=.25&&p.d<bestDepth))){best=i;bestDistance=distance;bestDepth=p.d;}
+    if(distance<=nodePaintRadius(i)&&p.d<paintDepth){
+      paintBest=i;paintDepth=p.d;
+    }
     if(ownerQuestions(i).length){
-      const rr=nodeRadius(i),radius=nodeBadgeRadius(rr);
-      const badge=nodeBadgePoint(p,rr,radius,-1,0);
-      const badgeDistance=Math.hypot(badge.x-x,badge.y-y);
-      const badgeHitRadius=Math.max(8,radius+4);
-      if(badgeDistance<=badgeHitRadius&&(badgeDistance<questionDistance-.25||
-          (Math.abs(badgeDistance-questionDistance)<=.25&&p.d<questionDepth))){
-        questionBest=i;questionDistance=badgeDistance;questionDepth=p.d;
+      const glyphPaintDistance=questionGlyphPaintDistance(i,x,y);
+      // Two centered Xs can cross at minimum zoom. Rank materially closer
+      // strokes first, then the nearest owning center; depth is only the final
+      // tie-breaker. Treating every sub-quarter-pixel miss as a depth tie made
+      // a front neighbor seven pixels away steal an exact center click.
+      const sameStroke=Math.abs(glyphPaintDistance-questionGlyphPaintDistanceBest)<=.05;
+      const sameCenter=Math.abs(distance-questionGlyphCenterDistanceBest)<=.05;
+      if(glyphPaintDistance<=2.5&&(glyphPaintDistance<questionGlyphPaintDistanceBest-.05||
+          (sameStroke&&(distance<questionGlyphCenterDistanceBest-.05||
+            (sameCenter&&p.d<questionGlyphDepth))))){
+        questionGlyphBest=i;questionGlyphPaintDistanceBest=glyphPaintDistance;
+        questionGlyphCenterDistanceBest=distance;questionGlyphDepth=p.d;
       }
     }
   }
-  // The blocker X is drawn outside the story circle, so it needs its own hit
-  // region. Clicking either target opens the same story/question dossier.
-  hover=questionBest>=0?questionBest:best;
+  // The static X and node paint are interaction. Animated rings are attention
+  // only on pointer-transparent bgcv and must never steal a nearby Story.
+  // Generous invisible halos remain the final fallback for tiny nodes.
+  hover=questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best);
 }
+let presentedHover=-1;
+function presentPointerState(x,y){
+  const best=hover,tip=document.getElementById('tip');
+  if(best>=0){
+    if(presentedHover!==best){
+      const n=DATA.nodes[best];
+      const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
+      const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
+      const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
+      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ring`;
+      const courseText=ownerCourseText(best)?` · owner ${ownerCourseText(best)}`:(puntedBy[best].length?` · affected by ${puntedBy[best].length} punt${puntedBy[best].length===1?'':'s'}`:'');
+      tip.innerHTML=`${lens.delivery&&n.rec?icon('star-fill',true)+' ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(opacityText)}${esc(courseText)}${esc(liveText)}${esc(trailText)}</small>`;
+    }
+    tip.style.display='block';tip.style.left=(x+14)+'px';tip.style.top=(y+10)+'px';
+    cv.classList.add('hover-target');
+  }else{
+    tip.style.display='none';cv.classList.remove('hover-target');
+  }
+  presentedHover=best;
+}
+function updatePointerAt(x,y){updatePointerState(x,y);presentPointerState(x,y);}
 function clearPointerState(){
-  pointerActive=false;hover=-1;P.forEach(p=>{p.near=0;});
+  pointerActive=false;hover=-1;presentedHover=-1;P.forEach(p=>{p.near=0;});
   const tip=document.getElementById('tip');if(tip)tip.style.display='none';
-  cv.style.cursor='grab';
+  cv.classList.remove('hover-target');
 }
 cv.addEventListener('pointerdown',e=>{
-  updatePointerState(e.clientX,e.clientY);
-  pointerDown=true;orbiting=false;downTarget=hover;downX=lx=e.clientX;downY=ly=e.clientY;
+  // A press within ordinary hand jitter belongs to the Story whose tooltip
+  // the UI is already advertising. Re-running dense-scene ranking first can
+  // silently replace that Story with a neighbor between hover and press.
+  const advertisedTarget=pointerActive&&presentedHover>=0&&P[presentedHover]?.on&&
+    Math.hypot(e.clientX-pointerX,e.clientY-pointerY)<=orbitThreshold
+    ?presentedHover:-1;
+  updatePointerState(e.clientX,e.clientY);const geometricTarget=hover;
+  if(advertisedTarget>=0)hover=advertisedTarget;
+  presentPointerState(e.clientX,e.clientY);
+  pointerDown=true;orbiting=false;downTarget=advertisedTarget>=0?advertisedTarget:hover;
+  downX=lx=e.clientX;downY=ly=e.clientY;
+  publishHitDebug('down',e,{advertised:advertisedTarget,geometric:geometricTarget,chosen:downTarget,
+    pointerType:e.pointerType||'unknown'});
   capturePointer(e);
 });
 cv.addEventListener('pointermove',e=>{
@@ -1556,22 +1959,11 @@ cv.addEventListener('pointermove',e=>{
     lx=e.clientX;ly=e.clientY;
   }
   else {
-    updatePointerState(e.clientX,e.clientY);
-    const best=hover;
-    const tip = document.getElementById('tip');
-    if (best>=0){ const n=DATA.nodes[best];
-      const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
-      const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
-      const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
-      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ring`;
-      tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+10)+'px';
-      const courseText=ownerCourseText(hover)?` · owner ${ownerCourseText(hover)}`:(puntedBy[hover].length?` · affected by ${puntedBy[hover].length} punt${puntedBy[hover].length===1?'':'s'}`:'');
-      tip.innerHTML = `${lens.delivery&&n.rec?icon('star-fill',true)+' ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(opacityText)}${esc(courseText)}${esc(liveText)}${esc(trailText)}</small>`;
-      cv.style.cursor='pointer';
-    } else { tip.style.display='none'; cv.style.cursor='grab'; }
+    updatePointerAt(e.clientX,e.clientY);
+    publishHitDebug('move',e,{chosen:hover,pointerType:e.pointerType||'unknown'});
   }
 });
-cv.addEventListener('pointerleave',()=>{if(!pointerDown){clearPointerState();document.getElementById('tip').style.display='none';cv.style.cursor='grab';}});
+cv.addEventListener('pointerleave',()=>{if(!pointerDown){clearPointerState();document.getElementById('tip').style.display='none';}});
 cv.addEventListener('pointerup',e=>{
   const wasOrbiting=orbiting;
   pointerDown=false;orbiting=false;cv.classList.remove('drag');
@@ -1581,9 +1973,15 @@ cv.addEventListener('pointerup',e=>{
     // easing. Re-hit-testing at release could select a neighboring front-most
     // node after the projection moved under the pointer.
     const target=downTarget;
-    project();updatePointerState(e.clientX,e.clientY);
-    if(target>=0&&P[target].on)openNode(target);
-    else if(sel>=0){sel=-1;dossier.classList.remove('open');dossier.setAttribute('aria-hidden','true');}
+    project();updatePointerAt(e.clientX,e.clientY);
+    // Visibility was already proven when downTarget was captured. Requiring it
+    // again after projection lets easing or a chrome boundary cancel a valid
+    // press between pointer-down and pointer-up.
+    if(target>=0)openNode(target);
+    publishHitDebug('up',e,{opened:target,pointerType:e.pointerType||'unknown'});
+  }else{
+    project();updatePointerAt(e.clientX,e.clientY);
+    publishHitDebug('orbit-up',e,{opened:-1,pointerType:e.pointerType||'unknown'});
   }
   downTarget=-1;
 });
@@ -1599,26 +1997,33 @@ cv.addEventListener('wheel',e=>{ e.preventDefault();
   } else { // two-finger scroll orbits
     ry += e.deltaX*.0035; rx += e.deltaY*.0035;
   }
+  project();updatePointerAt(e.clientX,e.clientY);
 },{passive:false});
 
 if(SERVED){
   fetch('/api/plan').then(async response=>{
     if(!response.ok){
-      if(response.status===404){planError='Planning controls are disabled for this project.';if(sel>=0)openNode(sel);return;}
+      if(response.status===404){planError='Planning controls are disabled for this project.';refreshDossier();return;}
       throw new Error((await response.json()).error||'planning unavailable');
     }
     planContext=await response.json();
     if(planContext.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${planContext.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve.`);
     planDraft=JSON.parse(JSON.stringify(planContext.overlay.state));
-    if(sel>=0) openNode(sel);
-  }).catch(error=>{ planError=error.message||String(error); if(sel>=0) openNode(sel); });
+    refreshDossier();
+  }).catch(error=>{ planError=error.message||String(error); refreshDossier(); });
   fetch('/api/questions').then(async response=>{
     const body=await response.json();
     if(!response.ok)throw new Error(body.error||'question answers unavailable');
     if(body.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${body.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve before answering.`);
     questionContext=body;
-    if(sel>=0)openNode(sel);
-  }).catch(error=>{questionError=error.message||String(error);if(sel>=0)openNode(sel);});
+    refreshDossier();
+  }).catch(error=>{questionError=error.message||String(error);refreshDossier();});
+  fetch('/api/discussions').then(async response=>{
+    const body=await response.json();
+    if(!response.ok)throw new Error(body.error||'discussion queue unavailable');
+    if(body.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${body.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve before queuing discussion.`);
+    discussionContext=body;discussionError='';refreshDossier();
+  }).catch(error=>{discussionError=error.message||String(error);refreshDossier();});
   fetch('/api/workstreams').then(async response=>{
     if(response.status===404)return null;
     const body=await response.json();

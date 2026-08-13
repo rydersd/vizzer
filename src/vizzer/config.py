@@ -84,6 +84,8 @@ DEFAULTS = {
                  "overlay_path": "vizzer/planning-overlay.json"},
     # Accepted owner answers are source input in a separate audited ledger.
     "questions": {"answers_path": "vizzer/question-answers.json"},
+    # Provider lanes select which future agent session should discuss a Story.
+    "discussions": {"queue_path": "vizzer/discussion-queue.json"},
     # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
     "activity": {"path": "", "stale_after_minutes": 120, "trail_rounds": 5},
     # Durable workstream intent is repo data; leased live sessions are local runtime.
@@ -282,6 +284,12 @@ class Config:
         answers_path = self.get("questions.answers_path")
         if not isinstance(answers_path, str) or not answers_path:
             raise ConfigError("questions.answers_path must be a non-empty string")
+        discussion_path = self.get("discussions.queue_path")
+        if not isinstance(discussion_path, str) or not discussion_path.strip():
+            raise ConfigError("discussions.queue_path must be a non-empty string")
+        discussion_relative = Path(discussion_path)
+        if discussion_relative.is_absolute() or ".." in discussion_relative.parts:
+            raise ConfigError("discussions.queue_path must stay inside the project")
         loose_doc_role = self.get("sources.loose_docs.item_role")
         if loose_doc_role not in ITEM_ROLES:
             raise ConfigError(

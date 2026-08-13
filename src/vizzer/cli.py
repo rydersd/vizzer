@@ -28,6 +28,10 @@ from .decision_journal import (
     DecisionJournalError, append_application_event, append_evolution_events,
     restore_story_snapshots, story_snapshots,
 )
+from .discussion_queue import (
+    DiscussionQueueConflict, DiscussionQueueError, enqueue_discussion,
+    discussion_queue_snapshot, read_discussion_queue, restore_discussion_queue,
+)
 from .model import Graph
 from .progress_history import ProgressHistory, prepare_progress_history
 from .reconcile import build_graph
@@ -164,6 +168,12 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
         def log_message(self, format, *args):  # pragma: no cover - keeps CLI quiet
             return
 
+        def end_headers(self):
+            if not any(header.lower().startswith(b"cache-control:")
+                       for header in getattr(self, "_headers_buffer", [])):
+                self.send_header("Cache-Control", "no-store")
+            super().end_headers()
+
         def _send_json(self, status: int, body: dict) -> None:
             payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
             self.send_response(status)
@@ -279,6 +289,54 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 raise exc
             except (PlanningError, QuestionAnswerError) as exc:
                 raise exc
+
+        def _discussion_queue_post(self) -> None:
+            if not self._require_current_engine():
+                return
+            if not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                body = self._read_json_body("discussion queue")
+                required = {"expectedRevision", "provider", "storyId", "questions"}
+                missing = sorted(required - set(body))
+                unknown = sorted(set(body) - required)
+                if missing or unknown:
+                    field = (missing or unknown)[0]
+                    raise DiscussionQueueError(
+                        f"discussion queue request has unknown or missing field: {field}"
+                    )
+                expected = body["expectedRevision"]
+                if isinstance(expected, bool) or not isinstance(expected, int):
+                    raise DiscussionQueueError("expectedRevision must be an integer")
+                with _mutation_guard(root):
+                    built = _build_fresh_graph(root, "discussion queue")
+                    if built is None:
+                        self._send_json(500, {"error": "current work graph could not be built"})
+                        return
+                    live_cfg, live_graph, _ = built
+                    previous = discussion_queue_snapshot(live_cfg, root, live_graph)
+                    queue, changed = enqueue_discussion(
+                        live_cfg, root, live_graph,
+                        provider=body["provider"], story_id=body["storyId"],
+                        questions=body["questions"], expected_revision=expected,
+                    )
+                    if changed and _refresh(root) != 0:
+                        restore_discussion_queue(live_cfg, root, previous)
+                        self._send_json(500, {
+                            "error": "discussion was not queued because derived views could not refresh",
+                            "revision": 0 if previous is None else previous["revision"],
+                        })
+                        return
+                self._send_json(200, {
+                    "queue": queue, "changed": changed, "reloadRequired": False,
+                })
+            except DiscussionQueueConflict as exc:
+                self._send_json(409, {"error": str(exc)})
+            except (DiscussionQueueError, QuestionAnswerError) as exc:
+                self._send_json(400, {"error": str(exc)})
+            except OSError as exc:
+                self._send_json(500, {"error": f"could not persist discussion queue: {exc}"})
 
         def _question_post(self, question_id: str) -> None:
             if not self._require_current_engine():
@@ -474,6 +532,9 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
 
         def do_POST(self):
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path == "/api/discussions/queue":
+                self._discussion_queue_post()
+                return
             if not parsed.query and parsed.path in {
                 "/api/plan/analyze", "/api/plan/apply"
             }:
@@ -514,6 +575,24 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
 
         def do_GET(self):
             parsed = urlsplit(self.path)
+            if parsed.path == "/api/discussions" and not parsed.query:
+                if not self._require_current_engine():
+                    return
+                live_graph = _read_graph(root)
+                if live_graph is None:
+                    self._send_json(500, {"error": "current work graph is unavailable"})
+                    return
+                try:
+                    queue, warnings = read_discussion_queue(cfg, root, live_graph)
+                except DiscussionQueueError as exc:
+                    self._send_json(500, {"error": str(exc)})
+                    return
+                self._send_json(200, {
+                    "engineVersion": __version__, "schema": 1,
+                    "csrfToken": csrf_token, "warnings": warnings,
+                    "queue": queue,
+                })
+                return
             if parsed.path == "/api/workstreams" and not parsed.query:
                 if not self._require_current_engine():
                     return
@@ -597,9 +676,12 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 return
             # codex-sequence-2026-08-08: the human entry point is the map, not
             # a raw directory listing that looks like Vizzer failed to load.
-            if parsed.path == "/" and not parsed.query:
+            if parsed.path == "/":
+                location = "/constellation.html"
+                if parsed.query:
+                    location += f"?{parsed.query}"
                 self.send_response(302)
-                self.send_header("Location", "/constellation.html")
+                self.send_header("Location", location)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return

@@ -42,7 +42,7 @@ function bindPlanControls(n){
     if(index>=0) values.splice(index,1); else values.push(n.id);
     const opposite=field==='promote'?'defer':'promote';
     const oi=planDraft[opposite].indexOf(n.id); if(oi>=0) planDraft[opposite].splice(oi,1);
-    planAnalysis=null; openNode(sel);
+    planAnalysis=null; refreshDossier();
   };
   dbody.querySelector('[data-plan="promote"]')?.addEventListener('click',()=>toggle('promote'));
   dbody.querySelector('[data-plan="defer"]')?.addEventListener('click',()=>toggle('defer'));
@@ -50,7 +50,7 @@ function bindPlanControls(n){
     if(!(ACCEPTED_PLAN.baseTargets||[]).includes(n.id)&&!planDraft.promote.includes(n.id)) planDraft.promote.push(n.id);
     planDraft.defer=planDraft.defer.filter(id=>id!==n.id);
     planDraft.order=planDraft.order.filter(id=>id!==n.id); planDraft.order.unshift(n.id);
-    planAnalysis=null; openNode(sel);
+    planAnalysis=null; refreshDossier();
   });
   dbody.querySelector('#planreason')?.addEventListener('input',event=>{
     planRationale=event.currentTarget.value;
@@ -60,8 +60,8 @@ function bindPlanControls(n){
     try{
       const response=await fetch('/api/plan/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft})});
       const body=await response.json(); if(!response.ok) throw new Error(body.error||'analysis failed');
-      planAnalysis=body.analysis; openNode(sel);
-    }catch(error){planError=error.message||String(error);openNode(sel);}
+      planAnalysis=body.analysis; refreshDossier();
+    }catch(error){planError=error.message||String(error);refreshDossier();}
   });
   dbody.querySelector('[data-plan="apply"]')?.addEventListener('click',async event=>{
     const rationale=planRationale.trim();
@@ -71,6 +71,6 @@ function bindPlanControls(n){
       const response=await fetch('/api/plan/apply',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':planContext.csrfToken},body:JSON.stringify({state:planDraft,expectedRevision:planContext.overlay.revision,rationale})});
       const body=await response.json(); if(!response.ok) throw new Error(body.error||'course apply failed');
       location.reload();
-    }catch(error){planError=error.message||String(error);openNode(sel);}
+    }catch(error){planError=error.message||String(error);refreshDossier();}
   });
 }

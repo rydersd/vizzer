@@ -1,15 +1,19 @@
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
-#cv{position:fixed;inset:0;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
-#cv[hidden]{display:none;pointer-events:none}
+#bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}
+#bgcv{pointer-events:none}
+#bgcv[hidden],#cv[hidden]{display:none;pointer-events:none}
+#cv{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 #cv.drag{cursor:grabbing}
+#cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
 #top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;grid-template-rows:28px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 #title b{color:var(--ink);font-weight:600}
+#title small{margin-left:8px;color:var(--mut);font-size:9px;letter-spacing:.06em}
 #viewmenu{position:relative;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut)}
 #viewmenu summary{list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--ink)}
 #viewmenu summary::-webkit-details-marker{display:none}
@@ -89,20 +93,31 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
-#dossier{position:fixed;right:0;top:106px;bottom:0;width:320px;display:flex;flex-direction:column;overflow:hidden;z-index:6;
+:root{--dossier-width:clamp(360px,36vw,560px)}
+#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
-  transform:translateX(105%);transition:transform .22s ease}
+  transform:translateX(105%);transition:none}
 #dossier.open{transform:none}
-@media (prefers-reduced-motion:reduce){#dossier{transition:none}.chip{scroll-behavior:auto}}
-#dossierhead{position:relative;z-index:3;flex:none;padding:16px 42px 11px 16px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 30%,transparent)}
+html.dossier-open #viewpanel{right:var(--dossier-width)}
+@media (prefers-reduced-motion:reduce){.chip{scroll-behavior:auto}}
+#dossierresize{position:absolute;z-index:8;left:0;top:0;bottom:0;width:10px;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}
+#dossierresize::after{content:'';position:absolute;left:2px;top:50%;width:3px;height:44px;border-radius:2px;background:var(--line);transform:translateY(-50%)}
+#dossierresize:hover::after,#dossierresize:focus-visible::after,#dossierresize.dragging::after{background:var(--accent)}
+#dossierresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#dossierhead{position:relative;z-index:3;flex:none;min-width:0;padding:16px 42px 11px 16px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 30%,transparent)}
+#dossieridentity{min-width:0}
 #dossieridentity h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:8px}
 .dossierpills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
-#dbody{min-height:0;flex:1;overflow-y:auto;padding:12px 16px 16px;scrollbar-gutter:stable}
+.dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
+.dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
+#dossierfooter{flex:none;min-width:0}
+#dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}
 .pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 10px;border-radius:20px;color:var(--bg);font-weight:600}
-.kv{font-size:12px;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:3px 10px;margin-bottom:14px}
-.kv b{color:var(--ink);font-weight:500}
+.kv{font-size:12px;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
+.kv span,.kv b{min-width:0;overflow-wrap:anywhere}.kv b{color:var(--ink);font-weight:500}
 #dossier .story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
   border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0;background:transparent;cursor:pointer}
 #dossier .story:hover{background:var(--accent);color:var(--bg)}

@@ -1,8 +1,13 @@
 import json
+import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
+import pytest
+
+from vizzer import __version__
 from vizzer.config import Config, DEFAULTS, deep_merge
 from vizzer.model import (
     ActiveWork, Graph, Group, Item, OwnerQuestion, OwnerQuestionOption,
@@ -15,20 +20,64 @@ _CONSTELLATION_COUNT_DOM_SHIM = r'''
 const fs=require('fs'),vm=require('vm');
 class ClassList{constructor(e){this.e=e;this.s=new Set()}sync(){this.e._className=[...this.s].join(' ')}add(...x){x.forEach(v=>this.s.add(v));this.sync()}remove(...x){x.forEach(v=>this.s.delete(v));this.sync()}toggle(x,f){const on=f===undefined?!this.s.has(x):!!f;on?this.s.add(x):this.s.delete(x);this.sync();return on}contains(x){return this.s.has(x)}replaceFrom(x){this.s=new Set(String(x).split(/\s+/).filter(Boolean));this.sync()}}
 const ids=new Map(),desc=r=>r.children.flatMap(c=>[c,...desc(c)]);
-class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';head.appendChild(new Element('span'));const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
-for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossieridentity','dbody','close','tip','hint','cv'])new Element(id==='cv'?'canvas':'div',id);
-const document={documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
-const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
-const sandbox={console,document,location:{protocol:'file:',hash:''},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(){},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
+class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={setProperty(k,v){this[k]=v}};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';head.appendChild(new Element('span'));const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}getBoundingClientRect(){return this.id==='dossier'?{left:880,right:1200,top:106,bottom:800,width:320,height:694}:{left:0,right:0,top:0,bottom:0,width:0,height:0}}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
+for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossierresize','dossieridentity','dbody','dossierfooter','close','tip','hint','bgcv','cv'])new Element(id==='cv'||id==='bgcv'?'canvas':'div',id);
+const document={title:'fixture',documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
+const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)}),windowListeners={};
+const sandbox={console,document,location:{protocol:'file:',hash:''},sessionStorage:{getItem(){return null},setItem(){}},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(k,f){(windowListeners[k]??=[]).push(f)},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
 const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
+const dispatchWindow=(kind,event={})=>{event.target??=document.activeElement;event.defaultPrevented??=false;event.preventDefault??=()=>{event.defaultPrevented=true};(windowListeners[kind]||[]).forEach(listener=>listener(event));return event};
 const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.caphead>span').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
 const panelSnapshot=()=>{const html=ids.get('viewpanel').innerHTML;return{cards:(html.match(/data-view-node=/g)||[]).length,metrics:[...html.matchAll(/<strong>(\d+)<\/strong>/g)].map(match=>+match[1]),rows:(html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr>/g)||[]).length}};
 const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','workstreams','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
-const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
+const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
 '''
+
+_CONSTELLATION_WORK_NAVIGATION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "process.stdout.write(JSON.stringify(out));",
+    r'''
+const nodeIndex=id=>ev(`DATA.nodes.findIndex(node=>node.id===${JSON.stringify(id)})`);
+const a=nodeIndex('story:a'),b=nodeIndex('story:b'),c=nodeIndex('story:c'),d=nodeIndex('story:d');
+const title=()=>ev(`DATA.nodes[sel].t`);
+const fire=(key,target=ids.get('cv'),extra={})=>dispatchWindow('keydown',{key,target,...extra});
+ev(`for(const key of Object.keys(filt))filt[key]=false;for(const key of Object.keys(rfilt))rfilt[key]=false;searchMatches=DATA.nodes.map(()=>false)`);
+ev(`openNode(${c})`);const activeEntry=fire('ArrowRight'),activeEntryPrevented=activeEntry.defaultPrevented,activeNewest=title();
+fire('ArrowRight');const activeOlder=title();fire('ArrowRight');const activeWrap=title();
+fire('ArrowLeft');const activeReverseWrap=title();
+ev(`openNode(${d})`);fire('ArrowDown');const recentOlder=title();fire('ArrowUp');const recentNewer=title();
+ev(`openNode(${b})`);fire('ArrowDown');const recentWrap=title();
+ev(`openNode(${c})`);const input=new Element('input');const inputEvent=fire('ArrowDown',input);const inputPreserved=title();
+const modifiedEvent=fire('ArrowDown',ids.get('cv'),{metaKey:true});const modifiedPreserved=title();
+const handledEvent=fire('ArrowDown',ids.get('cv'),{defaultPrevented:true});const handledPreserved=title();
+ids.get('dossierresize').setAttribute('role','separator');
+const separatorEvent=fire('ArrowLeft',ids.get('dossierresize'));const separatorPreserved=title();
+ev(`dossier.classList.remove('open')`);const closedEvent=fire('ArrowDown');const closedPreserved=title();
+ev(`dossier.classList.add('open');openNode(${c})`);
+out.workNavigation={
+  activeIndexes:ev(`workNavigationIndexes('active').map(index=>DATA.nodes[index].id)`),
+  recentIndexes:ev(`workNavigationIndexes('recent').map(index=>DATA.nodes[index].id)`),
+  activeEntryPrevented,activeNewest,activeOlder,activeWrap,activeReverseWrap,
+  recentOlder,recentNewer,recentWrap,
+  inputPrevented:inputEvent.defaultPrevented,inputPreserved,
+  modifiedPrevented:modifiedEvent.defaultPrevented,modifiedPreserved,
+  handledPreserved,separatorPrevented:separatorEvent.defaultPrevented,separatorPreserved,
+  closedPrevented:closedEvent.defaultPrevented,closedPreserved,
+  hint:ids.get('dossieridentity').innerHTML,
+  shortcuts:ids.get('dossier').getAttribute('aria-keyshortcuts'),
+};
+process.stdout.write(JSON.stringify(out));
+''',
+)
 
 _CONSTELLATION_COUNT_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
     "segBtns.R1.dispatch('pointerup')", "segBtns.R1.click()",
+)
+_CONSTELLATION_COUNT_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p=P[i],before=ry;",
+    "const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p=P[i];p.x=400;p.y=300;p.on=true;const before=ry;",
+).replace(
+    "const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};",
+    "const i=DATA.nodes.findIndex(n=>visible(n)&&!n.foundation),p={x:400,y:300};P[i].x=p.x;P[i].y=p.y;P[i].on=true;",
 )
 
 _CONSTELLATION_INTERACTION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
@@ -37,30 +86,136 @@ _CONSTELLATION_INTERACTION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
 const exact=ev(`DATA.questions[0].n`);
 const neighbor=ev(`DATA.nodes.findIndex((n,i)=>i!==${exact}&&!n.foundation)`);
 if(exact<0||neighbor<0)throw new Error('exact-target fixture missing');
-ev(`(()=>{sel=-1;dossier.classList.remove('open');
+// The shared state shim reconciles this question before interaction checks;
+// restore it so these tests exercise question geometry rather than plain nodes.
+ev(`DATA.nodes[${exact}].oq=[0]`);
+ev(`(()=>{sel=-1;dossier.classList.remove('open');sizeMode='delivery';
+DATA.nodes[${exact}].rec=true;
 P[${exact}].x=200;P[${exact}].y=200;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
-P[${neighbor}].x=205;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+P[${neighbor}].x=209;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
 cv.dispatch('pointerdown',{clientX:200,clientY:200,pointerId:21});
 cv.dispatch('pointerup',{clientX:200,clientY:200,pointerId:21})})()`);
 out.overlapTarget={selected:ev(`sel`),expected:exact,title:ev(`DATA.nodes[sel].t`)};
 ev(`(()=>{sel=-1;dossier.classList.remove('open');
-const p=P[${exact}],rr=nodeRadius(${exact}),radius=nodeBadgeRadius(rr);
+const originalQuestions=DATA.nodes[${neighbor}].oq;DATA.nodes[${neighbor}].oq=[0];
+P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=4;
+P[${neighbor}].x=305;P[${neighbor}].y=305;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=4;
+cv.dispatch('pointermove',{clientX:300,clientY:300,pointerId:27});
+globalThis.crossingQuestionHover=hover;
+cv.dispatch('pointerdown',{clientX:300,clientY:300,pointerId:27});
+cv.dispatch('pointerup',{clientX:300,clientY:300,pointerId:27});
+DATA.nodes[${neighbor}].oq=originalQuestions;})()`);
+out.crossingQuestionXCenterTarget={selected:ev(`sel`),hover:ev(`crossingQuestionHover`),
+  expected:exact,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
+P[${neighbor}].x=307;P[${neighbor}].y=300;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+cv.dispatch('pointermove',{clientX:300,clientY:300,pointerId:28});
+globalThis.advertisedTarget=hover;
+// Five pixels of normal press jitter geometrically favors the neighbor. The
+// advertised tooltip must remain the click contract instead of baiting and
+// switching to the second hit-test winner.
+cv.dispatch('pointerdown',{clientX:305,clientY:300,pointerId:28});
+cv.dispatch('pointerup',{clientX:305,clientY:300,pointerId:28});})()`);
+out.advertisedHoverTarget={selected:ev(`sel`),advertised:ev(`advertisedTarget`),
+  expected:exact,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=200;P[${exact}].y=200;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
+P[${neighbor}].x=209;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+cv.dispatch('pointerdown',{clientX:209,clientY:200,pointerId:23});
+cv.dispatch('pointerup',{clientX:209,clientY:200,pointerId:23})})()`);
+out.nearbyStoryTarget={selected:ev(`sel`),expected:neighbor,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=200;P[${exact}].y=200;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
+P[${neighbor}].x=209;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+const pulseX=P[${exact}].x+questionAttentionRadius(${exact})*.72;
+cv.dispatch('pointerdown',{clientX:pulseX,clientY:200,pointerId:25});
+cv.dispatch('pointerup',{clientX:pulseX,clientY:200,pointerId:25})})()`);
+out.decorativePulseNearestStory={selected:ev(`sel`),expected:neighbor,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');sizeMode='delivery';
+P[${exact}].x=200;P[${exact}].y=200;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
+const pulseX=P[${exact}].x+questionRingRadii(${exact})[0];
+P[${neighbor}].x=pulseX;P[${neighbor}].y=200;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
+cv.dispatch('pointerdown',{clientX:pulseX,clientY:200,pointerId:26});
+cv.dispatch('pointerup',{clientX:pulseX,clientY:200,pointerId:26})})()`);
+out.decorativeRingDoesNotCaptureStory={selected:ev(`sel`),expected:neighbor,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=260;P[${exact}].y=220;P[${exact}].on=true;
+P[${neighbor}].x=260;P[${neighbor}].y=220;P[${neighbor}].on=false;
+cv.dispatch('pointermove',{clientX:260,clientY:220,pointerId:24});
+globalThis.hiddenHover=hover;globalThis.pointerClass=cv.classList.contains('hover-target');
+cv.dispatch('pointerdown',{clientX:260,clientY:220,pointerId:24});
+cv.dispatch('pointerup',{clientX:260,clientY:220,pointerId:24})})()`);
+out.hiddenTarget={selected:ev(`sel`),expected:exact,hover:ev(`hiddenHover`),
+  pointer:ev(`pointerClass`)};
+out.selectionMatrix=ev(`(()=>{
+  const failures=[],viewports=[[360,320],[760,520],[1280,800]],zooms=[.55,1,1.8],
+    modes=['time','delivery'],rotations=[[-.7,.2],[-.15,1.1]];
+  const originalRelease=DATA.nodes[${neighbor}].r;
+  for(const [width,height] of viewports)for(const nextZoom of zooms)for(const mode of modes)for(const [nextRx,nextRy] of rotations){
+    innerWidth=width;innerHeight=height;size();zoom=nextZoom;sizeMode=mode;rx=nextRx;ry=nextRy;
+    for(const key of Object.keys(filt))filt[key]=true;for(const key of Object.keys(rfilt))rfilt[key]=true;
+    questionOnly=false;searchTerms=[];searchMatches=DATA.nodes.map(()=>true);project();
+    const x=width*.55,y=height*.58;
+    P[${exact}].x=x;P[${exact}].y=y;P[${exact}].d=20;P[${exact}].on=true;
+    P[${neighbor}].x=x+5;P[${neighbor}].y=y;P[${neighbor}].d=-20;P[${neighbor}].on=true;
+    sel=-1;cv.dispatch('pointerdown',{clientX:x,clientY:y,pointerId:31});cv.dispatch('pointerup',{clientX:x,clientY:y,pointerId:31});
+    if(sel!==${exact})failures.push(['question',width,height,nextZoom,mode,nextRx,nextRy,sel]);
+    project();P[${exact}].x=x;P[${exact}].y=y;P[${exact}].d=20;P[${exact}].on=true;
+    P[${neighbor}].x=x+5;P[${neighbor}].y=y;P[${neighbor}].d=-20;P[${neighbor}].on=true;
+    sel=-1;cv.dispatch('pointerdown',{clientX:x+5,clientY:y,pointerId:32});cv.dispatch('pointerup',{clientX:x+5,clientY:y,pointerId:32});
+    if(sel!==${neighbor})failures.push(['story',width,height,nextZoom,mode,nextRx,nextRy,sel]);
+    DATA.nodes[${neighbor}].r='R1';rfilt.R1=false;project();
+    P[${exact}].x=x;P[${exact}].y=y;P[${exact}].on=true;
+    P[${neighbor}].x=x;P[${neighbor}].y=y;
+    sel=-1;cv.dispatch('pointerdown',{clientX:x,clientY:y,pointerId:33});cv.dispatch('pointerup',{clientX:x,clientY:y,pointerId:33});
+    if(sel!==${exact}||P[${neighbor}].on)failures.push(['release-hidden',width,height,nextZoom,mode,nextRx,nextRy,sel,P[${neighbor}].on]);
+    DATA.nodes[${neighbor}].r=originalRelease;rfilt.R1=true;questionOnly=true;project();
+    P[${exact}].x=x;P[${exact}].y=y;P[${exact}].on=true;
+    P[${neighbor}].x=x;P[${neighbor}].y=y;
+    sel=-1;cv.dispatch('pointerdown',{clientX:x,clientY:y,pointerId:34});cv.dispatch('pointerup',{clientX:x,clientY:y,pointerId:34});
+    if(sel!==${exact}||P[${neighbor}].on)failures.push(['question-filter',width,height,nextZoom,mode,nextRx,nextRy,sel,P[${neighbor}].on]);
+  }
+  DATA.nodes[${neighbor}].r=originalRelease;questionOnly=false;innerWidth=1200;innerHeight=800;size();
+  return{cases:viewports.length*zooms.length*modes.length*rotations.length*4,failures};
+})()`);
+out.resizeSync=ev(`(()=>{innerWidth=913;innerHeight=577;W=360;H=320;project();
+  const result={W,H,canvasWidth:cv.width,backgroundWidth:bgcv.width};
+  innerWidth=1200;innerHeight=800;size();return result;})()`);
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+const p=P[${exact}];p.x=400;p.y=300;p.s=2;p.on=true;
+const rr=nodeRadius(${exact}),radius=nodeBadgeRadius(rr);
 const badge=nodeBadgePoint(p,rr,radius,-1,0);
 cv.dispatch('pointerdown',{clientX:badge.x,clientY:badge.y,pointerId:22});
 cv.dispatch('pointerup',{clientX:badge.x,clientY:badge.y,pointerId:22})})()`);
 out.questionBadgeTarget={selected:ev(`sel`),expected:exact,
   open:ids.get('dossier').classList.contains('open')};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
+P[${exact}].x=400;P[${exact}].y=300;P[${exact}].on=true;
+P[${neighbor}].x=500;P[${neighbor}].y=300;P[${neighbor}].on=true;
+updatePointerAt(400,300);globalThis.pointerQuestion={hover,cursor:cv.classList.contains('hover-target')};
+P[${exact}].x=500;P[${neighbor}].x=400;updatePointerAt(400,300);
+globalThis.pointerStory={hover,cursor:cv.classList.contains('hover-target')};
+P[${exact}].x=600;P[${neighbor}].x=650;updatePointerAt(400,300);
+globalThis.pointerEmpty={hover,cursor:cv.classList.contains('hover-target')};})()`);
+out.pointerPresentation={question:ev(`pointerQuestion`),story:ev(`pointerStory`),empty:ev(`pointerEmpty`)};
 const card=new Element('button');card.dataset={viewNode:String(exact)};
 ids.get('viewpanel').querySelectorAll=selector=>selector==='[data-view-node]'?[card]:[];
 ids.get('dbody').scrollTop=999;ev(`switchView('dashboard')`);card.click();
 out.cardTarget={selected:ev(`sel`),expected:exact,title:ev(`DATA.nodes[sel].t`),
   open:ids.get('dossier').classList.contains('open'),scrollTop:ids.get('dbody').scrollTop};
-ev(`lifecycleButtons.active.dispatch('pointerdown',{button:0})`);
+ev(`segBtns.R1.dispatch('pointerdown',{button:0})`);
 setTimeout(()=>{
-  out.lifecycleHold={active:ev(`filt.active`),ready:ev(`filt.ready`),
-    activePressed:ev(`lifecycleButtons.active.getAttribute('aria-pressed')`),
-    readyPressed:ev(`lifecycleButtons.ready.getAttribute('aria-pressed')`)};
-  process.stdout.write(JSON.stringify(out));
+  out.releaseHold={r0:ev(`rfilt.R0`),r1:ev(`rfilt.R1`),
+    r0Pressed:ev(`segBtns.R0.getAttribute('aria-pressed')`),
+    r1Pressed:ev(`segBtns.R1.getAttribute('aria-pressed')`)};
+  ev(`segBtns.R1.dispatch('pointerup',{button:0});lifecycleButtons.active.dispatch('pointerdown',{button:0})`);
+  setTimeout(()=>{
+    out.lifecycleHold={active:ev(`filt.active`),ready:ev(`filt.ready`),
+      activePressed:ev(`lifecycleButtons.active.getAttribute('aria-pressed')`),
+      readyPressed:ev(`lifecycleButtons.ready.getAttribute('aria-pressed')`)};
+    process.stdout.write(JSON.stringify(out));
+  },725);
 },725);
 ''',
 )
@@ -77,6 +232,61 @@ def _graph():
                              deps=["story:a"], group="capability:c",
                              source={"adapter": "spec_tree", "path": "s/b.md"},
                              activity={"commits": 1, "mentions": 0, "last_touched": 900})])
+
+
+def _work_navigation_graph():
+    graph = Graph(
+        groups=[Group(id="capability:c", kind="capability", title="Cap")],
+        vocab=Config(data=DEFAULTS).vocab,
+        items=[
+            Item(id=f"story:{slug}", title=slug.upper(), status="specced",
+                 release="R0", group="capability:c")
+            for slug in ("a", "b", "c", "d")
+        ],
+        owner_questions=[OwnerQuestion(
+            id="question:navigation", story_id="story:a", owner="Ryder",
+            prompt="Keep the executable fixture explicit?",
+            options=[OwnerQuestionOption(id="yes", label="Yes", tradeoff="Visible")],
+            recommendation=OwnerQuestionRecommendation(
+                option_id="yes", rationale="The shared DOM shim requires one question.",
+            ),
+            falsifier="The shared shim no longer exercises question reconciliation.",
+            evidence=["tests/test_render_constellation.py"],
+        )],
+    )
+    graph.active_work = [
+        ActiveWork(
+            story_id="story:a", agent="Ada", task="A active older",
+            state="active", completed=1, total=2,
+            updated_at="2026-08-10T17:00:00Z",
+            stale_at="2099-08-10T17:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:a", agent="Ada", task="A completed newer",
+            state="complete", completed=2, total=2,
+            updated_at="2026-08-10T21:00:00Z",
+            stale_at="2099-08-10T21:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:b", agent="Babbage", task="B active newest",
+            state="active", completed=1, total=3,
+            updated_at="2026-08-10T20:00:00Z",
+            stale_at="2099-08-10T20:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:c", agent="Curie", task="C completed newest",
+            state="complete", completed=3, total=3,
+            updated_at="2026-08-10T22:00:00Z",
+            stale_at="2099-08-10T22:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:d", agent="Dirac", task="D stale active",
+            state="active", completed=1, total=4,
+            updated_at="2026-08-10T23:00:00Z",
+            stale_at="2026-08-10T23:30:00Z",
+        ),
+    ]
+    return graph
 
 
 def _data(html):
@@ -264,6 +474,7 @@ def test_constellation_composes_frontend_sources_into_one_dependency_free_artifa
     assert len(re.findall(r"<style>", html)) == 1
     assert not re.search(r"__VIZZER_[A-Z_]+__", html)
     assert "const DATA=" in html
+    assert "function workNavigationIndexes(lane)" in html
 
 
 def test_search_clear_icon_is_centered_in_its_circle(tmp_path):
@@ -329,7 +540,10 @@ def test_constellation_marks_unresolved_blocker_lane(tmp_path):
                       "blocked": ["story:b"], "unknown_size": []},
     }
 
-    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "render": {"recommended": ["story:a", "story:b"]},
+    }))
+    html = render_all(graph, cfg, tmp_path,
                       only={"constellation"})["constellation.html"]
     node = next(value for value in _data(html)["nodes"]
                 if value["id"] == "story:b")
@@ -623,6 +837,71 @@ def test_constellation_activity_lens_pulses_only_explicit_fresh_work_links(tmp_p
     assert "ctx.setLineDash([4,4])" in html  # typed relation, not hard dependency
 
 
+def test_constellation_work_keyboard_navigation_executes_recency_and_focus_contract(tmp_path):
+    html = render_all(
+        _work_navigation_graph(), Config(data=DEFAULTS), tmp_path,
+        only={"constellation"},
+    )["constellation.html"]
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    completed = subprocess.run(
+        [node, "-e", _CONSTELLATION_WORK_NAVIGATION_DOM_SHIM], input=html,
+        text=True, capture_output=True, timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr
+    state = json.loads(completed.stdout)["workNavigation"]
+
+    # Source serialization is Story-ID ordered; these lanes prove timestamps,
+    # state, freshness, and per-Story deduplication own navigation instead.
+    assert state["activeIndexes"] == ["story:b", "story:a"]
+    assert state["recentIndexes"] == [
+        "story:d", "story:c", "story:a", "story:b",
+    ]
+    assert state["activeNewest"] == "B"
+    assert state["activeOlder"] == "A"
+    assert state["activeWrap"] == "B"
+    assert state["activeReverseWrap"] == "A"
+    assert state["activeEntryPrevented"] is True
+    assert state["recentOlder"] == "C"
+    assert state["recentNewer"] == "D"
+    assert state["recentWrap"] == "D"
+
+    assert state["inputPrevented"] is False and state["inputPreserved"] == "C"
+    assert state["modifiedPrevented"] is False and state["modifiedPreserved"] == "C"
+    assert state["handledPreserved"] == "C"
+    assert state["separatorPrevented"] is False and state["separatorPreserved"] == "C"
+    assert state["closedPrevented"] is False and state["closedPreserved"] == "C"
+    assert "active 2" in state["hint"] and "recent 4" in state["hint"]
+    assert state["shortcuts"] == "ArrowLeft ArrowRight ArrowUp ArrowDown"
+
+
+def test_constellation_work_keyboard_navigation_physical_browser_smoke(tmp_path):
+    html = render_all(
+        _work_navigation_graph(), Config(data=DEFAULTS), tmp_path,
+        only={"constellation"},
+    )["constellation.html"]
+    chrome = next((candidate for candidate in (
+        shutil.which("google-chrome"), shutil.which("chromium"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ) if candidate and Path(candidate).is_file()), None)
+    if chrome is None:
+        pytest.skip("Chrome is required for physical work-navigation acceptance")
+    script = Path(__file__).with_name("browser_work_navigation_smoke.js")
+    completed = subprocess.run(
+        [shutil.which("node") or "node", str(script), chrome], input=html,
+        text=True, capture_output=True, timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {
+        "active": ["story:b", "story:a", "story:b"],
+        "recent": ["story:c", "story:d"],
+        "inputPreserved": "story:c",
+        "inputValue": "draft",
+        "filterIndependent": "story:b",
+        "hint": {"active": True, "recent": True},
+    }
+
+
 def test_constellation_agent_trails_follow_only_recent_explicit_checkpoints(tmp_path):
     graph = _graph()
     graph.active_work = [
@@ -674,6 +953,21 @@ def test_constellation_uses_lightweight_outline_glyphs_and_strong_activity_pulse
     assert "ctx.filter" not in html
 
 
+def test_constellation_excludes_interactive_chrome_from_canvas_targets(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "function canvasInteractionBounds()" in html
+    assert "return {left:compact?0:236,top:106" in html
+    assert "right:drawerOpen?(compact?0:Math.max(236,dossier.getBoundingClientRect().left)):W" in html
+    assert "p.on = visible(n)&&insideCanvasInteractionBounds" in html
+    assert "context.rect(bounds.left,bounds.top" in html
+    assert "for(const context of [bgctx,nodeCtx])context.restore()" in html
+    assert "if(target>=0)openNode(target)" in html
+    assert "if(target>=0&&P[target].on)" not in html
+    assert "#hint{" in html and "pointer-events:none" in html.split("#hint{", 1)[1].split("}", 1)[0]
+
+
 def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
     graph = _graph()
     graph.active_work = [ActiveWork(
@@ -709,7 +1003,10 @@ def test_constellation_only_shows_explicit_researched_owner_questions(tmp_path):
     assert data["questions"][0]["prompt"] == "Should close-target or handle hit win?"
     assert "const ownerQuestions = i =>\n  (DATA.nodes[i].oq||[])" in html
     assert "const unresolved=ownerQuestions(i)" in html
-    assert "xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave))" in html
+    assert "xPath(p.x,p.y,Math.max(4,rr*.72))" in html
+    assert "const questionAttentionRadius = i => actionableQuestion(i)" in html
+    assert "?Math.max(28,nodeRadius(i)*3.25):Math.max(22,nodeRadius(i)*2.5)" in html
+    assert "questionHitRadius" not in html
     assert "if(unresolved.length>1)" in html
     assert "Never infer them from a" in html
     assert "[w.state,stale?'stale':'']" in html
@@ -772,6 +1069,10 @@ def test_constellation_declares_utf8_uses_vector_icons_and_supports_command_pan(
     assert "else if (e.metaKey){ // Command + two-finger scroll pans" in html
     assert "panX -= e.deltaX; panY -= e.deltaY;" in html
     assert "cxp=W/2+40+panX, cyp=H/2+panY" in html
+    assert "if(pointerActive&&!orbiting)updatePointerAt(pointerX,pointerY)" in html
+    assert "project();updatePointerAt(e.clientX,e.clientY);" in html
+    assert "#cv.hover-target{cursor:pointer}" in html
+    assert "selection-mode" not in html
 
 
 def test_constellation_renders_semantic_progress_trails_and_capped_stall_markers(tmp_path):
@@ -803,7 +1104,7 @@ def test_constellation_renders_semantic_progress_trails_and_capped_stall_markers
     assert "role=\"tooltip\"" in html and "progressText" in html
 
 
-def test_constellation_owner_questions_pulse_and_emit_reduced_motion_safe_shockwaves(tmp_path):
+def test_constellation_owner_questions_use_one_static_centered_blocker_x(tmp_path):
     graph = _graph()
     graph.owner_questions = [OwnerQuestion(
         id="question:visible",
@@ -818,14 +1119,45 @@ def test_constellation_owner_questions_pulse_and_emit_reduced_motion_safe_shockw
     html = render_all(graph, Config(data=DEFAULTS), tmp_path,
                       only={"constellation"})["constellation.html"]
 
-    assert "const questionWavePhase = (i,offset=0) => reducedMotion" in html
-    assert "for(const offset of [0,.5])" in html
-    assert "Math.pow(1-phase,1.7)" in html
-    assert "rr*(1.65+phase*3.1)" in html
-    assert "const questionPulse=reducedMotion?.16" in html
-    assert "ctx.arc(p.x,p.y,rr*2.15,0,7);ctx.fill()" in html
-    assert "Explicit researched decisions use an X as the steady blocker signal" in html
-    assert "xPath(x,y,Math.max(2.5,radius*.82)*(1+.05*xWave));ctx.stroke()" in html
+    assert "Owner decisions use one centered, static X" in html
+    assert "xPath(p.x,p.y,Math.max(4,rr*.72));ctx.stroke()" in html
+    assert "questionWavePhase" not in html
+    assert "questionPulse" not in html
+    assert "for(const offset of [0,.5])" not in html
+
+
+def test_constellation_pulses_only_actionable_owner_questions(tmp_path):
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:a", agent="Ryder", task="Waiting for owner direction",
+        state="blocked", completed=0, total=1,
+        updated_at="2026-08-11T07:00:00Z",
+        stale_at="2099-08-11T08:00:00Z",
+    )]
+    graph.owner_questions = [OwnerQuestion(
+        id="question:blocked", story_id="story:a", owner="Ryder",
+        prompt="Which path?",
+        options=[OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff")],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample", evidence=["s/a.md"],
+    )]
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert "const questionStopsWork = i =>" in html
+    assert "DATA.work[wi]?.state==='blocked'" in html
+    assert "const actionableQuestion = i => ownerQuestions(i).length>0" in html
+    assert "questionStopsWork(i)||Boolean(DATA.nodes[i].rec)" in html
+    assert "if(actionableQuestion(i)&&!dim)" in html
+    assert "ctx.strokeStyle=C.owner;ctx.lineWidth=1.5" in html
+    assert "const [innerRadius,outerRadius]=questionRingRadii(i)" in html
+    assert "questionRingHitTolerance" not in html
+    assert "pulsePaintDistance" not in html
+    assert "const nodePaintRadius = i =>" in html
+    assert "function questionGlyphPaintDistance(i,x,y)" in html
+    assert "glyphPaintDistance<=2.5" in html
+    assert "hover=questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best)" in html
+    assert ".62+.12*activeWave" in html and ".82+.16*activeWave" in html
 
 
 def test_constellation_question_blocker_is_explicit_and_actionable(tmp_path):
@@ -877,8 +1209,9 @@ def test_constellation_question_count_filters_explicit_records_independently_of_
     assert "if(questionOnly&&!lens.activity)" not in html
     assert "if(key==='activity'&&!lens[key]&&questionOnly)setQuestionFilter(false)" not in html
     assert "lensButtons[key]=b" in html
-    assert "if(sel>=0&&!visible(DATA.nodes[sel]))" in html
+    assert "if(sel>=0&&!visible(DATA.nodes[sel]))" not in html
     assert "function applyViewState(focusFallback=null)" in html
+    assert "refreshDossier();" in html
     assert "visibleQuestionCount+=(node.oq||[]).length" in html
     assert "No stories with owner questions match the current filters." in html
     assert "questionOnly?'Remove owner-question filter'" in html
@@ -886,7 +1219,7 @@ def test_constellation_question_count_filters_explicit_records_independently_of_
     assert "for(const candidate of keys)state[candidate]=candidate===key" in html
     assert "bindToggleOrSolo(b,r,RELS,rfilt,syncSeg)" in html
     assert "capFocus=capFocus===c?null:c" in html and "applyViewState(d);" in html
-    assert "tip.style.display='none'" in html and "cv.style.cursor='grab'" in html
+    assert "tip.style.display='none'" in html and "cv.classList.remove('hover-target')" in html
     assert "let currentQuestionCountLabel=''" in html
     assert "`${action}. ${currentQuestionCountLabel}.`" in html
     assert "const metricNodes=deliveryNodes.filter" in html
@@ -894,7 +1227,10 @@ def test_constellation_question_count_filters_explicit_records_independently_of_
     assert "capabilityMeters.set(key" in html
     assert 'id="dossier" aria-hidden="true"' in html
     assert "dossier.setAttribute('aria-hidden','false')" in html
-    assert "if(restoreFocus)(focusFallback||cv).focus()" in html
+    assert "document.getElementById('close').onclick = ()=>dismissDossier()" in html
+    assert "event.key==='Escape'&&dossier.classList.contains('open')" in html
+    assert "event.preventDefault();dismissDossier()" in html
+    assert "document.documentElement.classList.add('dossier-open')" in html
     assert 'id="cv" role="application" tabindex="0"' in html
 
 
@@ -1059,31 +1395,175 @@ def test_constellation_question_cards_are_selectable_but_static_files_are_read_o
     assert 'data-question-custom' in html and "Suggest something else" in html
     assert 'maxlength="2000"' in html and 'data-question-text' in html
     assert 'data-question-queue' in html
-    assert "Provide ${unresolvedOwnerQuestions.length===1?'answer'" in html
-    assert "0 of ${unresolvedOwnerQuestions.length} ready" in html
+    assert "Provide ${questions.length===1?'answer'" in html
+    assert 'data-chat-primary' in html and 'data-chat-overflow' in html
+    assert "0 of ${questions.length} ready" in html
     assert "const writable=Boolean(SERVED&&questionContext&&!questionError)" in html
     assert "Read-only file · run vizzer serve to answer" in html
     assert "expectedFingerprint:q.fingerprint" in html
+    assert "async function preflightQuestionAuthority(forms)" in html
+    assert "fetch('/api/questions',{cache:'no-store'})" in html
+    assert "Reload this page before answering" in html
+    assert "await preflightQuestionAuthority(forms)" in html
     assert "fetch('/api/questions/answers'" in html
-    assert "reconcileAcceptedDecisions(body.decisions,body.revision)" in html
-    assert "location.reload()" not in html.split("function bindQuestionControls(){", 1)[1].split("function planSection", 1)[0]
-    assert "if(sel>=0)openNode(sel)" in html
+    assert "reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true})" in html
+    assert "location.reload()" not in html.split("function bindQuestionControls(n){", 1)[1].split("function planSection", 1)[0]
+    assert "function refreshDossier()" in html
+    assert "const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0" in html
+    assert "data-scroll-preserver" in html
+    assert "overflow-anchor:none" in html
+    assert "if(inPlace)requestAnimationFrame" not in html
     # Recommendation is a visible hint; it must not silently preselect a radio.
     assert "draft.kind==='option'&&draft.optionId===option.id?'checked':''" in html
-    queue_logic = html.split("function bindQuestionControls(){", 1)[1].split(
+    queue_logic = html.split("function bindQuestionControls(n){", 1)[1].split(
         "function planSection", 1)[0]
     assert "location.reload()" not in queue_logic
     assert "fetch('/api/questions/answers'" in queue_logic
     assert "count!==forms.length" in queue_logic
-    assert "reconcileAcceptedDecisions(body.decisions,body.revision)" in queue_logic
+    assert "reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true})" in queue_logic
     reconcile = html.split("function reconcileAcceptedDecisions", 1)[1].split(
         "function planSection", 1)[0]
-    assert "if(sel>=0)openNode(sel)" in reconcile
+    assert "refreshDossier()" in reconcile
+    assert "questionDrafts.delete(q.id)" not in reconcile
+    assert "Selected · ready to answer" in queue_logic
+    assert "questionSubmissionError||countText" in queue_logic
+    assert "if(dossierFooter.contains(queue))syncQueue();else refreshDossier()" in queue_logic
+    assert "queueButton.setAttribute('aria-disabled',String(queueButton.disabled))" in queue_logic
+    assert ".questionqueuefooter{position:sticky;bottom:0" in html
+    assert "else if(sel>=0){sel=-1" not in html
     for reset in ("rx=", "ry=", "zoom=", "panX=", "panY=", "currentView="):
         assert reset not in reconcile
     assert "const ownerDecisions = i =>\n  (DATA.nodes[i].od||[])" in html
 
 
+def test_constellation_physical_option_click_keeps_dossier_open_and_enables_answer(tmp_path):
+    graph = _graph()
+    graph.owner_questions = [OwnerQuestion(
+        id="question:physical", story_id="story:a", owner="Ryder",
+        prompt="Which authority wins?",
+        options=[OwnerQuestionOption(id="a", label="A", tradeoff="Tradeoff")],
+        recommendation=OwnerQuestionRecommendation(option_id="a", rationale="Because"),
+        falsifier="A counterexample", evidence=["s/a.md"],
+    ), OwnerQuestion(
+        id="question:physical-freeform", story_id="story:a", owner="Ryder",
+        prompt="What alternative should we preserve?",
+        options=[OwnerQuestionOption(id="b", label="B", tradeoff="Tradeoff B")],
+        recommendation=OwnerQuestionRecommendation(option_id="b", rationale="Because B"),
+        falsifier="Another counterexample", evidence=["s/a.md"],
+    )]
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "render": {"recommended": ["story:a", "story:b"]},
+    }))
+    html = render_all(graph, cfg, tmp_path,
+                      only={"constellation"})["constellation.html"]
+    chrome = next((candidate for candidate in (
+        shutil.which("google-chrome"), shutil.which("chromium"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ) if candidate and Path(candidate).is_file()), None)
+    if chrome is None:
+        pytest.skip("Chrome is required for the physical dossier click smoke")
+    script = Path(__file__).with_name("browser_dossier_click_smoke.js")
+    completed = subprocess.run(
+        [shutil.which("node") or "node", str(script), chrome], input=html,
+        text=True, capture_output=True, timeout=35,
+        env={**os.environ, "VIZZER_BROWSER_TERM_GRACE_MS": "0"},
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {
+        "checked": True, "customChecked": True, "freeform": "Keep it exact.",
+        "dossierOpen": True, "hidden": "false",
+        "selected": 0, "expected": 0, "buttonDisabled": False,
+        "buttonText": "Provide 2 answers",
+        "statuses": ["Selected · ready to answer", "Selected · ready to answer"],
+        "queue": "2 selected · 0 remaining",
+        "drafts": [
+            {"kind": "option", "optionId": "a", "text": ""},
+            {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+        ],
+        "queueButtons": 5, "outerScroll": 0,
+        "headerVisible": True, "bodyVisible": True, "rectInside": True,
+        "backgroundPointerEvents": "none", "backgroundOwnsHit": False,
+        "actionLayout": {"pinned": True, "below": True, "leftAligned": True},
+        "stalePreflight": {
+            "error": f"Vizzer version mismatch (page {__version__}, server 0.0.0). Reload this page before answering.",
+            "postCalls": 0, "retryAvailable": True, "dossierOpen": True,
+            "selected": 0, "scroll": 80, "route": "constellation",
+            "drafts": [
+                {"kind": "option", "optionId": "a", "text": ""},
+                {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+            ],
+            "before": {
+                "selected": 0, "scroll": 80, "route": "constellation",
+                "drafts": [
+                    {"kind": "option", "optionId": "a", "text": ""},
+                    {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+                ],
+            },
+        },
+        "failedSubmit": {
+            "error": "refresh exploded", "retryAvailable": True,
+            "buttonText": "Provide 2 answers", "dossierOpen": True,
+            "selected": 0, "scroll": 80, "route": "constellation",
+            "search": "A", "r1": False,
+            "camera": [.125, .75, 1.4, 31, -19],
+            "drafts": [
+                {"kind": "option", "optionId": "a", "text": ""},
+                {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+            ],
+            "before": {
+                "selected": 0, "scroll": 80, "route": "constellation",
+                "search": "A", "r1": False,
+                "camera": [.125, .75, 1.4, 31, -19],
+                "drafts": [
+                    {"kind": "option", "optionId": "a", "text": ""},
+                    {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+                ],
+            },
+            "submitted": {
+                "calls": 1, "revision": 0,
+                "ids": ["question:physical", "question:physical-freeform"],
+                "kinds": ["option", "freeform"],
+                "freeform": "Keep it exact.",
+            },
+        },
+        "successfulRetry": {
+            "calls": 2, "dossierOpen": True, "selected": 0, "scroll": 0,
+            "route": "constellation", "search": "A", "r1": False,
+            "camera": [.125, .75, 1.4, 31, -19],
+            "drafts": [
+                {"kind": "option", "optionId": "a", "text": ""},
+                {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
+            ],
+            "openQuestions": 0, "decisions": 2, "answeredCards": 2,
+            "queueGone": True, "metadataVisible": True, "spacerGone": True,
+        },
+        "generalDiscussion": {
+            "label": "Chat · Claude", "provider": "claude", "storyId": "story:a",
+            "questions": [], "revision": 1, "position": 0,
+            "dossierOpen": True, "selected": 0, "answerQueueAbsent": True,
+            "chatPresent": True, "status": "Queued first · claude",
+        },
+        "responsive": {
+            "viewport": [360, 320], "pageFits": True,
+            "headerFits": True, "navOneRow": True,
+            "countsSecond": True, "chipsAfterCounts": True,
+            "panelMoved": True, "panelScrollable": True,
+            "canvasHidden": True, "panelVisible": True,
+            "wideCard": {
+                "route": "dashboard", "dossierOpen": True, "selected": 0,
+            },
+            "narrowDrawer": {
+                "left": 0, "right": 360, "width": 360,
+                "fullWidth": True, "handleHidden": True,
+                "bodyFits": True, "pageFits": True,
+            },
+        },
+        "drawerResize": {
+            "grew": True, "keyboardShrank": True, "ariaMatches": True,
+            "stored": True, "panelMeetsDrawer": True, "bodyFits": True,
+            "reloadedCompact": True, "restored": True,
+        },
+    }
 def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
     graph = _graph()
     graph.owner_questions = [OwnerQuestion(
@@ -1109,8 +1589,35 @@ def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
     assert state["overlapTarget"] == {
         "selected": 1, "expected": 1, "title": "B",
     }
+    assert state["crossingQuestionXCenterTarget"] == {
+        "selected": 1, "hover": 1, "expected": 1, "title": "B",
+    }
+    assert state["advertisedHoverTarget"] == {
+        "selected": 1, "advertised": 1, "expected": 1, "title": "B",
+    }
+    assert state["nearbyStoryTarget"] == {
+        "selected": 0, "expected": 0, "title": "A",
+    }
+    assert state["decorativePulseNearestStory"] == {
+        "selected": 0, "expected": 0, "title": "A",
+    }
+    assert state["decorativeRingDoesNotCaptureStory"] == {
+        "selected": 0, "expected": 0, "title": "A",
+    }
+    assert state["hiddenTarget"] == {
+        "selected": 1, "expected": 1, "hover": 1, "pointer": True,
+    }
+    assert state["selectionMatrix"] == {"cases": 144, "failures": []}
+    assert state["resizeSync"] == {
+        "W": 913, "H": 577, "canvasWidth": 913, "backgroundWidth": 913,
+    }
     assert state["questionBadgeTarget"] == {
         "selected": 1, "expected": 1, "open": True,
+    }
+    assert state["pointerPresentation"] == {
+        "question": {"hover": 1, "cursor": True},
+        "story": {"hover": 0, "cursor": True},
+        "empty": {"hover": -1, "cursor": False},
     }
     assert state["cardTarget"] == {
         "selected": 1, "expected": 1, "title": "B",
@@ -1119,6 +1626,10 @@ def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
     assert state["lifecycleHold"] == {
         "active": True, "ready": False,
         "activePressed": "true", "readyPressed": "false",
+    }
+    assert state["releaseHold"] == {
+        "r0": False, "r1": True,
+        "r0Pressed": "false", "r1Pressed": "true",
     }
 
 
@@ -1132,9 +1643,15 @@ def test_constellation_dossier_pins_identity_and_compact_summary_above_scroll_bo
     assert data["nodes"][0]["summary"] == graph.items[0].one_liner
     assert '<header id="dossierhead"><div id="dossieridentity"></div>' in html
     assert '<div id="dbody"></div>' in html
-    assert "#dossier{position:fixed;right:0;top:106px;bottom:0;width:320px;display:flex;flex-direction:column;overflow:hidden" in html
+    assert "#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip" in html
+    assert 'id="dossierresize"' in html
+    assert "dossier.getBoundingClientRect().left" in html
     assert "#dossierhead{position:relative;z-index:3;flex:none" in html
-    assert "#dbody{min-height:0;flex:1;overflow-y:auto" in html
+    assert ".kv{font-size:12px;line-height:1.35" in html
+    assert "grid-template-columns:70px 1fr;gap:7px 10px" in html
+    assert "#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto" in html
+    assert "transform:translateX(105%);transition:none" in html
+    assert "transition:transform .22s ease" not in html
     assert "-webkit-line-clamp:2" in html
     assert 'dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills">' in html
     assert 'const pinnedSummary=n.summary||trail||\'\'' in html
@@ -1164,10 +1681,10 @@ def test_constellation_separates_progress_version_opacity_and_has_proximity_hit_
     assert "i===hover||i===sel?1.7:1" not in html
     assert "distance<bestDistance-.25" in html
     assert "let pointerDown=false, orbiting=false, downTarget=-1" in html
-    assert "if(target>=0&&P[target].on)openNode(target)" in html
+    assert "if(target>=0)openNode(target)" in html
     assert "const orbitThreshold=6" in html
     assert "Math.hypot(e.clientX-downX,e.clientY-downY)>orbitThreshold" in html
-    assert "project();updatePointerState(e.clientX,e.clientY)" in html
+    assert "project();updatePointerAt(e.clientX,e.clientY)" in html
     assert "cv.addEventListener('pointercancel'" in html
 
 
@@ -1176,10 +1693,14 @@ def test_constellation_routed_views_own_vertical_scroll_and_do_not_leave_canvas_
                       only={"constellation"})["constellation.html"]
 
     assert "#viewpanel{position:fixed" in html
-    assert "bottom:0;z-index:3;min-height:0;overflow-x:hidden;overflow-y:scroll" in html
-    assert "overscroll-behavior:contain;touch-action:pan-y;scrollbar-gutter:stable" in html
+    assert "bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll" in html
+    assert "overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable" in html
     assert "#viewpanel[hidden]{display:none;pointer-events:none}" in html
-    assert "#cv[hidden]{display:none;pointer-events:none}" in html
+    assert "#bgcv[hidden],#cv[hidden]{display:none;pointer-events:none}" in html
+    assert '<canvas id="bgcv" aria-hidden="true"></canvas>' in html
+    assert "#bgcv{pointer-events:none}" in html
+    assert "#bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}" in html
+    assert "viewBackdrop.hidden=currentView!=='constellation'" in html
     assert "#top{position:fixed;top:0;left:0;right:0;display:grid" in html
     assert "#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:nowrap" in html
     assert "overflow-x:auto" in html
@@ -1218,7 +1739,7 @@ def test_constellation_marks_owner_overrides_and_traces_punt_effects_on_real_edg
     assert "affected by owner punt:" in html
     assert "ctx.strokeStyle=C.owner" in html
     assert "course==='punted'?[4,3]:[]" in html
-    assert "owner ${ownerCourseText(hover)}" in html
+    assert "owner ${ownerCourseText(best)}" in html
 
 
 def test_constellation_boot_failure_is_visible_and_older_webkit_is_supported(tmp_path):
@@ -1344,6 +1865,7 @@ def test_constellation_search_is_accessible_local_and_topology_preserving(tmp_pa
     assert 'role="search"' in html and 'aria-label="Search work items"' in html
     assert 'aria-live="polite"' in html and 'aria-label="Clear search"' in html
     assert "event.key==='Escape'" in html
+    assert "!document.getElementById('dossier').classList.contains('open')" in html
     assert "toLocaleLowerCase" in html and "split(/\\s+/)" in html
     assert "searchTerms.every" in html
     assert "searchDim" in html

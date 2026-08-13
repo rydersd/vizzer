@@ -16,11 +16,32 @@ model, or a human-facing client all read the same open-question packet and write
 the same validated, repo-local answer overlay. The provider is not part of the
 decision identity or authority; the durable repo-local answer record is.
 
+## Source and distributable
+
+The readable, authoritative implementation lives in [`src/vizzer/`](src/vizzer/).
+Frontend modules are ordinary HTML, CSS, and JavaScript under
+[`src/vizzer/render/constellation/`](src/vizzer/render/constellation/); they are
+inlined only when Vizzer generates the portable `constellation.html`.
+
+`vizzer.pyz` is the generated single-file installer/runtime distributed through
+GitHub Releases. It is built from the source tree by [`scripts/build_pyz.py`](scripts/build_pyz.py)
+and belongs in `dist/` locally or in release assets—not mixed into the source
+tree and never treated as source authority. GitHub's **Code** view is the source;
+the **Releases** page is the distributable. See [`dist/README.md`](dist/README.md)
+for the build boundary.
+
 ## 60-second quickstart
 
 ```bash
 curl -LO https://github.com/rydersd/vizzer/releases/latest/download/vizzer.pyz
 python3 vizzer.pyz          # interactive: pick a project, then grill its source map
+```
+
+To build the distributable from a source checkout:
+
+```bash
+mkdir -p dist
+python3 scripts/build_pyz.py dist/vizzer.pyz
 ```
 
 The installer proposes what it detects, then asks what the folders actually
@@ -77,6 +98,7 @@ snapshots for review, archives, and model context—not a second user interface.
 | `constellation.html#ledgers` / `ledger-table.md` | Inspect ownership, progress, checkpoints, and staleness; export the ledger table separately. |
 | `constellation.html#workstreams` | Inspect durable workstream intent, current Claude/Codex/human sessions, checkpoints, path scopes, collisions, and peer discussions. |
 | `decision-journal.md` | LLM-readable export of open questions and accepted decisions, including recommendation deviations and whether the source story contains the evolution event. |
+| `discussion-queue.md` | Provider-specific, top-first Story discussion lanes for future Codex and Claude sessions; queued is not answered or applied. |
 | `manifest.json` | Machine-readable index of docs represented by enabled adapters (titles, statuses, git dates). It is not a whole-repository corpus manifest unless the configured adapters cover that corpus. |
 | `constellation.html#constellation` | Interactive 3D dependency map using the same search, filters, dossier, and owner-decision queue as every other route. <!-- codex-sequence-2026-08-08 --> |
 
@@ -157,6 +179,7 @@ The one file you edit. Keys and defaults:
 | `activity.stale_after_minutes` | `120` | Age after which work stays visible but stops animating. |
 | `activity.trail_rounds` | `5` | Recent explicit checkpoints retained per agent for straight-line traversal trails (2–8). |
 | `questions.answers_path` | `"vizzer/question-answers.json"` | Repo-local, model-neutral authority for accepted owner answers. |
+| `discussions.queue_path` | `"vizzer/discussion-queue.json"` | Audited provider lanes behind the dossier's `Chat` split action and generated discussion queue Markdown. |
 | `progress.history_path` | `""` | Optional generated semantic-history ledger; never hand-edit it. |
 | `progress.hot_window_days` | `7` | Brightness window for recent progress trails. |
 | `progress.stalled_after_days` | `14` | No-progress age before previously started work shows `?`. |

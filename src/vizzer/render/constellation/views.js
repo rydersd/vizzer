@@ -4,6 +4,7 @@
 const viewPanel=document.getElementById('viewpanel');
 const viewMenu=document.getElementById('viewmenu');
 const exportMenu=document.getElementById('exportmenu');
+const viewBackdrop=document.getElementById('bgcv');
 const viewCanvas=document.getElementById('cv');
 const viewEntries=()=>DATA.nodes.map((node,index)=>({node,index})).filter(({node,index})=>
   !node.foundation&&visible(node)&&searchMatches[index]);
@@ -174,6 +175,7 @@ function renderCurrentView(){
 function switchView(view,focus=false){
   currentView=ROUTE_VIEWS.has(view)?view:'constellation';
   document.documentElement.setAttribute('data-view',currentView);
+  viewBackdrop.hidden=currentView!=='constellation';
   viewCanvas.hidden=currentView!=='constellation';
   document.getElementById('hint').hidden=currentView!=='constellation';
   viewMenu.querySelectorAll('[data-view]').forEach(link=>{

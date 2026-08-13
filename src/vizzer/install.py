@@ -55,6 +55,10 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
   After the accepted decision is actually applied, run
   `python3 vizzer/engine decisions <question-id> --apply --summary <outcome>
   --evidence <path> --yes`; acceptance and lifecycle remain separate gates.
+- At session start, read `vizzer/views/discussion-queue.md` and inspect your
+  provider lane top-first. A queued Story requests general discussion and includes
+  its current open questions when present; it is not an accepted answer and does not target a prior chat session.
+  Keep the question/answer/application gates separate.
 - If `planning.enabled` is true, the accepted planning overlay composes over the
   target manifest. Use the refreshed graph's ranked recommendations for next-task
   selection. Analyze tradeoffs before applying a course change; never rewrite story
@@ -104,6 +108,9 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
   evolution events to their source stories. After direct ledger authorship, run
   `python3 vizzer/engine decisions --all --yes`; inspect
   `vizzer/views/decision-journal.md` for accepted rationale and pending application.
+- At session start, read `vizzer/views/discussion-queue.md` and take the first
+  Story in your provider lane before inventing unrelated work. Queued
+  means discuss; it does not mean answered or applied.
 - When assessment is enabled, use `graph.assessment.items` and its portfolio;
   keep size, impact, uncertainty, and parallel safety separate. Never invent a
   universal AI speed multiplier. Read `vizzer/docs/story-sizing-and-portfolio-selection.md`
@@ -454,6 +461,10 @@ verification_globs = ["tests/**/*", "test/**/*", "tests-ui/**/*"]
 enabled = false
 overlay_path = "vizzer/planning-overlay.json"
 
+# Provider-specific Story queues for future question-discussion sessions.
+[discussions]
+queue_path = "vizzer/discussion-queue.json"
+
 # Optional agent-work overlay. It never mutates status, readiness, or priority.
 [activity]
 path = ""
@@ -597,6 +608,17 @@ def _harness_doc(target: Path, harness: str) -> Path:
     return target / "AGENTS.md"
 
 
+def _harness_docs(target: Path, harness: str) -> list[Path]:
+    """Return every existing provider instruction file for auto installs/updates."""
+    if harness != "auto":
+        return [_harness_doc(target, harness)]
+    existing = [
+        target / name for name in ("CLAUDE.md", "AGENTS.md")
+        if (target / name).is_file()
+    ]
+    return existing or [target / "AGENTS.md"]
+
+
 def _upsert_managed_block(path: Path) -> None:
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     pattern = re.compile(r"<!-- vizzer:begin.*?<!-- vizzer:end -->", re.DOTALL)
@@ -627,7 +649,8 @@ def install(target: Path, *, claude_skill: bool = False,
     config_text = found.get("config_text") or _config_text(target, found)
     (target / "vizzer" / "vizzer.toml").write_text(config_text, encoding="utf-8")
     _ensure_archive_ignored(target)
-    _upsert_managed_block(_harness_doc(target, harness))
+    for harness_doc in _harness_docs(target, harness):
+        _upsert_managed_block(harness_doc)
 
     if claude_skill:
         skill_path = target / ".claude" / "skills" / "vizzer" / "SKILL.md"
@@ -655,7 +678,7 @@ def update(target: Path) -> int:
     _vendor(engine)
     _write_context_docs(target)
     _write_version(target)
-    harness_doc = _doc_with_block(target) or _harness_doc(target, "auto")
-    _upsert_managed_block(harness_doc)
+    for harness_doc in _harness_docs(target, "auto"):
+        _upsert_managed_block(harness_doc)
     print(f"update: refreshed vizzer in {target}")
     return 0

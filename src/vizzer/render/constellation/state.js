@@ -171,6 +171,11 @@ const activeNode = i => lens.activity && (DATA.nodes[i].aw||[]).some(wi=>freshWo
 // when another lens is switched off.
 const ownerQuestions = i =>
   (DATA.nodes[i].oq||[]).map(qi=>(DATA.questions||[])[qi]).filter(Boolean);
+const questionStopsWork = i => (DATA.nodes[i].aw||[]).some(wi=>DATA.work[wi]?.state==='blocked');
+// A pulse is an interrupt, not decoration: reserve it for an unresolved owner
+// decision that is stopping current work or sits on the recommended next item.
+const actionableQuestion = i => ownerQuestions(i).length>0
+  && (questionStopsWork(i)||Boolean(DATA.nodes[i].rec));
 const ownerDecisions = i =>
   (DATA.nodes[i].od||[]).map(di=>(DATA.decisions||[])[di]).filter(Boolean);
 const nodeProgress = i => (DATA.nodes[i].aw||[]).reduce((p,wi)=>{

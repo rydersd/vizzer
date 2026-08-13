@@ -19,7 +19,10 @@ def _stage_tree(source: Path, destination: Path) -> None:
                    key=lambda path: path.relative_to(source).as_posix())
     for source_path in paths:
         relative = source_path.relative_to(source)
-        if "__pycache__" in relative.parts:
+        if (any(part == "__pycache__" or part.endswith(".egg-info")
+                for part in relative.parts)
+                or source_path.name == ".DS_Store"
+                or source_path.suffix in {".pyc", ".pyo"}):
             continue
         destination_path = destination / relative
         if source_path.is_dir():

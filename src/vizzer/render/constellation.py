@@ -25,6 +25,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_QUESTIONS_JS__", "questions.js"),
     ("__VIZZER_PLANNING_JS__", "planning.js"),
     ("__VIZZER_DOSSIER_JS__", "dossier.js"),
+    ("__VIZZER_WORK_NAVIGATION_JS__", "work_navigation.js"),
     ("__VIZZER_CANVAS_JS__", "canvas.js"),
     ("__VIZZER_BOOTSTRAP_JS__", "bootstrap.js"),
 )
@@ -48,7 +49,8 @@ def _template_text() -> str:
         lambda match: resources[match.group(0)],
         shell,
     )
-    unresolved = re.findall(r"__VIZZER_[A-Z_]+__", composed)
+    composed = composed.replace("__ENGINE_VERSION__", html.escape(__version__))
+    unresolved = re.findall(r"__(?:VIZZER|ENGINE)_[A-Z_]+__", composed)
     if unresolved:
         raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
     return composed

@@ -16,6 +16,7 @@ RENDERERS = {
     "feature_index": "feature_index",
     "dashboard": "dashboard",
     "decision_journal": "decision_journal",
+    "discussion_queue": "discussion_queue",
     "completion_sheet": "completion_sheet",
     "ledger_table": "ledger_table",
     "manifest": "manifest",
