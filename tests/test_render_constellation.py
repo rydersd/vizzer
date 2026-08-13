@@ -23,14 +23,51 @@ const ids=new Map(),desc=r=>r.children.flatMap(c=>[c,...desc(c)]);
 class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={setProperty(k,v){this[k]=v}};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';head.appendChild(new Element('span'));const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}getBoundingClientRect(){return this.id==='dossier'?{left:880,right:1200,top:106,bottom:800,width:320,height:694}:{left:0,right:0,top:0,bottom:0,width:0,height:0}}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
 for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossierresize','dossieridentity','dbody','dossierfooter','close','tip','hint','bgcv','cv'])new Element(id==='cv'||id==='bgcv'?'canvas':'div',id);
 const document={title:'fixture',documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
-const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
-const sandbox={console,document,location:{protocol:'file:',hash:''},sessionStorage:{getItem(){return null},setItem(){}},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(){},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
+const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)}),windowListeners={};
+const sandbox={console,document,location:{protocol:'file:',hash:''},sessionStorage:{getItem(){return null},setItem(){}},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(k,f){(windowListeners[k]??=[]).push(f)},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
 const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
+const dispatchWindow=(kind,event={})=>{event.target??=document.activeElement;event.defaultPrevented??=false;event.preventDefault??=()=>{event.defaultPrevented=true};(windowListeners[kind]||[]).forEach(listener=>listener(event));return event};
 const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.caphead>span').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
 const panelSnapshot=()=>{const html=ids.get('viewpanel').innerHTML;return{cards:(html.match(/data-view-node=/g)||[]).length,metrics:[...html.matchAll(/<strong>(\d+)<\/strong>/g)].map(match=>+match[1]),rows:(html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr>/g)||[]).length}};
 const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','workstreams','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
 const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
 '''
+
+_CONSTELLATION_WORK_NAVIGATION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "process.stdout.write(JSON.stringify(out));",
+    r'''
+const nodeIndex=id=>ev(`DATA.nodes.findIndex(node=>node.id===${JSON.stringify(id)})`);
+const a=nodeIndex('story:a'),b=nodeIndex('story:b'),c=nodeIndex('story:c'),d=nodeIndex('story:d');
+const title=()=>ev(`DATA.nodes[sel].t`);
+const fire=(key,target=ids.get('cv'),extra={})=>dispatchWindow('keydown',{key,target,...extra});
+ev(`for(const key of Object.keys(filt))filt[key]=false;for(const key of Object.keys(rfilt))rfilt[key]=false;searchMatches=DATA.nodes.map(()=>false)`);
+ev(`openNode(${c})`);const activeEntry=fire('ArrowRight'),activeEntryPrevented=activeEntry.defaultPrevented,activeNewest=title();
+fire('ArrowRight');const activeOlder=title();fire('ArrowRight');const activeWrap=title();
+fire('ArrowLeft');const activeReverseWrap=title();
+ev(`openNode(${d})`);fire('ArrowDown');const recentOlder=title();fire('ArrowUp');const recentNewer=title();
+ev(`openNode(${b})`);fire('ArrowDown');const recentWrap=title();
+ev(`openNode(${c})`);const input=new Element('input');const inputEvent=fire('ArrowDown',input);const inputPreserved=title();
+const modifiedEvent=fire('ArrowDown',ids.get('cv'),{metaKey:true});const modifiedPreserved=title();
+const handledEvent=fire('ArrowDown',ids.get('cv'),{defaultPrevented:true});const handledPreserved=title();
+ids.get('dossierresize').setAttribute('role','separator');
+const separatorEvent=fire('ArrowLeft',ids.get('dossierresize'));const separatorPreserved=title();
+ev(`dossier.classList.remove('open')`);const closedEvent=fire('ArrowDown');const closedPreserved=title();
+ev(`dossier.classList.add('open');openNode(${c})`);
+out.workNavigation={
+  activeIndexes:ev(`workNavigationIndexes('active').map(index=>DATA.nodes[index].id)`),
+  recentIndexes:ev(`workNavigationIndexes('recent').map(index=>DATA.nodes[index].id)`),
+  activeEntryPrevented,activeNewest,activeOlder,activeWrap,activeReverseWrap,
+  recentOlder,recentNewer,recentWrap,
+  inputPrevented:inputEvent.defaultPrevented,inputPreserved,
+  modifiedPrevented:modifiedEvent.defaultPrevented,modifiedPreserved,
+  handledPreserved,separatorPrevented:separatorEvent.defaultPrevented,separatorPreserved,
+  closedPrevented:closedEvent.defaultPrevented,closedPreserved,
+  hint:ids.get('dossieridentity').innerHTML,
+  shortcuts:ids.get('dossier').getAttribute('aria-keyshortcuts'),
+};
+process.stdout.write(JSON.stringify(out));
+''',
+)
 
 _CONSTELLATION_COUNT_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
     "segBtns.R1.dispatch('pointerup')", "segBtns.R1.click()",
@@ -195,6 +232,61 @@ def _graph():
                              deps=["story:a"], group="capability:c",
                              source={"adapter": "spec_tree", "path": "s/b.md"},
                              activity={"commits": 1, "mentions": 0, "last_touched": 900})])
+
+
+def _work_navigation_graph():
+    graph = Graph(
+        groups=[Group(id="capability:c", kind="capability", title="Cap")],
+        vocab=Config(data=DEFAULTS).vocab,
+        items=[
+            Item(id=f"story:{slug}", title=slug.upper(), status="specced",
+                 release="R0", group="capability:c")
+            for slug in ("a", "b", "c", "d")
+        ],
+        owner_questions=[OwnerQuestion(
+            id="question:navigation", story_id="story:a", owner="Ryder",
+            prompt="Keep the executable fixture explicit?",
+            options=[OwnerQuestionOption(id="yes", label="Yes", tradeoff="Visible")],
+            recommendation=OwnerQuestionRecommendation(
+                option_id="yes", rationale="The shared DOM shim requires one question.",
+            ),
+            falsifier="The shared shim no longer exercises question reconciliation.",
+            evidence=["tests/test_render_constellation.py"],
+        )],
+    )
+    graph.active_work = [
+        ActiveWork(
+            story_id="story:a", agent="Ada", task="A active older",
+            state="active", completed=1, total=2,
+            updated_at="2026-08-10T17:00:00Z",
+            stale_at="2099-08-10T17:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:a", agent="Ada", task="A completed newer",
+            state="complete", completed=2, total=2,
+            updated_at="2026-08-10T21:00:00Z",
+            stale_at="2099-08-10T21:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:b", agent="Babbage", task="B active newest",
+            state="active", completed=1, total=3,
+            updated_at="2026-08-10T20:00:00Z",
+            stale_at="2099-08-10T20:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:c", agent="Curie", task="C completed newest",
+            state="complete", completed=3, total=3,
+            updated_at="2026-08-10T22:00:00Z",
+            stale_at="2099-08-10T22:00:00Z",
+        ),
+        ActiveWork(
+            story_id="story:d", agent="Dirac", task="D stale active",
+            state="active", completed=1, total=4,
+            updated_at="2026-08-10T23:00:00Z",
+            stale_at="2026-08-10T23:30:00Z",
+        ),
+    ]
+    return graph
 
 
 def _data(html):
@@ -382,6 +474,7 @@ def test_constellation_composes_frontend_sources_into_one_dependency_free_artifa
     assert len(re.findall(r"<style>", html)) == 1
     assert not re.search(r"__VIZZER_[A-Z_]+__", html)
     assert "const DATA=" in html
+    assert "function workNavigationIndexes(lane)" in html
 
 
 def test_search_clear_icon_is_centered_in_its_circle(tmp_path):
@@ -742,6 +835,71 @@ def test_constellation_activity_lens_pulses_only_explicit_fresh_work_links(tmp_p
     assert "Explicit agent-work linkage pulses" in html
     assert "activeCount===2" in html and "activeCount===2?.55:.22" in html
     assert "ctx.setLineDash([4,4])" in html  # typed relation, not hard dependency
+
+
+def test_constellation_work_keyboard_navigation_executes_recency_and_focus_contract(tmp_path):
+    html = render_all(
+        _work_navigation_graph(), Config(data=DEFAULTS), tmp_path,
+        only={"constellation"},
+    )["constellation.html"]
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    completed = subprocess.run(
+        [node, "-e", _CONSTELLATION_WORK_NAVIGATION_DOM_SHIM], input=html,
+        text=True, capture_output=True, timeout=10,
+    )
+    assert completed.returncode == 0, completed.stderr
+    state = json.loads(completed.stdout)["workNavigation"]
+
+    # Source serialization is Story-ID ordered; these lanes prove timestamps,
+    # state, freshness, and per-Story deduplication own navigation instead.
+    assert state["activeIndexes"] == ["story:b", "story:a"]
+    assert state["recentIndexes"] == [
+        "story:d", "story:c", "story:a", "story:b",
+    ]
+    assert state["activeNewest"] == "B"
+    assert state["activeOlder"] == "A"
+    assert state["activeWrap"] == "B"
+    assert state["activeReverseWrap"] == "A"
+    assert state["activeEntryPrevented"] is True
+    assert state["recentOlder"] == "C"
+    assert state["recentNewer"] == "D"
+    assert state["recentWrap"] == "D"
+
+    assert state["inputPrevented"] is False and state["inputPreserved"] == "C"
+    assert state["modifiedPrevented"] is False and state["modifiedPreserved"] == "C"
+    assert state["handledPreserved"] == "C"
+    assert state["separatorPrevented"] is False and state["separatorPreserved"] == "C"
+    assert state["closedPrevented"] is False and state["closedPreserved"] == "C"
+    assert "active 2" in state["hint"] and "recent 4" in state["hint"]
+    assert state["shortcuts"] == "ArrowLeft ArrowRight ArrowUp ArrowDown"
+
+
+def test_constellation_work_keyboard_navigation_physical_browser_smoke(tmp_path):
+    html = render_all(
+        _work_navigation_graph(), Config(data=DEFAULTS), tmp_path,
+        only={"constellation"},
+    )["constellation.html"]
+    chrome = next((candidate for candidate in (
+        shutil.which("google-chrome"), shutil.which("chromium"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ) if candidate and Path(candidate).is_file()), None)
+    if chrome is None:
+        pytest.skip("Chrome is required for physical work-navigation acceptance")
+    script = Path(__file__).with_name("browser_work_navigation_smoke.js")
+    completed = subprocess.run(
+        [shutil.which("node") or "node", str(script), chrome], input=html,
+        text=True, capture_output=True, timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {
+        "active": ["story:b", "story:a", "story:b"],
+        "recent": ["story:c", "story:d"],
+        "inputPreserved": "story:c",
+        "inputValue": "draft",
+        "filterIndependent": "story:b",
+        "hint": {"active": True, "recent": True},
+    }
 
 
 def test_constellation_agent_trails_follow_only_recent_explicit_checkpoints(tmp_path):
