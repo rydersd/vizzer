@@ -33,6 +33,42 @@ const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','
 const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
 '''
 
+_CONSTELLATION_WORK_NAVIGATION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "process.stdout.write(JSON.stringify(out));",
+    r'''
+const nodeIndex=id=>ev(`DATA.nodes.findIndex(node=>node.id===${JSON.stringify(id)})`);
+const a=nodeIndex('story:a'),b=nodeIndex('story:b'),c=nodeIndex('story:c'),d=nodeIndex('story:d');
+const title=()=>ev(`DATA.nodes[sel].t`);
+const fire=(key,target=ids.get('cv'),extra={})=>dispatchWindow('keydown',{key,target,...extra});
+ev(`for(const key of Object.keys(filt))filt[key]=false;for(const key of Object.keys(rfilt))rfilt[key]=false;searchMatches=DATA.nodes.map(()=>false)`);
+ev(`openNode(${c})`);const activeEntry=fire('ArrowRight'),activeEntryPrevented=activeEntry.defaultPrevented,activeNewest=title();
+fire('ArrowRight');const activeOlder=title();fire('ArrowRight');const activeWrap=title();
+fire('ArrowLeft');const activeReverseWrap=title();
+ev(`openNode(${d})`);fire('ArrowDown');const recentOlder=title();fire('ArrowUp');const recentNewer=title();
+ev(`openNode(${b})`);fire('ArrowDown');const recentWrap=title();
+ev(`openNode(${c})`);const input=new Element('input');const inputEvent=fire('ArrowDown',input);const inputPreserved=title();
+const modifiedEvent=fire('ArrowDown',ids.get('cv'),{metaKey:true});const modifiedPreserved=title();
+const handledEvent=fire('ArrowDown',ids.get('cv'),{defaultPrevented:true});const handledPreserved=title();
+ids.get('dossierresize').setAttribute('role','separator');
+const separatorEvent=fire('ArrowLeft',ids.get('dossierresize'));const separatorPreserved=title();
+ev(`dossier.classList.remove('open')`);const closedEvent=fire('ArrowDown');const closedPreserved=title();
+ev(`dossier.classList.add('open');openNode(${c})`);
+out.workNavigation={
+  activeIndexes:ev(`workNavigationIndexes('active').map(index=>DATA.nodes[index].id)`),
+  recentIndexes:ev(`workNavigationIndexes('recent').map(index=>DATA.nodes[index].id)`),
+  activeEntryPrevented,activeNewest,activeOlder,activeWrap,activeReverseWrap,
+  recentOlder,recentNewer,recentWrap,
+  inputPrevented:inputEvent.defaultPrevented,inputPreserved,
+  modifiedPrevented:modifiedEvent.defaultPrevented,modifiedPreserved,
+  handledPreserved,separatorPrevented:separatorEvent.defaultPrevented,separatorPreserved,
+  closedPrevented:closedEvent.defaultPrevented,closedPreserved,
+  hint:ids.get('dossieridentity').innerHTML,
+  shortcuts:ids.get('dossier').getAttribute('aria-keyshortcuts'),
+};
+process.stdout.write(JSON.stringify(out));
+''',
+)
+
 _CONSTELLATION_COUNT_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
     "segBtns.R1.dispatch('pointerup')", "segBtns.R1.click()",
 )
@@ -531,6 +567,7 @@ def test_constellation_composes_frontend_sources_into_one_dependency_free_artifa
     assert len(re.findall(r"<style>", html)) == 1
     assert not re.search(r"__VIZZER_[A-Z_]+__", html)
     assert "const DATA=" in html
+    assert "function workNavigationIndexes(lane)" in html
 
 
 def test_search_clear_icon_is_centered_in_its_circle(tmp_path):
