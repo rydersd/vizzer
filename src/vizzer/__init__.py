@@ -1,1 +1,1 @@
-__version__ = "0.8.34"  # structural priority remains separate from assessed dispatch
+__version__ = "0.8.35"  # overlapping question glyphs follow visible paint ownership

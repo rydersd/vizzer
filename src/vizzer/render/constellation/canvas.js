@@ -385,7 +385,9 @@ function updatePointerState(x,y){
   pointerActive=true; pointerX=x; pointerY=y;
   let best=-1,bestDistance=Infinity,bestDepth=Infinity;
   let questionGlyphBest=-1,questionGlyphPaintDistanceBest=Infinity,
-    questionGlyphCenterDistanceBest=Infinity,questionGlyphDepth=Infinity;
+    questionGlyphDepth=Infinity;
+  let questionCenterBest=-1,questionCenterDistanceBest=Infinity,
+    questionCenterPaintDistanceBest=Infinity,questionCenterDepth=Infinity;
   let paintBest=-1,paintDepth=Infinity;
   for(let i=0;i<P.length;i++){
     const p=P[i];
@@ -398,24 +400,39 @@ function updatePointerState(x,y){
     }
     if(ownerQuestions(i).length){
       const glyphPaintDistance=questionGlyphPaintDistance(i,x,y);
-      // Two centered Xs can cross at minimum zoom. Rank materially closer
-      // strokes first, then the nearest owning center; depth is only the final
-      // tie-breaker. Treating every sub-quarter-pixel miss as a depth tie made
-      // a front neighbor seven pixels away steal an exact center click.
-      const sameStroke=Math.abs(glyphPaintDistance-questionGlyphPaintDistanceBest)<=.05;
-      const sameCenter=Math.abs(distance-questionGlyphCenterDistanceBest)<=.05;
-      if(glyphPaintDistance<=2.5&&(glyphPaintDistance<questionGlyphPaintDistanceBest-.05||
-          (sameStroke&&(distance<questionGlyphCenterDistanceBest-.05||
-            (sameCenter&&p.d<questionGlyphDepth))))){
-        questionGlyphBest=i;questionGlyphPaintDistanceBest=glyphPaintDistance;
-        questionGlyphCenterDistanceBest=distance;questionGlyphDepth=p.d;
+      if(glyphPaintDistance<=2.5){
+        // A deliberate center click owns its X even when another glyph crosses
+        // there. Outside that small core, mirror the canvas: materially closer
+        // stroke first, then front-most/later paint order. Center proximity is
+        // not visible ownership at an overlapping endpoint.
+        const centerCore=Math.min(3,questionGlyphRadius(i)*.5);
+        if(distance<=centerCore){
+          const sameCenter=Math.abs(distance-questionCenterDistanceBest)<=.05;
+          const samePaint=Math.abs(glyphPaintDistance-questionCenterPaintDistanceBest)<=.05;
+          const sameDepth=Math.abs(p.d-questionCenterDepth)<=.05;
+          if(distance<questionCenterDistanceBest-.05||(sameCenter&&
+              (glyphPaintDistance<questionCenterPaintDistanceBest-.05||(samePaint&&
+                (p.d<questionCenterDepth-.05||(sameDepth&&i>questionCenterBest)))))){
+            questionCenterBest=i;questionCenterDistanceBest=distance;
+            questionCenterPaintDistanceBest=glyphPaintDistance;questionCenterDepth=p.d;
+          }
+        }else{
+          const sameStroke=Math.abs(glyphPaintDistance-questionGlyphPaintDistanceBest)<=.05;
+          const sameDepth=Math.abs(p.d-questionGlyphDepth)<=.05;
+          if(glyphPaintDistance<questionGlyphPaintDistanceBest-.05||(sameStroke&&
+              (p.d<questionGlyphDepth-.05||(sameDepth&&i>questionGlyphBest)))){
+            questionGlyphBest=i;questionGlyphPaintDistanceBest=glyphPaintDistance;
+            questionGlyphDepth=p.d;
+          }
+        }
       }
     }
   }
   // The static X and node paint are interaction. Animated rings are attention
   // only on pointer-transparent bgcv and must never steal a nearby Story.
   // Generous invisible halos remain the final fallback for tiny nodes.
-  hover=questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best);
+  hover=questionCenterBest>=0?questionCenterBest:
+    (questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best));
 }
 let presentedHover=-1;
 function presentPointerState(x,y){
