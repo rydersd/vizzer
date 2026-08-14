@@ -70,6 +70,17 @@ def _assessment_line(item: Item, assessment: dict, cfg: Config, prefix: str) -> 
     range_text = f"{range_min}–{range_max}"
     raw = size.get("raw_authored_appetite")
     raw = _assessment_text(raw, 120) or "—"
+    dimensions = size.get("dimensions", {})
+    burden_established = isinstance(dimensions, dict) and all(
+        isinstance(dimensions.get(name), dict)
+        and dimensions[name].get("band") in {"XS", "S", "M", "L", "XL"}
+        for name in ("implementation", "verification", "integration", "coordination")
+    )
+    if not burden_established:
+        appetite_proxy = size.get("normalized_appetite")
+        band = "unassessed"
+        if appetite_proxy in {"XS", "S", "M", "L", "XL"}:
+            provenance = f"authored-appetite proxy {appetite_proxy}"
     target_reach = impact.get("structural_target_reach")
     immediate = impact.get("immediate_unlock")
     target_reach = target_reach if isinstance(target_reach, int) \
@@ -271,7 +282,8 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "## Recommended uptake",
             "",
             f"Target scope: `{target_tier}`. Scores use hard-dependency target "
-            "reach, critical depth, lifecycle bias, and appetite cost.",
+            "reach, critical depth, and lifecycle bias. Delivery feasibility is "
+            "gated separately by the assessed portfolio.",
             "",
             *(_priority_line(item, cfg, prefix) for item in recommended),
             "",

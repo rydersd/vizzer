@@ -63,10 +63,26 @@ def test_deep_merge():
 def test_config_load_defaults_when_missing(tmp_path):
     cfg = Config.load(tmp_path)
     assert cfg.get("render.output_dir") == "vizzer/views"
+    assert cfg.get("server.port") == 0
     assert cfg.get("nope.nope", 7) == 7
     assert {s["name"] for s in cfg.vocab["statuses"]} == {s["name"] for s in DEFAULT_STATUSES}
     assert cfg.done_statuses() == {"shipped", "verified"}
     assert cfg.status_meta("nonexistent") == {"name": "nonexistent", "emoji": "❔", "done": False}
+
+
+@pytest.mark.parametrize("value", ["true", '"8477"', "-1", "65536"])
+def test_server_port_configuration_is_validated(tmp_path, value):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        f"[server]\nport = {value}\n"
+    )
+    with pytest.raises(ConfigError, match="server.port"):
+        Config.load(tmp_path)
+
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        "[server]\nport = 8477\n"
+    )
+    assert Config.load(tmp_path).get("server.port") == 8477
 
 
 def test_config_load_merges_and_overrides_vocab(tmp_path):
@@ -82,6 +98,16 @@ def test_config_load_merges_and_overrides_vocab(tmp_path):
     assert cfg.transition_allowed("todo", "done")
     assert not cfg.transition_allowed("todo", "todo")
     assert not cfg.transition_allowed("done", "todo")
+
+
+@pytest.mark.parametrize("value", ['true', '[""]', '["a", "a"]'])
+def test_retire_empty_groups_configuration_is_validated(tmp_path, value):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        f"[reconcile]\nretire_empty_groups = {value}\n"
+    )
+    with pytest.raises(ConfigError, match="retire_empty_groups"):
+        Config.load(tmp_path)
 
 
 def test_status_roles_default_to_backwards_compatible_lifecycle_buckets():

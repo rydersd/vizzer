@@ -333,19 +333,26 @@ def _size_assessment(item: Item, signals: AssessmentSignals) -> dict:
     dimensions = {name: _dimension(name, signals) for name in DIMENSIONS}
     authored = normalize_appetite(item.appetite)
     observed = normalize_appetite(signals.observed_size)
-    known = [value["band"] for value in dimensions.values() if value["band"]]
+    known_dimensions = [value for value in dimensions.values() if value["band"]]
+    known = [value["band"] for value in known_dimensions]
+    observed_override_used = bool(observed and signals.evidence)
 
-    assessed_candidates = [*known, *([authored] if authored else [])]
     if observed and signals.evidence:
         # A measured override may legitimately be lower than the authored
         # appetite or a dimension forecast, but it needs explicit evidence.
         band, provenance = observed, "observed"
-    elif assessed_candidates:
+    elif known:
         # Work is constrained by its largest independently assessed burden.
-        # Authored appetite remains visible as intent, but cannot launder an L
-        # integration burden into an S delivery estimate.
-        band = max(assessed_candidates, key=_BAND_INDEX.__getitem__)
-        provenance = "authored" if authored == band else "inferred"
+        # Appetite is product intent, not a fifth burden dimension, so it never
+        # supplies or raises the assessed band.
+        band = max(known, key=_BAND_INDEX.__getitem__)
+        dimension_provenance = {value["provenance"] for value in known_dimensions}
+        if "inferred" in dimension_provenance:
+            provenance = "inferred"
+        elif dimension_provenance == {"observed"}:
+            provenance = "observed"
+        else:
+            provenance = "authored"
     else:
         band, provenance = None, "unknown"
 
@@ -373,7 +380,7 @@ def _size_assessment(item: Item, signals: AssessmentSignals) -> dict:
         max(abs(_BAND_INDEX[authored] - value) for value in dimension_scores) > 1
     )
 
-    if band is None or (unknown_count >= 3 and not (authored or observed)):
+    if band is None or (unknown_count >= 3 and not observed_override_used):
         uncertainty = "U3"
     elif gates or questions or missing_harness or unknown_count >= 2 or disagreement:
         uncertainty = "U2"
@@ -839,7 +846,8 @@ def _merge_signals(auto: AssessmentSignals, explicit: Mapping) -> AssessmentSign
     for field_name in concatenated:
         if field_name in explicit:
             merged[field_name] = tuple(sorted(set(
-                tuple(merged[field_name]) + tuple(explicit[field_name])
+                tuple(merged[field_name] or ()) +
+                tuple(explicit[field_name] or ())
             )))
     for field_name, value in explicit.items():
         if field_name not in dimensions and field_name not in concatenated:
@@ -901,6 +909,21 @@ def _portfolio(
             item_id,
         )
 
+    def burden_established(item_id: str) -> bool:
+        """Require all four burden dimensions before portfolio sizing.
+
+        An authored appetite remains useful product intent and stays visible in
+        the dossier, but it is not a delivery assessment. Letting an S appetite
+        enter the small-work portfolio while every burden dimension is unknown
+        would reward missing evidence with scheduling confidence.
+        """
+        dimensions = assessments[item_id]["size"].get("dimensions", {})
+        return all(
+            isinstance(dimensions.get(name), Mapping)
+            and dimensions[name].get("band") in SIZE_BANDS
+            for name in DIMENSIONS
+        )
+
     has_target_scope = any(
         result["impact"]["provenance"] != "unknown"
         for result in assessments.values()
@@ -931,11 +954,13 @@ def _portfolio(
         small = sorted((
             item_id for item_id in normal
             if assessments[item_id]["size"]["assessed_band"] in {"XS", "S"}
+            and burden_established(item_id)
         ), key=order)[:small_limit]
     anchor_candidates = sorted((
         item_id for item_id in normal
         if assessments[item_id]["size"]["assessed_band"] in {"M", "L"}
         and assessments[item_id]["size"]["uncertainty"] != "U3"
+        and burden_established(item_id)
     ), key=order)
     if has_target_scope and anchor_limit and anchor_candidates:
         anchors = anchor_candidates[:1]
@@ -965,6 +990,7 @@ def _portfolio(
     unknown = sorted((
         item_id for item_id in normal
         if assessments[item_id]["size"]["assessed_band"] is None
+        or not burden_established(item_id)
     ), key=order)
     defect_candidates = [
         item.id for item in graph.items
@@ -977,15 +1003,33 @@ def _portfolio(
     ranked_defects = [
         item_id for item_id in defect_candidates
         if by_id[item_id].priority.get("defect", {}).get("rank") is not None
+        and burden_established(item_id)
     ]
     defects = sorted(ranked_defects, key=lambda item_id: (
         by_id[item_id].priority["defect"]["rank"],
         item_id,
     ))[:small_limit]
-    unranked_defects = len(defect_candidates) - len(ranked_defects)
+    unranked_defects = [
+        item_id for item_id in defect_candidates
+        if by_id[item_id].priority.get("defect", {}).get("rank") is None
+    ]
+    unassessed_defects = [
+        item_id for item_id in defect_candidates
+        if by_id[item_id].priority.get("defect", {}).get("rank") is not None
+        and not burden_established(item_id)
+    ]
     if unranked_defects:
         warnings.append(
-            f"{unranked_defects} defect(s) withheld: blast-radius rank is not established"
+            f"{len(unranked_defects)} defect(s) withheld: blast-radius rank is not established"
+        )
+    if unassessed_defects:
+        warnings.append(
+            f"{len(unassessed_defects)} ranked defect(s) withheld: all four delivery burden dimensions are not established"
+        )
+    unassessed_normal = [item_id for item_id in normal if not burden_established(item_id)]
+    if unassessed_normal and has_target_scope:
+        warnings.append(
+            f"{len(unassessed_normal)} delivery item(s) withheld: authored appetite is not an assessed burden profile"
         )
     return {
         "small": small,
@@ -1058,6 +1102,15 @@ def apply_assessments(graph: Graph, cfg, root: Path | None = None) -> None:
             data["unresolved_gates"] = tuple(sorted(set(gates)))
             signals[item_id] = AssessmentSignals(**data)
 
+    # The repo-local manifest binds researched proposals to source-derived
+    # scope, before those proposals are merged. Preserve that same reusable
+    # fingerprint in the rendered dossier; emitting the merged estimate hash
+    # would make the documented refresh -> copy -> edit -> refresh loop
+    # self-invalidating. Direct assess_story/assess_graph calls retain their
+    # full estimate fingerprints for cache/currentness checks.
+    source_scope_fingerprints = {
+        item.id: scope_fingerprint(item, signals[item.id]) for item in graph.items
+    }
     explicit_signals, signal_warnings = _signals_manifest(graph, cfg, root, signals)
     graph.warnings = sorted(set(graph.warnings).union(signal_warnings))
     for item_id, explicit in explicit_signals.items():
@@ -1074,6 +1127,8 @@ def apply_assessments(graph: Graph, cfg, root: Path | None = None) -> None:
     assessments = assess_graph(
         graph, signals_by_item=signals, done_statuses=sorted(done_statuses),
     )
+    for item_id, fingerprint in source_scope_fingerprints.items():
+        assessments[item_id]["scope_fingerprint"] = fingerprint
     graph.assessment = {
         "schema": 1,
         "method": "deterministic-delivery-assessment-v1",

@@ -18,7 +18,7 @@ function updateVisibleCounts(){
   // Delivery health is intentionally scoped to delivery items. Catalog rows,
   // evidence ledgers, decisions, and references are useful context, not stories.
   const metricNodes=deliveryNodes.filter(n=>filt[n.g]&&rfilt[relKey(n)]&&passesAreaFilters(n)
-    &&(!questionOnly||nodeHasOwnerQuestions(n))&&(!capFocus||n.c===capFocus));
+    &&(!questionOnly||nodeHasOwnerQuestions(n))&&passesHierarchyFocus(n));
   const shipped=metricNodes.filter(n=>n.g==='shipped').length;
   const bugGaps=metricNodes.filter(n=>n.st==='bug-gap').length;
   const questionStories=metricNodes.filter(nodeHasOwnerQuestions).length;
@@ -201,12 +201,74 @@ for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['str
 chips.appendChild(lensSeg);
 // ---- rail ----
 const rail = document.getElementById('rail');
-function meterButton(key,label,matches,total,shipped,bugs,onSelect){
-  const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
-  d.innerHTML=`<span class="caphead">${esc(label)}<span>${shipped}/${total}</span></span>
+const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
+const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
+const capTail=id=>id.includes(':')?id.slice(id.indexOf(':')+1):id;
+function meterMarkup(label,total,shipped,bugs,kind=''){
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}</span></span><span class="capcount">${shipped}/${total}</span></span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
-  capabilityMeters.set(key,{element:d,label,matches,count:d.querySelector('.caphead>span'),shipped:d.querySelector('.capbar i'),bugs:d.querySelector('.capbar b')});
-  d.onclick=()=>onSelect(d);rail.appendChild(d);
+}
+function registerMeter(key,element,label,matches){
+  capabilityMeters.set(key,{element,label,matches,count:element.querySelector('.capcount'),shipped:element.querySelector('.capbar i'),bugs:element.querySelector('.capbar b')});
+}
+function meterButton(key,label,matches,total,shipped,bugs,onSelect,container=rail,kind=''){
+  const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
+  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind);
+  registerMeter(key,d,label,matches);
+  d.onclick=()=>onSelect(d);container.appendChild(d);
+  return d;
+}
+function syncRailSelection(active){
+  rail.querySelectorAll('.cap').forEach(button=>{
+    const selected=button===active&&Boolean(capFocus||groupFocus);
+    button.classList.toggle('on',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+}
+function selectHierarchy(button,capability,groupId=null){
+  const alreadySelected=capFocus===capability&&groupFocus===groupId;
+  capFocus=alreadySelected?null:capability;
+  groupFocus=alreadySelected?null:groupId;
+  syncRailSelection(button);
+  applyViewState(button);
+}
+function renderCapabilityAccordions(){
+  const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
+  const groups=DATA.groups||[];
+  const roots=new Map(groups.filter(group=>!group.parent).map(group=>[capTail(group.id),group]));
+  const orderedCaps=[...caps].sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total||a.localeCompare(b));
+  orderedCaps.forEach((capability,index)=>{
+    const root=roots.get(capability),summaryMatches=node=>node.c===capability;
+    const summaryNodes=deliveryNodes.filter(summaryMatches);
+    const summaryShipped=summaryNodes.filter(node=>node.g==='shipped').length;
+    const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
+    const details=document.createElement('details');details.className='railcapability';
+    if(capFocus===capability||(!capFocus&&index===0))details.open=true;
+    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' '),summaryNodes.length,summaryShipped,summaryBugs);
+    details.appendChild(summary);
+    registerMeter(`capability:${capability}`,summary,root?.title||capability,summaryMatches);
+    details.addEventListener('toggle',()=>{
+      if(!details.open)return;
+      rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});
+    });
+    const children=document.createElement('div');children.className='railcapabilitybody';
+    meterButton(`all:${capability}`,'All work',summaryMatches,summaryNodes.length,summaryShipped,summaryBugs,
+      button=>selectHierarchy(button,capability),children,'capability');
+    const kindOrder={capability:0,tool:1,subcapability:2,utility:3,assistance:4};
+    groups.filter(group=>group.parent===root?.id)
+      .map(group=>({group,matches:node=>nodeBelongsToGroup(node,group.id)}))
+      .map(entry=>({...entry,nodes:deliveryNodes.filter(entry.matches)}))
+      .filter(entry=>entry.nodes.length)
+      .sort((a,b)=>(kindOrder[a.group.kind]??9)-(kindOrder[b.group.kind]??9)||structuralTitle(a.group).localeCompare(structuralTitle(b.group)))
+      .forEach(({group,matches,nodes})=>{
+        const shipped=nodes.filter(node=>node.g==='shipped').length;
+        const bugs=nodes.filter(node=>node.st==='bug-gap').length;
+        const button=meterButton(group.id,structuralTitle(group),matches,nodes.length,shipped,bugs,
+          selected=>selectHierarchy(selected,capability,group.id),children,group.kind);
+        if(groupFocus===group.id){button.classList.add('on');button.setAttribute('aria-pressed','true');}
+      });
+    details.appendChild(children);rail.appendChild(details);
+  });
 }
 function renderRail(){
   rail.replaceChildren();capabilityMeters.clear();
@@ -233,15 +295,7 @@ function renderRail(){
     }
     return;
   }
-  caps.sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total).forEach(c=>{
-    const v=DATA.caps[c], matches=n=>n.c===c;
-    const bg=deliveryNodes.filter(n=>matches(n)&&n.st==='bug-gap').length;
-    meterButton(c,c.replace(/-/g,' '),matches,v.total,v.shipped,bg,d=>{
-      capFocus=capFocus===c?null:c;
-      rail.querySelectorAll('.cap').forEach(x=>{x.classList.toggle('on',x===d&&Boolean(capFocus));x.setAttribute('aria-pressed',String(x===d&&Boolean(capFocus)));});
-      applyViewState(d);
-    });
-  });
+  renderCapabilityAccordions();
 }
 renderRail();
 updateViewStatus();

@@ -42,6 +42,19 @@ def priority_items(graph) -> list[Item]:
     recommendations = graph.priority.get("recommendations", [])
     if not isinstance(recommendations, list):
         return []
+    if graph.assessment:
+        portfolio = graph.assessment.get("portfolio", {})
+        if not isinstance(portfolio, dict):
+            return []
+        dispatchable = {
+            item_id
+            for lane in ("small", "anchors", "defects")
+            for item_id in portfolio.get(lane, [])
+            if isinstance(item_id, str)
+        }
+        recommendations = [
+            item_id for item_id in recommendations if item_id in dispatchable
+        ]
     return [by_id[item_id] for item_id in recommendations if item_id in by_id]
 
 

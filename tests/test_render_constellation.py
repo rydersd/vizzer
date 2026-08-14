@@ -20,14 +20,14 @@ _CONSTELLATION_COUNT_DOM_SHIM = r'''
 const fs=require('fs'),vm=require('vm');
 class ClassList{constructor(e){this.e=e;this.s=new Set()}sync(){this.e._className=[...this.s].join(' ')}add(...x){x.forEach(v=>this.s.add(v));this.sync()}remove(...x){x.forEach(v=>this.s.delete(v));this.sync()}toggle(x,f){const on=f===undefined?!this.s.has(x):!!f;on?this.s.add(x):this.s.delete(x);this.sync();return on}contains(x){return this.s.has(x)}replaceFrom(x){this.s=new Set(String(x).split(/\s+/).filter(Boolean));this.sync()}}
 const ids=new Map(),desc=r=>r.children.flatMap(c=>[c,...desc(c)]);
-class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={setProperty(k,v){this[k]=v}};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';head.appendChild(new Element('span'));const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}getBoundingClientRect(){return this.id==='dossier'?{left:880,right:1200,top:106,bottom:800,width:320,height:694}:{left:0,right:0,top:0,bottom:0,width:0,height:0}}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
+class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={setProperty(k,v){this[k]=v}};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';const count=new Element('span');count.className='capcount';head.appendChild(count);const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.capcount')return desc(this).find(e=>e.classList.contains('capcount'))||null;if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}getBoundingClientRect(){return this.id==='dossier'?{left:880,right:1200,top:106,bottom:800,width:320,height:694}:{left:0,right:0,top:0,bottom:0,width:0,height:0}}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
 for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossierresize','dossieridentity','dbody','dossierfooter','close','tip','hint','bgcv','cv'])new Element(id==='cv'||id==='bgcv'?'canvas':'div',id);
 const document={title:'fixture',documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
 const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)}),windowListeners={};
 const sandbox={console,document,location:{protocol:'file:',hash:''},sessionStorage:{getItem(){return null},setItem(){}},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(k,f){(windowListeners[k]??=[]).push(f)},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
 const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
 const dispatchWindow=(kind,event={})=>{event.target??=document.activeElement;event.defaultPrevented??=false;event.preventDefault??=()=>{event.defaultPrevented=true};(windowListeners[kind]||[]).forEach(listener=>listener(event));return event};
-const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.caphead>span').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
+const snapshot=()=>{const cap=desc(ids.get('rail')).find(e=>e.classList.contains('cap'));return{shipped:ids.get('shippedcount').textContent,bugs:ids.get('defectcount').textContent,questions:ids.get('questionfilter').textContent,completion:ids.get('completioncount').textContent,items:ids.get('searchcount').textContent,capCount:cap.querySelector('.capcount').textContent,capShipped:cap.querySelector('.capbar i').style.width,capBugs:cap.querySelector('.capbar b').style.width,capLabel:cap.getAttribute('aria-label')}};
 const panelSnapshot=()=>{const html=ids.get('viewpanel').innerHTML;return{cards:(html.match(/data-view-node=/g)||[]).length,metrics:[...html.matchAll(/<strong>(\d+)<\/strong>/g)].map(match=>+match[1]),rows:(html.match(/<tbody>[\s\S]*?<\/tbody>/)?.[0].match(/<tr>/g)||[]).length}};
 const routeSnapshots=()=>Object.fromEntries(['dashboard','roadmap','structure','features','completion','workstreams','ledgers'].map(view=>{ev(`switchView('${view}')`);return[view,panelSnapshot()]}));
 const out={initial:snapshot(),routes:routeSnapshots()};ev(`segBtns.R1.dispatch('pointerup')`);out.r0=snapshot();out.routesR0=routeSnapshots();ev(`(()=>{switchView('roadmap');searchInput.value='R0 bug';updateSearch();const q=DATA.questions[0];openNode(q.n);rx=.125;ry=.75;zoom=1.4;panX=31;panY=-19;cc={x:2,y:3,z:4};ct={x:5,y:6,z:7};questionContext={revision:0,questions:DATA.questions.slice(),decisions:[]};reconcileAcceptedDecisions([{question:{id:q.id},fingerprint:q.fingerprint,revision:1,answeredAt:'2026-08-10T20:00:00Z',answeredBy:'Ryder',kind:'option',optionId:'a',text:null}],1)})()`);out.reconcile={view:ev(`currentView`),selectedTitle:ev(`DATA.nodes[sel].t`),dossierOpen:ids.get('dossier').classList.contains('open'),dossierHidden:ids.get('dossier').getAttribute('aria-hidden'),search:ev(`searchInput.value`),r1:ev(`rfilt.R1`),camera:ev(`[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,ct.x,ct.y,ct.z]`),openQuestions:ev(`(DATA.nodes[sel].oq||[]).length`),decisions:ev(`(DATA.nodes[sel].od||[]).length`)};ev(`switchView('constellation')`);out.constellation={panelHidden:ids.get('viewpanel').hidden,canvasHidden:ids.get('cv').hidden};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p=P[i],before=ry;cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:1});cv.dispatch('pointermove',{clientX:p.x+5,clientY:p.y,pointerId:1});cv.dispatch('pointerup',{clientX:p.x+5,clientY:p.y,pointerId:1});globalThis.microJitterCameraStable=ry===before})()`);out.microJitterClick={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open'),cameraStable:ev(`microJitterCameraStable`)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x+13,clientY:p.y,pointerId:3});cv.dispatch('pointerup',{clientX:p.x+13,clientY:p.y,pointerId:3})})()`);out.expandedHitTarget={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:4});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:4});cv.dispatch('pointercancel',{clientX:p.x+20,clientY:p.y,pointerId:4})})()`);out.cancelGesture={pointerDown:ev(`pointerDown`),orbiting:ev(`orbiting`),drag:ids.get('cv').classList.contains('drag'),captured:ids.get('cv').hasPointerCapture(4)};ev(`(()=>{sel=-1;dossier.classList.remove('open');project();const i=DATA.nodes.findIndex((n,i)=>P[i].on&&visible(n)&&!n.foundation),p={x:P[i].x,y:P[i].y};cv.dispatch('pointerdown',{clientX:p.x,clientY:p.y,pointerId:2});cv.dispatch('pointermove',{clientX:p.x+20,clientY:p.y,pointerId:2});cv.dispatch('pointerup',{clientX:p.x+20,clientY:p.y,pointerId:2})})()`);out.orbitGesture={selected:ev(`sel>=0`),dossierOpen:ids.get('dossier').classList.contains('open')};process.stdout.write(JSON.stringify(out));
@@ -220,6 +220,42 @@ setTimeout(()=>{
 ''',
 )
 
+_CONSTELLATION_WORK_NAVIGATION_DOM_SHIM = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+    "process.stdout.write(JSON.stringify(out));",
+    r'''
+const nodeIndex=id=>ev(`DATA.nodes.findIndex(node=>node.id===${JSON.stringify(id)})`);
+const a=nodeIndex('story:a'),b=nodeIndex('story:b'),c=nodeIndex('story:c'),d=nodeIndex('story:d');
+const title=()=>ev(`DATA.nodes[sel].t`);
+const fire=(key,target=ids.get('cv'),extra={})=>dispatchWindow('keydown',{key,target,...extra});
+ev(`for(const key of Object.keys(filt))filt[key]=false;for(const key of Object.keys(rfilt))rfilt[key]=false;searchMatches=DATA.nodes.map(()=>false)`);
+ev(`openNode(${c})`);const activeEntry=fire('ArrowRight'),activeEntryPrevented=activeEntry.defaultPrevented,activeNewest=title();
+fire('ArrowRight');const activeOlder=title();fire('ArrowRight');const activeWrap=title();
+fire('ArrowLeft');const activeReverseWrap=title();
+ev(`openNode(${d})`);fire('ArrowDown');const recentOlder=title();fire('ArrowUp');const recentNewer=title();
+ev(`openNode(${b})`);fire('ArrowDown');const recentWrap=title();
+ev(`openNode(${c})`);const input=new Element('input');const inputEvent=fire('ArrowDown',input);const inputPreserved=title();
+const modifiedEvent=fire('ArrowDown',ids.get('cv'),{metaKey:true});const modifiedPreserved=title();
+const handledEvent=fire('ArrowDown',ids.get('cv'),{defaultPrevented:true});const handledPreserved=title();
+ids.get('dossierresize').setAttribute('role','separator');
+const separatorEvent=fire('ArrowLeft',ids.get('dossierresize'));const separatorPreserved=title();
+ev(`dossier.classList.remove('open')`);const closedEvent=fire('ArrowDown');const closedPreserved=title();
+ev(`dossier.classList.add('open');openNode(${c})`);
+out.workNavigation={
+  activeIndexes:ev(`workNavigationIndexes('active').map(index=>DATA.nodes[index].id)`),
+  recentIndexes:ev(`workNavigationIndexes('recent').map(index=>DATA.nodes[index].id)`),
+  activeEntryPrevented,activeNewest,activeOlder,activeWrap,activeReverseWrap,
+  recentOlder,recentNewer,recentWrap,
+  inputPrevented:inputEvent.defaultPrevented,inputPreserved,
+  modifiedPrevented:modifiedEvent.defaultPrevented,modifiedPreserved,
+  handledPreserved,separatorPrevented:separatorEvent.defaultPrevented,separatorPreserved,
+  closedPrevented:closedEvent.defaultPrevented,closedPreserved,
+  hint:ids.get('dossieridentity').innerHTML,
+  shortcuts:ids.get('dossier').getAttribute('aria-keyshortcuts'),
+};
+process.stdout.write(JSON.stringify(out));
+''',
+)
+
 
 def _graph():
     return Graph(groups=[Group(id="capability:c", kind="capability", title="Cap")],
@@ -356,9 +392,44 @@ def test_constellation_preserves_group_hierarchy_for_structure_navigation(tmp_pa
     assert "function renderStructure(entries)" in html
     assert "Facets describe cross-project membership" in html
     assert "currentView==='structure'?renderStructure(entries)" in html
+    assert "let capFocus = null, groupFocus = null" in html
+    assert "function renderCapabilityAccordions()" in html
+    assert "nodeBelongsToGroup" in html
     assert "grid-template-rows:28px 28px 28px" in html
     assert "#meter{grid-column:1 / -1;grid-row:2" in html
     assert "#chips{grid-column:1 / -1;grid-row:3" in html
+
+
+def test_structure_exposes_group_contracts_and_unreferenced_foundations(tmp_path):
+    cfg = Config(data=DEFAULTS)
+    graph = Graph(
+        vocab=cfg.vocab,
+        groups=[
+            Group(id="subject:foundations", kind="subject", title="Foundations",
+                  meta={"source": {"adapter": "spec_tree", "path": "spec/foundations.md"}}),
+            Group(id="foundation:geometry", kind="foundation", title="Geometry",
+                  parent="subject:foundations", meta={
+                      "source": {"adapter": "spec_tree", "path": "spec/geometry.md"},
+                      "summary": "One geometry contract.",
+                  }),
+            Group(id="capability:drawing", kind="capability", title="Drawing",
+                  meta={"source": {"adapter": "spec_tree", "path": "spec/drawing.md"}}),
+        ],
+        items=[Item(id="story:line", title="Line", status="ready",
+                    group="capability:drawing")],
+    )
+
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+    data = _data(html)
+    groups = {group["id"]: group for group in data["groups"]}
+
+    assert groups["capability:drawing"]["p"] == "spec/drawing.md"
+    assert groups["foundation:geometry"]["summary"] == "One geometry contract."
+    assert "if(group.kind==='foundation')" in html
+    assert 'data-open-group="${esc(group.id)}"' in html
+    assert "fetch('/api/open/'+encodeURIComponent(button.dataset.openGroup)" in html
 
 
 def test_constellation_renders_workstreams_sessions_collisions_and_source_roles(tmp_path):
@@ -496,7 +567,10 @@ def test_constellation_serializes_assessment_and_uses_assessed_size(tmp_path):
                 "plausible_range": {"min": "L", "max": "XL"},
                 "provenance": "inferred",
                 "dimensions": {
+                    "implementation": {"band": "M", "provenance": "inferred"},
+                    "verification": {"band": "L", "provenance": "inferred"},
                     "integration": {"band": "L", "provenance": "inferred"},
+                    "coordination": {"band": "XL", "provenance": "inferred"},
                 },
                 "evidence": ["four integration boundaries"],
                 "unknowns": ["verification harness is not established"],
@@ -524,6 +598,39 @@ def test_constellation_serializes_assessment_and_uses_assessed_size(tmp_path):
     assert data["assessment"]["method"] == "deterministic-delivery-assessment-v1"
     assert "delivery size" in html and "assessment unknowns" in html
     assert "sizeMode==='delivery'&&n.assess&&n.assess.band==null" in html
+
+
+def test_constellation_does_not_render_authored_appetite_as_assessed_burden(tmp_path):
+    graph = _graph()
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:b": {
+            "size": {
+                "assessed_band": "S", "normalized_appetite": "S",
+                "raw_authored_appetite": "small", "uncertainty": "U2",
+                "plausible_range": {"min": "XS", "max": "M"},
+                "provenance": "authored",
+                "dimensions": {
+                    name: {"band": None, "provenance": "unknown"}
+                    for name in (
+                        "implementation", "verification", "integration", "coordination",
+                    )
+                },
+            },
+            "impact": {}, "parallelism": {"classification": "unknown"},
+        }},
+        "portfolio": {"small": [], "anchors": [], "defects": [],
+                      "questions": [], "unknown_size": ["story:b"]},
+    }
+
+    html = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+    node = next(value for value in _data(html)["nodes"] if value["id"] == "story:b")
+
+    assert node["assess"]["band"] is None
+    assert node["assess"]["appetiteBand"] == "S"
+    assert node["assess"]["burdenEstablished"] is False
+    assert "unassessed · authored-appetite proxy" in html
 
 
 def test_constellation_marks_unresolved_blocker_lane(tmp_path):
@@ -1197,7 +1304,7 @@ def test_constellation_question_count_filters_explicit_records_independently_of_
                       only={"constellation"})["constellation.html"]
 
     assert "let areaFocus=null" in html
-    assert "let capFocus = null, sel = -1, hover = -1, questionOnly = false" in html
+    assert "let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false" in html
     assert "const nodeHasOwnerQuestions = n => (n.oq||[]).length>0" in html
     assert "(!questionOnly || nodeHasOwnerQuestions(n))" in html
     assert "const all = k===0 || (!questionOnly && !capFocus" in html
@@ -1218,7 +1325,8 @@ def test_constellation_question_count_filters_explicit_records_independently_of_
     assert "bindToggleOrSolo(b,g,Object.keys(GLAB),filt,syncLifecycle)" in html
     assert "for(const candidate of keys)state[candidate]=candidate===key" in html
     assert "bindToggleOrSolo(b,r,RELS,rfilt,syncSeg)" in html
-    assert "capFocus=capFocus===c?null:c" in html and "applyViewState(d);" in html
+    assert "const alreadySelected=capFocus===capability&&groupFocus===groupId" in html
+    assert "button=>selectHierarchy(button,capability)" in html
     assert "tip.style.display='none'" in html and "cv.classList.remove('hover-target')" in html
     assert "let currentQuestionCountLabel=''" in html
     assert "`${action}. ${currentQuestionCountLabel}.`" in html
@@ -1311,14 +1419,14 @@ def test_constellation_version_filter_executes_dynamic_count_updates(tmp_path):
         "questions": "1 answer required · 1 blocked story",
         "completion": "50%", "items": "4 items", "capCount": "2/4",
         "capShipped": "50.0%", "capBugs": "25.0%",
-        "capLabel": "c, 2 of 4 delivery items shipped, 1 bug gap open",
+        "capLabel": "All work, 2 of 4 delivery items shipped, 1 bug gap open",
     }
     assert state["r0"] == {
         "shipped": "1/2 delivery shipped", "bugs": "1 bug gap open",
         "questions": "1 answer required · 1 blocked story",
         "completion": "50%", "items": "2 items", "capCount": "1/2",
         "capShipped": "50.0%", "capBugs": "50.0%",
-        "capLabel": "c, 1 of 2 delivery items shipped, 1 bug gap open",
+        "capLabel": "All work, 1 of 2 delivery items shipped, 1 bug gap open",
     }
     assert state["routes"] == {
         "dashboard": {"cards": 2, "metrics": [], "rows": 0},

@@ -116,6 +116,10 @@ def test_loopback_serve_open_endpoint_accepts_only_known_item_ids(tmp_path, make
         response = connection.getresponse()
         assert response.status == 200
         response.read()
+        connection.request("POST", "/api/open/capability%3Adrawing")
+        response = connection.getresponse()
+        assert response.status == 200
+        response.read()
         connection.request("POST", "/api/open/story%3Amissing")
         response = connection.getresponse()
         assert response.status == 404
@@ -150,7 +154,10 @@ def test_loopback_serve_open_endpoint_accepts_only_known_item_ids(tmp_path, make
         server.server_close()
         thread.join(timeout=2)
 
-    assert opened == [(repo / "spec/drawing/epics/tools/stories/canvas-core.md").resolve()]
+    assert opened == [
+        (repo / "spec/drawing/epics/tools/stories/canvas-core.md").resolve(),
+        (repo / "spec/drawing/drawing.md").resolve(),
+    ]
 
 
 def test_serve_can_open_the_constellation_in_the_system_browser(
@@ -185,6 +192,39 @@ def test_serve_can_open_the_constellation_in_the_system_browser(
     assert opened == ["http://127.0.0.1:43123/constellation.html"]
     assert server.closed
     assert "serve: http://127.0.0.1:43123/constellation.html" in capsys.readouterr().out
+
+
+def test_serve_uses_configured_port_and_cli_override(
+    tmp_path, make_repo, monkeypatch, capsys
+):
+    import vizzer.cli as cli
+
+    repo = make_repo(tmp_path, "mixed_proj")
+    config = repo / "vizzer" / "vizzer.toml"
+    config.write_text(config.read_text() + "\n[server]\nport = 43124\n")
+    assert main(["sync", "--root", str(repo)]) == 0
+    assert main(["render", "--root", str(repo)]) == 0
+    capsys.readouterr()
+
+    ports = []
+
+    class FakeServer:
+        server_address = ("127.0.0.1", 43124)
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            pass
+
+    def make_server(root, graph, views, port, cfg):
+        ports.append(port)
+        return FakeServer()
+
+    monkeypatch.setattr(cli, "_make_serve_server", make_server)
+    assert main(["serve", "--root", str(repo)]) == 0
+    assert main(["serve", "--root", str(repo), "--port", "0"]) == 0
+    assert ports == [43124, 0]
 
 
 def test_refresh_syncs_and_renders_one_fresh_graph(tmp_path, make_repo, capsys):

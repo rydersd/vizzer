@@ -39,9 +39,13 @@ DEFAULT_STATUSES = [
 
 DEFAULTS = {
     "project": {"name": "project"},
+    # Zero preserves portable ephemeral binding; projects may pin a bookmarkable
+    # loopback port without teaching every invocation the number.
+    "server": {"port": 0},
     "sources": {
         "spec_tree": {"enabled": False, "glob": "", "levels": [],
                       "item_kind": "story", "dag_import": "",
+                      "foundation_index": "",
                       "product_tags": []},
         "ledgers": {"enabled": False, "glob": "thoughts/ledgers/CONTINUITY_*.md"},
         "loose_docs": {"enabled": False, "globs": [], "item_role": "reference"},
@@ -52,7 +56,9 @@ DEFAULTS = {
                "recommended": [], "obsidian_links": False, "title": ""},
     "reconcile": {"precedence": ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"],
                   # codex-sequence-2026-08-08: optional field-specific migration seam.
-                  "dependency_authority": "", "mention_globs": [], "staleness_days": 14},
+                  "dependency_authority": "", "group_parent_authority": "",
+                  "retire_empty_groups": [],
+                  "mention_globs": [], "staleness_days": 14},
     "archive": {"adapters": ["todos"]},
     # codex-sequence-2026-08-08: target-scoped, explainable uptake; opt-in.
     "priority": {
@@ -65,7 +71,6 @@ DEFAULTS = {
         "eligible_roles": ["ready", "active", "regression"],
         "exclude_flags": ["blocked", "triage", "needs-triage", "stale"],
         "role_bias": {"regression": 80, "active": 50, "ready": 0},
-        "appetite_cost": {"small": 0, "medium": 20, "large": 50, "default": 25},
     },
     # Delivery assessment is orthogonal to uptake priority. It normalizes the
     # authored appetite, records uncertainty/evidence, and proposes a feasible
@@ -278,6 +283,10 @@ class Config:
         """
         statuses = self.data["status"] if "status" in self.data else DEFAULT_STATUSES
         _validate_statuses(statuses)
+        server_port = self.get("server.port", 0)
+        if (isinstance(server_port, bool) or not isinstance(server_port, int)
+                or not 0 <= server_port <= 65535):
+            raise ConfigError("server.port must be an integer from 0 through 65535")
         activity_path = self.get("activity.path", "")
         if not isinstance(activity_path, str):
             raise ConfigError("activity.path must be a string")
@@ -290,6 +299,15 @@ class Config:
         discussion_relative = Path(discussion_path)
         if discussion_relative.is_absolute() or ".." in discussion_relative.parts:
             raise ConfigError("discussions.queue_path must stay inside the project")
+        retired_groups = self.get("reconcile.retire_empty_groups", [])
+        if (not isinstance(retired_groups, list)
+                or not all(isinstance(group_id, str) and group_id.strip()
+                           for group_id in retired_groups)):
+            raise ConfigError(
+                "reconcile.retire_empty_groups must contain non-empty group ids"
+            )
+        if len(set(retired_groups)) != len(retired_groups):
+            raise ConfigError("reconcile.retire_empty_groups contains duplicate group ids")
         loose_doc_role = self.get("sources.loose_docs.item_role")
         if loose_doc_role not in ITEM_ROLES:
             raise ConfigError(

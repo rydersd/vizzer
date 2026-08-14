@@ -56,7 +56,7 @@ python3 vizzer/engine refresh   # re-read sources → graph → every view
 python3 vizzer/engine sync      # graph only, for inspection or automation
 python3 vizzer/engine render    # render an already-synced graph only
 python3 vizzer/engine check     # exit 1 if graph/views are stale (CI-friendly)
-python3 vizzer/engine serve     # loopback constellation; story links open in default app
+python3 vizzer/engine serve     # loopback constellation; honors [server] port
 python3 vizzer/engine open story:some-id  # validated direct source opener
 python3 vizzer/engine plan analyze --promote story:some-id
 python3 vizzer/engine plan apply --promote story:some-id --expected-revision 0 --rationale "why"
@@ -141,10 +141,12 @@ The one file you edit. Keys and defaults:
 | Key | Default | Meaning |
 |---|---|---|
 | `project.name` | `"project"` | Used in view titles. |
+| `server.port` | `0` | Default loopback port for `serve`; set a distinct nonzero value per project for a bookmarkable URL. `--port` overrides it. |
 | `sources.spec_tree.glob` | `""` | Story-file glob; each `*` directory is a hierarchy level. |
 | `sources.spec_tree.levels` | `[]` | Names for those levels, e.g. `["capability", "epic"]`. |
 | `sources.spec_tree.item_kind` | `"story"` | Id prefix for items. |
 | `sources.spec_tree.dag_import` | `""` | Optional legacy DAG JSON to merge. |
+| `sources.spec_tree.foundation_index` | `""` | Optional Markdown index whose `Required foundation specs` table creates source-backed structural foundation contracts without turning support docs into delivery items. |
 | `sources.spec_tree.product_tags` | `[]` | Tags also treated as product-facet membership; keeps ordinary tags distinct. |
 | `sources.ledgers.glob` | `"thoughts/ledgers/CONTINUITY_*.md"` | Ledger locations. |
 | `sources.loose_docs.globs` | `[]` | Doc globs, e.g. `["docs/**/*.md"]`. |
@@ -158,6 +160,8 @@ The one file you edit. Keys and defaults:
 | `render.repo_url` | `""` | Base URL for source links in the constellation. |
 | `reconcile.precedence` | `["spec_tree","dag_import","ledgers","todos","loose_docs"]` | Who wins disagreements. |
 | `reconcile.dependency_authority` | `""` | Optional adapter whose dependency field wins during a staged authority migration, without stealing story title/status/source provenance. |
+| `reconcile.group_parent_authority` | `""` | Set to `"config"` when `[[group]]` declarations intentionally replace scanned directory parents; suppresses expected reparent warnings while cycle/unknown-child checks remain active. |
+| `reconcile.retire_empty_groups` | `[]` | Explicit scanned group IDs to omit after configured reparenting leaves them with no child groups or items. Nonempty or unknown groups remain visible and warn; this never deletes source files. |
 | `reconcile.mention_globs` | `[]` | Docs scanned for activity mentions. |
 | `reconcile.staleness_days` | `14` | Ledger staleness threshold. |
 | `archive.adapters` | `["todos"]` | Which adapters' files `archive` may move. |
@@ -207,7 +211,17 @@ contains = ["capability:billing", "capability:first-session"]
 ```
 
 The named children are re-parented in the generated graph; no source files or
-cross-links need to move.
+cross-links need to move. A group may also set `source` to a repository-relative
+Markdown contract, which makes the hierarchy entry readable in static and served
+views:
+
+```toml
+[[group]]
+id = "subject:components"
+title = "Components & Dogfooding"
+source = "docs/product/capability-taxonomy.md"
+contains = ["capability:authoring", "capability:component-library"]
+```
 
 Complex repositories can also define segmented navigation over any typed
 facet. Items may belong to several values at once:
@@ -263,9 +277,9 @@ story depend on everything. <!-- codex-sequence-2026-08-08 -->
 
 Priority is opt-in and target-scoped. Its target precedence is manifest, explicit
 items, milestones, releases, then the first incomplete milestone/release fallback.
-Each recommendation persists its direct-target flag, unique incomplete target
-dependents, condensed critical-path depth, milestone membership, lifecycle-role
-bias, and appetite cost. Activity and mention counts are deliberately excluded:
+Each structural-priority record persists its direct-target flag, unique incomplete
+target dependents, condensed critical-path depth, milestone membership, and
+lifecycle-role bias. Activity, mentions, and authored appetite are deliberately excluded:
 attention is not impact. A malformed authored target tier warns and produces no
 recommendations instead of silently widening scope.
 
@@ -284,6 +298,11 @@ uncertainty and evidence provenance, and computes structural impact from the
 dependency graph. It does not divide impact by effort, infer integration work from
 an empty dependency list, or apply a universal “AI multiplier.” That sort of number
 looks scientific right up until someone asks what it measured.
+
+Authored appetite alone is a visible proxy, not an assessed delivery size. All four
+burden dimensions must be established before an item can enter a small, anchor, or
+ranked-defect dispatch lane; incomplete profiles remain in `unknown_size` and render
+as unassessed.
 
 The provisional portfolio selects structural-leverage-ranked small work, at most two independently
 executable M/L anchors, a separate defect lane, and a bounded owner-question lane.

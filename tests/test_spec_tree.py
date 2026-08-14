@@ -27,8 +27,44 @@ def test_scan_items_and_groups():
     assert gids["capability:drawing"].title == "Capability: Drawing".removeprefix("Capability: ")
     assert gids["epic:drawing/tools"].parent == "capability:drawing"
     assert gids["epic:drawing/tools"].title == "Drawing tools"
+    assert gids["capability:drawing"].meta["source"]["path"] == \
+        "spec/drawing/drawing.md"
+    assert gids["epic:drawing/tools"].meta["source"]["path"] == \
+        "spec/drawing/epics/tools/tools.md"
     assert snap.group == "epic:drawing/tools"
     assert "story:_Index_of_stories" not in items
+
+
+def test_required_foundation_index_emits_source_backed_structural_contracts(tmp_path):
+    foundations = tmp_path / "spec" / "foundations"
+    foundations.mkdir(parents=True)
+    (foundations / "foundations.md").write_text(
+        "# Foundations\n\n## Required foundation specs\n\n"
+        "| Spec | Purpose |\n|---|---|\n"
+        "| [Coordinate Truth](coordinate-truth.md) | One coordinate contract. |\n"
+        "| [Geometry Kernel](geometry-kernel.md) | One geometry contract. |\n\n"
+        "## Notes\n\n| [Not required](migration-note.md) | Ignore me. |\n"
+    )
+    for name in ("coordinate-truth", "geometry-kernel", "migration-note"):
+        (foundations / f"{name}.md").write_text(f"# {name}\n")
+    configured = Config(data=deep_merge(DEFAULTS, {"sources": {"spec_tree": {
+        "enabled": True,
+        "foundation_index": "spec/foundations/foundations.md",
+    }}}))
+
+    result = spec_tree.scan(configured, tmp_path)
+    groups = {group.id: group for group in result.groups}
+
+    assert set(groups) == {
+        "subject:foundations", "foundation:coordinate-truth", "foundation:geometry-kernel"
+    }
+    coordinate = groups["foundation:coordinate-truth"]
+    assert coordinate.parent == "subject:foundations"
+    assert coordinate.meta == {
+        "source": {"adapter": "spec_tree", "path": "spec/foundations/coordinate-truth.md"},
+        "summary": "One coordinate contract.",
+    }
+    assert result.warnings == []
 
 
 @pytest.mark.parametrize(("authored", "expected"), [

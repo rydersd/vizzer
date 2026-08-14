@@ -197,12 +197,38 @@ def test_dashboard_renders_persisted_priority_rationale(tmp_path):
     assert "score 940" in section and "depth 1" in section
 
 
+def test_dashboard_with_assessment_withholds_unassessed_priority_recommendation(tmp_path):
+    graph = _graph()
+    graph.priority = {
+        "target_tier": "configured-items",
+        "recommendations": ["story:ready"],
+    }
+    graph.assessment = {
+        "items": {"story:ready": {
+            "size": {"assessed_band": "S", "dimensions": {}},
+            "impact": {}, "parallelism": {},
+        }},
+        "portfolio": {"small": [], "anchors": [], "defects": [],
+                      "questions": [], "unknown_size": ["story:ready"]},
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "## Recommended uptake" not in out
+
+
 def test_dashboard_renders_separate_assessed_portfolio_lanes(tmp_path):
     graph = _graph()
     profile = {
         "size": {
             "assessed_band": "S", "uncertainty": "U1",
             "plausible_range": {"min": "S", "max": "M"},
+            "dimensions": {
+                name: {"band": "S", "provenance": "authored"}
+                for name in (
+                    "implementation", "verification", "integration", "coordination",
+                )
+            },
         },
         "impact": {
             "structural_target_reach": 2, "immediate_unlock": 1,
@@ -228,6 +254,35 @@ def test_dashboard_renders_separate_assessed_portfolio_lanes(tmp_path):
     assert "parallel: candidate" in section
     assert "1 otherwise eligible item(s) remain unsized" in section
     assert "universal AI speed multiplier" in section
+
+
+def test_dashboard_labels_appetite_only_profile_unassessed(tmp_path):
+    graph = _graph()
+    graph.assessment = {
+        "schema": 1,
+        "items": {"story:ready": {
+            "size": {
+                "assessed_band": "S", "normalized_appetite": "S",
+                "raw_authored_appetite": "small", "uncertainty": "U2",
+                "plausible_range": {"min": "XS", "max": "M"},
+                "dimensions": {
+                    name: {"band": None, "provenance": "unknown"}
+                    for name in (
+                        "implementation", "verification", "integration", "coordination",
+                    )
+                },
+            },
+            "impact": {}, "parallelism": {"classification": "unknown"},
+        }},
+        "portfolio": {
+            "small": [], "anchors": [], "defects": [], "questions": [],
+            "unknown_size": ["story:ready"], "blocked": ["story:ready"],
+        },
+    }
+
+    out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
+
+    assert "unassessed · U2 · authored-appetite proxy S" in out
 
 
 def test_dashboard_renders_assessment_withholding_and_current_ownership(tmp_path):

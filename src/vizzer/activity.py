@@ -19,6 +19,19 @@ from .model import ActiveWork, Graph, owner_question_from_dict
 _STATES = {"active", "blocked", "paused", "complete"}
 
 
+class _DuplicateJSONKey(ValueError):
+    """Reject ambiguous feed objects instead of accepting source-order truth."""
+
+
+def _reject_duplicate_object_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJSONKey(key)
+        result[key] = value
+    return result
+
+
 def _utc_timestamp(value: object) -> tuple[str | None, datetime | None]:
     if not isinstance(value, str) or not value.strip():
         return None, None
@@ -62,7 +75,15 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
     if path is None:
         return []
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_object_keys,
+        )
+    except _DuplicateJSONKey as exc:
+        return [
+            f"activity feed {configured} contains duplicate JSON key {str(exc)!r} "
+            "(feed ignored)"
+        ]
     except (OSError, UnicodeError, json.JSONDecodeError):
         return [f"activity feed {configured} is unreadable or malformed"]
     if not isinstance(payload, dict) or payload.get("schema") != 1:

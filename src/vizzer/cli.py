@@ -93,16 +93,21 @@ def _mutation_guard(root: Path):
 
 # codex-sequence-2026-08-08: source opening is graph-id-only and root-contained.
 def _resolve_item_source(root: Path, graph: Graph, item_id: str) -> tuple[Path | None, str]:
-    """Resolve an existing regular source file for an item in *graph*.
+    """Resolve an existing regular source file for an item or group in *graph*.
 
     Never accept a caller-provided pathname.  Graph JSON is user-editable too,
     so it is still untrusted: absolute paths, traversal, and symlinks leaving
     the project are all rejected after resolution.
     """
     item = graph.item_map().get(item_id)
-    if item is None:
-        return None, "unknown item"
-    raw_path = item.source.get("path")
+    if item is not None:
+        source_meta = item.source
+    else:
+        group = next((entry for entry in graph.groups if entry.id == item_id), None)
+        if group is None:
+            return None, "unknown item"
+        source_meta = group.meta.get("source", {})
+    raw_path = source_meta.get("path") if isinstance(source_meta, dict) else None
     if not isinstance(raw_path, str) or not raw_path:
         return None, "item has no source file"
     try:
@@ -702,10 +707,7 @@ def _make_serve_server(root: Path, graph: Graph, views: Path, port: int,
     )
 
 
-def _serve(root: Path, port: int, open_browser: bool = False) -> int:
-    if not 0 <= port <= 65535:
-        print("serve: port must be between 0 and 65535")
-        return 2
+def _serve(root: Path, port: int | None, open_browser: bool = False) -> int:
     graph = _read_graph(root)
     if graph is None:
         print("serve: run 'sync' and 'render' first")
@@ -713,12 +715,17 @@ def _serve(root: Path, port: int, open_browser: bool = False) -> int:
     cfg = _load_config(root, "serve")
     if cfg is None:
         return 2
+    resolved_port = cfg.get("server.port", 0) if port is None else port
+    if (isinstance(resolved_port, bool) or not isinstance(resolved_port, int)
+            or not 0 <= resolved_port <= 65535):
+        print("serve: port must be an integer from 0 through 65535")
+        return 2
     views = _output_dir(cfg, root, "serve")
     if views is None or not views.is_dir():
         print("serve: run 'render' first")
         return 2
     try:
-        server = _make_serve_server(root, graph, views, port, cfg)
+        server = _make_serve_server(root, graph, views, resolved_port, cfg)
     except OSError as exc:
         print(f"serve: could not bind loopback server: {exc}")
         return 2
@@ -1682,7 +1689,10 @@ def _parser() -> argparse.ArgumentParser:
 
     serve = subparsers.add_parser("serve", help="serve views on loopback with safe source opening")
     serve.add_argument("--root", default=".")
-    serve.add_argument("--port", type=int, default=0)
+    serve.add_argument(
+        "--port", type=int, default=None,
+        help="loopback port; overrides [server] port (0 chooses an ephemeral port)",
+    )
     serve.add_argument(
         "--open-browser", action="store_true",
         help="open the constellation after the loopback helper starts",

@@ -24,6 +24,29 @@ def _item(name, deps=(), *, appetite=None, status="specced"):
     )
 
 
+def _apply_with_known_burden(graph, cfg, tmp_path):
+    """Bind explicit four-dimension proposals before testing dispatch policy."""
+    cfg = Config(data=deep_merge(cfg.data, {
+        "assessment": {"signals_path": "assessment-signals.json"},
+    }))
+    apply_assessments(graph, cfg, tmp_path)
+    entries = {}
+    for item in graph.items:
+        band = normalize_appetite(item.appetite) or "S"
+        entries[item.id] = {
+            "scopeFingerprint": graph.assessment["items"][item.id]["scope_fingerprint"],
+            "signals": {"authored_dimensions": {
+                name: band for name in (
+                    "implementation", "verification", "integration", "coordination",
+                )
+            }},
+        }
+    (tmp_path / "assessment-signals.json").write_text(json.dumps({
+        "schema": 1, "items": entries,
+    }), encoding="utf-8")
+    apply_assessments(graph, cfg, tmp_path)
+
+
 def test_appetite_normalizes_exact_aliases_but_retains_junk_drawer_verbatim():
     assert normalize_appetite("small") == "S"
     assert normalize_appetite("8") == "L"
@@ -57,6 +80,19 @@ def test_authored_appetite_stays_separate_from_four_dimension_range():
     assert result["size"]["dimensions"]["integration"]["band"] == "L"
     assert result["size"]["plausible_range"] == {"min": "XS", "max": "XL"}
     assert result["size"]["uncertainty"] == "U2"
+
+
+def test_authored_appetite_alone_never_becomes_assessed_burden():
+    small = assess_story(Graph(items=[_item("small", appetite="small")]), "story:small")
+    epic = assess_story(Graph(items=[_item("epic", appetite="epic")]), "story:epic")
+
+    assert small["size"]["normalized_appetite"] == "S"
+    assert epic["size"]["normalized_appetite"] == "XL"
+    for result in (small, epic):
+        assert result["size"]["assessed_band"] is None
+        assert result["size"]["provenance"] == "unknown"
+        assert result["size"]["plausible_range"] == {"min": "XS", "max": "XL"}
+        assert result["size"]["uncertainty"] == "U3"
 
 
 def test_invented_acceptance_test_names_do_not_improve_confidence_without_harness():
@@ -200,8 +236,9 @@ def test_observed_size_only_overrides_dimension_forecast_with_explicit_evidence(
         evidence=("p85 of 12 comparable completed stories",),
     ))
 
-    assert unsupported["size"]["assessed_band"] == "L"
+    assert unsupported["size"]["assessed_band"] == "M"
     assert unsupported["size"]["provenance"] == "authored"
+    assert unsupported["size"]["uncertainty"] == "U3"
     assert any("lacks explicit evidence" in value for value in unsupported["size"]["unknowns"])
     assert supported["size"]["assessed_band"] == "S"
     assert supported["size"]["provenance"] == "observed"
@@ -241,7 +278,7 @@ def test_apply_assessments_is_opt_in_and_keeps_questions_out_of_delivery_lanes(t
     assert graph.assessment["schema"] == 1
     assert set(graph.assessment["items"]) == {"story:anchor", "story:small"}
     small_result = graph.assessment["items"]["story:small"]
-    assert small_result["size"]["uncertainty"] == "U2"
+    assert small_result["size"]["uncertainty"] == "U3"
     assert any("lack an observed harness" in value
                for value in small_result["size"]["unknowns"])
     assert graph.assessment["portfolio"]["questions"] == ["story:small"]
@@ -326,6 +363,28 @@ def test_empty_or_unknown_configured_targets_do_not_fake_target_scope(tmp_path):
     assert "missing explicit target scope" in graph.assessment["portfolio"]["warnings"][0]
 
 
+def test_authored_appetite_without_four_dimension_burden_is_not_dispatch_size(tmp_path):
+    proxy = _item("proxy-only", appetite="small")
+    target = _item("target", ["proxy-only"], status="shipped")
+    graph = Graph(items=[proxy, target], priority={
+        "targets": [{"item": target.id, "sources": ["configured-item"]}],
+    })
+    cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
+
+    apply_assessments(graph, cfg, tmp_path)
+
+    result = graph.assessment["items"][proxy.id]["size"]
+    portfolio = graph.assessment["portfolio"]
+    assert result["normalized_appetite"] == "S"
+    assert result["assessed_band"] is None
+    assert result["provenance"] == "unknown"
+    assert all(value["band"] is None for value in result["dimensions"].values())
+    assert proxy.id not in portfolio["small"]
+    assert proxy.id in portfolio["unknown_size"]
+    assert any("authored appetite is not an assessed burden profile" in warning
+               for warning in portfolio["warnings"])
+
+
 def test_portfolio_never_uses_xl_as_anchor_or_claims_two_unknown_parallel_anchors(tmp_path):
     medium = _item("medium", appetite="medium")
     medium.priority = {"eligible": True, "rank": 1, "components": {"course_order": None}}
@@ -341,7 +400,7 @@ def test_portfolio_never_uses_xl_as_anchor_or_claims_two_unknown_parallel_anchor
         "assessment": {"enabled": True, "anchor_limit": 2},
     }))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert portfolio["anchors"] == ["story:medium"]
@@ -377,7 +436,7 @@ def test_defect_portfolio_uses_separate_blast_radius_rank(tmp_path):
     graph = Graph(items=[low, high])
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     assert graph.assessment["portfolio"]["defects"] == [
         "story:z-high", "story:a-low",
@@ -397,7 +456,7 @@ def test_defect_portfolio_withholds_questions_holds_and_unranked_items(tmp_path)
     })()]
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert portfolio["defects"] == [ranked.id]
@@ -426,7 +485,7 @@ def test_candidate_test_source_text_is_not_promoted_to_observed_harness(tmp_path
 
     size = graph.assessment["items"]["story:story"]["size"]
     assert size["dimensions"]["verification"]["provenance"] == "unknown"
-    assert size["uncertainty"] == "U2"
+    assert size["uncertainty"] == "U3"
     assert any("execution unobserved" in value for value in size["evidence"])
     assert any("does not establish compilation" in value for value in size["unknowns"])
 
@@ -450,7 +509,7 @@ def test_owner_course_order_precedes_derived_impact_in_portfolio(tmp_path):
     })
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     assert graph.assessment["portfolio"]["small"][:2] == [
         "story:owner-first", "story:high-impact",
@@ -470,7 +529,7 @@ def test_active_blocked_and_paused_work_is_visible_but_not_new_dispatch(tmp_path
     )])
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert owned.id in portfolio["occupied"]
@@ -493,7 +552,7 @@ def test_stale_active_work_is_context_not_false_current_ownership(tmp_path):
     )
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert stale.id in portfolio["stale_work"]
@@ -516,7 +575,7 @@ def test_stale_blocked_work_remains_nondispatchable_until_resolved(tmp_path):
     )
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert blocked.id in portfolio["blocked"]
@@ -547,7 +606,7 @@ def test_latest_activity_record_resolves_an_older_blocked_record(tmp_path):
     )
     cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
 
-    apply_assessments(graph, cfg, tmp_path)
+    _apply_with_known_burden(graph, cfg, tmp_path)
 
     portfolio = graph.assessment["portfolio"]
     assert ready.id not in portfolio["blocked"]
@@ -660,6 +719,83 @@ def test_repo_local_signals_merge_explicit_evidence_without_erasing_live_gates(t
     assert any("unknown item 'story:removed'" in warning for warning in graph.warnings)
 
 
+def test_repo_local_signals_emit_a_reusable_pre_evidence_scope_fingerprint(tmp_path):
+    story = tmp_path / "story.md"
+    story.write_text("# Story\n\nAcceptance: `testBoundScope`\n", encoding="utf-8")
+    item = _item("bound", appetite="small")
+    item.source = {"path": "story.md"}
+    graph = Graph(items=[item])
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "assessment": {"enabled": True, "signals_path": "signals.json"},
+    }))
+
+    apply_assessments(graph, cfg, tmp_path)
+    source_scope = graph.assessment["items"][item.id]["scope_fingerprint"]
+    signal_path = tmp_path / "signals.json"
+    signal_path.write_text(json.dumps({
+        "schema": 1,
+        "items": {item.id: {
+            "scopeFingerprint": source_scope,
+            "signals": {
+                "authored_dimensions": {"implementation": "L"},
+                "evidence": ["owner-reviewed topology"],
+            },
+        }},
+    }), encoding="utf-8")
+
+    apply_assessments(graph, cfg, tmp_path)
+    emitted_scope = graph.assessment["items"][item.id]["scope_fingerprint"]
+    assert emitted_scope == source_scope
+
+    # The documented refresh -> copy -> edit -> refresh loop must not make the
+    # proposal self-invalidating merely because its own evidence was merged.
+    signal_path.write_text(json.dumps({
+        "schema": 1,
+        "items": {item.id: {
+            "scopeFingerprint": emitted_scope,
+            "signals": {
+                "authored_dimensions": {"implementation": "L"},
+                "evidence": ["owner-reviewed topology", "second review"],
+            },
+        }},
+    }), encoding="utf-8")
+    apply_assessments(graph, cfg, tmp_path)
+
+    result = graph.assessment["items"][item.id]
+    assert result["size"]["dimensions"]["implementation"]["band"] == "L"
+    assert not any("scope changed" in warning for warning in graph.warnings)
+
+
+def test_repo_local_signals_can_supply_acceptance_when_source_scan_has_none(tmp_path):
+    story = tmp_path / "story.md"
+    story.write_text("# Research Story\n\nNo code selector is required.\n", encoding="utf-8")
+    item = _item("research", appetite="small")
+    item.source = {"path": "story.md"}
+    graph = Graph(items=[item])
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "assessment": {"enabled": True, "signals_path": "signals.json"},
+    }))
+    apply_assessments(graph, cfg, tmp_path)
+    scope = graph.assessment["items"][item.id]["scope_fingerprint"]
+    (tmp_path / "signals.json").write_text(json.dumps({
+        "schema": 1,
+        "items": {item.id: {
+            "scopeFingerprint": scope,
+            "signals": {
+                "acceptance_checks": ["pinned corpus replay"],
+                "evidence": ["owner-reviewed research memo"],
+            },
+        }},
+    }), encoding="utf-8")
+
+    apply_assessments(graph, cfg, tmp_path)
+
+    size = graph.assessment["items"][item.id]["size"]
+    assert any("1 acceptance check name(s) lack an observed harness" in value
+               for value in size["unknowns"])
+    assert "owner-reviewed research memo" in size["evidence"]
+
+
 def test_invalid_signals_entry_rejects_whole_manifest_without_crashing(tmp_path):
     evidence_path = tmp_path / "signals.json"
     graph = Graph(items=[
@@ -711,7 +847,7 @@ def test_signals_manifest_rejects_self_certified_observation_and_stale_scope(tmp
         }},
     }), encoding="utf-8")
     apply_assessments(graph, cfg, tmp_path)
-    assert graph.assessment["items"][item.id]["size"]["assessed_band"] == "L"
+    assert graph.assessment["items"][item.id]["size"]["assessed_band"] is None
     assert any("cannot self-certify" in warning for warning in graph.warnings)
 
     # A source change invalidates otherwise-valid researched evidence.
@@ -753,7 +889,7 @@ def test_unsafe_or_malformed_signals_are_warned_and_ignored(
 
     apply_assessments(graph, cfg, tmp_path)
 
-    assert graph.assessment["items"]["story:story"]["size"]["assessed_band"] == "S"
+    assert graph.assessment["items"]["story:story"]["size"]["assessed_band"] is None
     assert any("assessment signals" in warning and "ignored" in warning
                for warning in graph.warnings)
     outside.unlink(missing_ok=True)

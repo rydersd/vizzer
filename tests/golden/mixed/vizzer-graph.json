@@ -6,14 +6,24 @@
       "kind": "capability",
       "title": "Drawing",
       "parent": null,
-      "meta": {}
+      "meta": {
+        "source": {
+          "adapter": "spec_tree",
+          "path": "spec/drawing/drawing.md"
+        }
+      }
     },
     {
       "id": "epic:drawing/tools",
       "kind": "epic",
       "title": "Drawing tools",
       "parent": "capability:drawing",
-      "meta": {}
+      "meta": {
+        "source": {
+          "adapter": "spec_tree",
+          "path": "spec/drawing/epics/tools/tools.md"
+        }
+      }
     },
     {
       "id": "folder:docs",
