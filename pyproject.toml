@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vizzer"
-version = "0.8.35" # Make overlapping question-glyph hit ownership match visible paint.
+version = "0.8.36" # Keep the semantic-center exception from stealing front-painted endpoints.
 description = "Portable work-graph views: normalize a project's specs/ledgers/docs into one graph and render roadmap, dashboard, and a 3D constellation."
 readme = "README.md"
 requires-python = ">=3.9"

@@ -119,6 +119,17 @@ DATA.nodes[${neighbor}].oq=originalQuestions;})()`);
 out.paintedQuestionXEndpointTarget={selected:ev(`sel`),hover:ev(`paintedEndpointHover`),
   expected:exact,title:ev(`DATA.nodes[sel].t`)};
 ev(`(()=>{sel=-1;dossier.classList.remove('open');
+const originalQuestions=DATA.nodes[${neighbor}].oq;DATA.nodes[${neighbor}].oq=[0];
+P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=-20;P[${exact}].on=true;P[${exact}].s=4;
+P[${neighbor}].x=304.9;P[${neighbor}].y=303.2;P[${neighbor}].d=20;P[${neighbor}].on=true;P[${neighbor}].s=4;
+cv.dispatch('pointermove',{clientX:304,clientY:304,pointerId:30});
+globalThis.nearCenterEndpointHover=hover;
+cv.dispatch('pointerdown',{clientX:304,clientY:304,pointerId:30});
+cv.dispatch('pointerup',{clientX:304,clientY:304,pointerId:30});
+DATA.nodes[${neighbor}].oq=originalQuestions;})()`);
+out.nearCenterQuestionXEndpointTarget={selected:ev(`sel`),hover:ev(`nearCenterEndpointHover`),
+  expected:exact,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
 P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
 P[${neighbor}].x=307;P[${neighbor}].y=300;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
 cv.dispatch('pointermove',{clientX:300,clientY:300,pointerId:28});
@@ -1713,6 +1724,9 @@ def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
         "selected": 1, "hover": 1, "expected": 1, "title": "B",
     }
     assert state["paintedQuestionXEndpointTarget"] == {
+        "selected": 1, "hover": 1, "expected": 1, "title": "B",
+    }
+    assert state["nearCenterQuestionXEndpointTarget"] == {
         "selected": 1, "hover": 1, "expected": 1, "title": "B",
     }
     assert state["advertisedHoverTarget"] == {

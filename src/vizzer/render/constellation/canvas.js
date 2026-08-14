@@ -405,7 +405,9 @@ function updatePointerState(x,y){
         // there. Outside that small core, mirror the canvas: materially closer
         // stroke first, then front-most/later paint order. Center proximity is
         // not visible ownership at an overlapping endpoint.
-        const centerCore=Math.min(3,questionGlyphRadius(i)*.5);
+        // Keep this genuinely central. A broader exception lets a nearby X's
+        // center steal an exact endpoint that was painted in front of it.
+        const centerCore=Math.min(.75,questionGlyphRadius(i)*.15);
         if(distance<=centerCore){
           const sameCenter=Math.abs(distance-questionCenterDistanceBest)<=.05;
           const samePaint=Math.abs(glyphPaintDistance-questionCenterPaintDistanceBest)<=.05;
