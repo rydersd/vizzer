@@ -103,13 +103,17 @@ function openNode(i,{inPlace=false}={}){
     ?assessment.range.filter(Boolean).join('–'):'?';
   const dimensionText=assessment
     ?Object.entries(assessment.dimensions||{}).map(([name,value])=>`${name} ${value.band||'?'} (${value.provenance||'unknown'})`).join(' · '):'';
+  const burdenEstablished=assessment?assessment.burdenEstablished===true:false;
+  const deliverySizeText=!assessment?'':burdenEstablished
+    ?`${assessment.band||'unassessed'} · ${assessment.uncertainty||'U3'} · plausible ${assessedRange} · ${assessment.provenance||'unknown'}`
+    :`unassessed · authored-appetite proxy ${assessment.appetiteBand||'?'} · ${assessment.uncertainty||'U3'} · plausible ${assessedRange}`;
   const assessmentEvidence=assessment
     ?(assessment.evidence||[]).slice(0,4).join(' · '):'';
   const assessmentUnknowns=assessment
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}`;
+  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -119,7 +123,7 @@ function openNode(i,{inPlace=false}={}){
       <span>visual</span><b>${Math.round(progressOpacity(n)*100)}% fill progress · ${esc(relKey(n))} ${Math.round(versionOpacity(n)*100)}% version ring</b>
       <span>touched</span><b>${touched}</b>
       ${trail?`<span>progress</span><b>${esc(trail)}</b>`:''}
-      ${!assessment?'':`<span>delivery size</span><b>${esc(assessment.band||'unassessed')} · ${esc(assessment.uncertainty||'U3')} · plausible ${esc(assessedRange)} · ${esc(assessment.provenance||'unknown')}</b>
+      ${!assessment?'':`<span>delivery size</span><b>${esc(deliverySizeText)}</b>
       <span>authored appetite</span><b>${esc(assessment.rawAuthoredAppetite||'—')}</b>
       <span>burden</span><b>${esc(dimensionText||'dimensions not established')}</b>
       <span>structural impact</span><b>${assessment.targetReach||0} target(s) · ${assessment.immediateUnlock||0} immediate unlock(s) · ${assessment.frontierReach||0} frontier · ${esc(assessment.impactProvenance||'unknown')}</b>

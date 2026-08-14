@@ -25,6 +25,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_QUESTIONS_JS__", "questions.js"),
     ("__VIZZER_PLANNING_JS__", "planning.js"),
     ("__VIZZER_DOSSIER_JS__", "dossier.js"),
+    ("__VIZZER_WORK_NAVIGATION_JS__", "work_navigation.js"),
     ("__VIZZER_CANVAS_JS__", "canvas.js"),
     ("__VIZZER_BOOTSTRAP_JS__", "bootstrap.js"),
 )
@@ -99,6 +100,12 @@ def _assessment_profile(value: object) -> dict:
                 "band": dimension_band if dimension_band in _SIZE_BANDS else None,
                 "provenance": provenance if provenance in _PROVENANCE else "unknown",
             }
+    burden_established = all(
+        dimensions.get(name, {}).get("band") in _SIZE_BANDS
+        for name in ("implementation", "verification", "integration", "coordination")
+    )
+    appetite_band = raw_size.get("normalized_appetite")
+    appetite_band = appetite_band if appetite_band in _SIZE_BANDS else None
 
     def count(name: str) -> int:
         value = raw_impact.get(name)
@@ -111,7 +118,9 @@ def _assessment_profile(value: object) -> dict:
     parallel = raw_parallel.get("classification")
     raw_appetite = raw_size.get("raw_authored_appetite")
     return {
-        "band": band,
+        "band": band if burden_established else None,
+        "appetiteBand": appetite_band,
+        "burdenEstablished": burden_established,
         "uncertainty": uncertainty if uncertainty in _UNCERTAINTY else "U3",
         "range": [
             plausible.get("min") if plausible.get("min") in _SIZE_BANDS else None,
@@ -385,10 +394,15 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         key=lambda group: group.id,
     )
     for group in foundations:
+        source = group.meta.get("source", {}) if isinstance(group.meta, dict) else {}
+        source_path = source.get("path", "") if isinstance(source, dict) else ""
+        summary = group.meta.get("summary", "") if isinstance(group.meta, dict) else ""
         idx[group.id] = len(nodes)
         nodes.append({
+            "id": group.id,
             "s": group.id.split(":", 1)[1],
             "t": group.title[:80],
+            "summary": str(summary)[:240],
             "st": "foundation",
             "g": "foundation",
             "c": "foundations",
@@ -397,13 +411,14 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "role": "reference",
             "tags": [],
             "facets": {},
-            "p": "",
+            "p": source_path,
+            "h": _source_href(root, cfg, source_path) if source_path else "",
             "w": 1.35,
             "ac": 0,
             "am": 0,
             "ts": 0,
             "foundation": 1,
-            "q": f"{group.id} {group.title} foundation Structural root",
+            "q": f"{group.id} {group.title} {summary} foundation Structural root",
         })
 
     edges = []
@@ -558,19 +573,28 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     planning = dict(graph.priority.get("planning", {}))
     planning["baseTargets"] = graph.priority.get("base_targets", [])
     planning["effectiveTargets"] = graph.priority.get("effective_targets", [])
+    rendered_groups = []
+    for group in sorted(graph.groups, key=lambda value: value.id):
+        entry = {
+            "id": group.id,
+            "kind": group.kind,
+            "title": group.title,
+            "parent": group.parent or "",
+        }
+        source = group.meta.get("source", {}) if isinstance(group.meta, dict) else {}
+        source_path = source.get("path", "") if isinstance(source, dict) else ""
+        if source_path:
+            entry["p"] = source_path
+            entry["h"] = _source_href(root, cfg, source_path)
+        summary = group.meta.get("summary") if isinstance(group.meta, dict) else None
+        if isinstance(summary, str) and summary:
+            entry["summary"] = summary[:240]
+        rendered_groups.append(entry)
+
     data = {
         "engineVersion": __version__,
         "nodes": nodes,
-        "groups": [
-            {
-                "id": group.id,
-                "kind": group.kind,
-                "title": group.title,
-                "parent": group.parent or "",
-            }
-            for group in sorted(graph.groups, key=lambda value: value.id)
-            if group.kind != "foundation"
-        ],
+        "groups": rendered_groups,
         "edges": edges,
         "relations": relations,
         "work": work,

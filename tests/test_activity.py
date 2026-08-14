@@ -192,6 +192,33 @@ def test_malformed_progress_and_timestamp_are_dropped_independently(tmp_path):
     assert any("offset-aware ISO" in warning for warning in warnings)
 
 
+def test_activity_feed_rejects_duplicate_json_keys_instead_of_using_last_value(tmp_path):
+    feed = tmp_path / "vizzer" / "active-work.json"
+    feed.parent.mkdir()
+    feed.write_text("""{
+      "schema": 1,
+      "work": [{
+        "storyId": "story:a",
+        "agent": "Galileo",
+        "task": "Do not let source order choose status",
+        "state": "active",
+        "checkpoints": {"completed": 1, "total": 2},
+        "checkpoint": "new truth",
+        "checkpoint": "stale truth",
+        "updatedAt": "2026-08-08T17:00:00Z"
+      }]
+    }""", encoding="utf-8")
+    graph = _graph()
+
+    warnings = load_active_work(graph, _cfg(), tmp_path)
+
+    assert graph.active_work == []
+    assert warnings == [
+        "activity feed vizzer/active-work.json contains duplicate JSON key "
+        "'checkpoint' (feed ignored)"
+    ]
+
+
 def test_activity_feed_cannot_escape_project_root(tmp_path):
     graph = _graph()
     warnings = load_active_work(graph, _cfg("../outside.json"), tmp_path)

@@ -84,7 +84,7 @@ const areaDefinitions=configuredAreas.length?configuredAreas:(discoveredProducts
 const hasAreaFacets=areaDefinitions.length>0;
 let areaMode=areaDefinitions[0]?.id||null;
 let areaFocus=null;
-let capFocus = null, sel = -1, hover = -1, questionOnly = false;
+let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
 const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
@@ -99,6 +99,16 @@ const matchesSearch = n => searchTerms.length===0 || (!n.foundation &&
 // camera centre: eases toward the centroid of whatever is visible
 let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
 const nodeHasOwnerQuestions = n => (n.oq||[]).length>0;
+const hierarchyGroups=new Map((DATA.groups||[]).map(group=>[group.id,group]));
+const nodeBelongsToGroup=(node,groupId)=>{
+  let current=node.group||'',seen=new Set();
+  while(current&&!seen.has(current)){
+    if(current===groupId)return true;
+    seen.add(current);
+    current=hierarchyGroups.get(current)?.parent||'';
+  }
+  return false;
+};
 const currentArea=()=>areaDefinitions.find(area=>area.id===areaMode)||areaDefinitions[0]||null;
 const nodeAreaValues=n=>{const area=currentArea();return area?(n.facets?.[area.facet]||[]):[];};
 const passesAreaFilters=n=>{
@@ -112,7 +122,8 @@ const passesSharedFilters = n => filt[n.g] && rfilt[relKey(n)]
   && (roleFocus==='all'||(n.role||'delivery')===roleFocus)
   && passesAreaFilters(n)
   && (!questionOnly || nodeHasOwnerQuestions(n));
-function visible(n){ return passesSharedFilters(n) && (!capFocus || n.c===capFocus); }
+const passesHierarchyFocus=n=>groupFocus?nodeBelongsToGroup(n,groupFocus):(!capFocus||n.c===capFocus);
+function visible(n){ return passesSharedFilters(n) && passesHierarchyFocus(n); }
 function retarget(){
   let sx=0, sy=0, sz=0, k=0;
   for (const n of DATA.nodes) if (visible(n)){ sx+=n.x; sy+=n.y; sz+=n.z; k++; }

@@ -361,6 +361,11 @@ def _config_text(target: Path, found: dict) -> str:
 # Human-readable project name used in generated views.
 name = "{project_name}"
 
+[server]
+# Stable per-project loopback port for bookmarkable `vizzer serve` URLs.
+# Keep 0 for an ephemeral port; sibling projects should choose distinct values.
+port = 0
+
 # Semantic source map. Folder names are project data: Product Spec,
 # Experience Spec, handbook, wiki, ADRs, and research are all valid answers.
 {source_area_text}
@@ -438,12 +443,6 @@ exclude_flags = ["blocked", "triage", "needs-triage", "stale"]
 regression = 80
 active = 50
 ready = 0
-
-[priority.appetite_cost]
-small = 0
-medium = 20
-large = 50
-default = 25
 
 # Model-neutral delivery sizing and balanced portfolio suggestions. Assessment
 # never changes source appetite, lifecycle, dependencies, or owner course.

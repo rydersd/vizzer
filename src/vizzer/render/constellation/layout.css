@@ -85,14 +85,28 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}
-.caphead{font-size:12px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
-.caphead>span{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
+.caphead{font-size:12px;font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.caplabel{min-width:0;display:grid;gap:1px;color:var(--ink)}
+.caplabel>span{overflow-wrap:anywhere}
+.caplabel small{color:var(--mut);font:8px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
 .capbar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
 .capbar i{height:100%;background:var(--shipped)}
 .capbar b{height:100%;background:var(--buggap)}
+.railcapability{margin:0 0 5px;border:1px solid transparent;border-radius:9px;overflow:hidden}
+.railcapability[open]{border-color:var(--line);background:color-mix(in srgb,var(--panel) 76%,transparent)}
+.railcapability>summary{list-style:none;padding:7px 8px;cursor:pointer}
+.railcapability>summary::-webkit-details-marker{display:none}
+.railcapability>summary::before{content:'\25b8';float:left;width:14px;margin:1px 2px 0 -2px;color:var(--mut);font-size:10px;transition:transform .12s ease}
+.railcapability[open]>summary::before{transform:rotate(90deg)}
+.railcapability>summary .caphead,.railcapability>summary .capbar{margin-left:14px}
+.railcapabilitybody{display:grid;gap:1px;padding:0 5px 6px 18px;border-top:1px solid color-mix(in srgb,var(--line) 62%,transparent)}
+.railcapabilitybody .cap{padding:7px 6px}
+.railcapabilitybody .cap:first-child{margin-top:4px}
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
+@media (prefers-reduced-motion:reduce){.railcapability>summary::before{transition:none}}
 :root{--dossier-width:clamp(360px,36vw,560px)}
 #dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
@@ -109,6 +123,8 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #dossieridentity h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:8px}
 .dossierpills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
+.dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
+.dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
 #dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
 #dossierfooter{flex:none;min-width:0}
 #dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}

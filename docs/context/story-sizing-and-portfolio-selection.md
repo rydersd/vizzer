@@ -108,6 +108,10 @@ Record four dimensions before choosing the band:
 - **integration:** persistence, compatibility, generated projects, caches, rollout, and merge seams;
 - **coordination:** owner decisions, shared files, exclusive test hosts, review, and outside services.
 
+Until all four dimensions are established, an authored appetite may remain visible as a planning
+proxy but is not an assessed delivery size and must not qualify an item for a dispatch portfolio.
+Missing evidence is uncertainty, not a coupon for cheaper work.
+
 The overall band is not an arithmetic average. One load-bearing `L` boundary can make the story `L`;
 failures do not average themselves into politeness.
 

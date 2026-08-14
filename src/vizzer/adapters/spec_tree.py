@@ -29,6 +29,10 @@ _RELATIVE_STORY_PATH_RE = re.compile(
 _MAX_DAG_JSON_DEPTH = 8
 _MAX_DAG_JSON_NODES = 20_000
 _WORK_ITEM_KEYS = {"deps", "status", "release", "wave"}
+_FOUNDATION_ROW_RE = re.compile(
+    r"^\|\s*\[([^\]\r\n]+)\]\(([^)\r\n]+\.md)\)\s*\|\s*(.*?)\s*\|\s*$",
+    re.MULTILINE,
+)
 
 
 def _front_matter(text: str) -> tuple[dict, str]:
@@ -314,17 +318,89 @@ def _group_chain(root: Path, rel: Path, pattern: str, levels: list[str],
         group_id = f"{level}:{'/'.join(cumulative)}"
         if group_id not in groups:
             title = slug.replace("-", " ").title()
+            meta = {}
             directory = root.joinpath(*rel_parts[:index + 1])
             overview = directory / f"{slug}.md"
             if overview.is_file():
                 try:
                     title = _display_title(overview.read_text(encoding="utf-8")) or title
+                    meta = {"source": {
+                        "adapter": "spec_tree",
+                        "path": overview.relative_to(root).as_posix(),
+                    }}
                 except (OSError, UnicodeError):
                     warnings.append(f"{overview.relative_to(root).as_posix()}: unreadable")
             groups[group_id] = Group(id=group_id, kind=level, title=title,
-                                     parent=parent)
+                                     parent=parent, meta=meta)
         parent = group_id
     return parent
+
+
+def _foundation_index_groups(root: Path, relpath: str,
+                             warnings: list[str]) -> list[Group]:
+    """Read an explicit Markdown index of required foundation contracts.
+
+    Foundation membership comes only from the configured index table. A broad
+    folder glob would promote migration notes and generated indexes into
+    architectural contracts merely because they share a directory.
+    """
+    path = root / relpath
+    normalized = Path(relpath).as_posix()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        warnings.append(f"{normalized}: unreadable foundation index")
+        return []
+
+    marker = "## Required foundation specs"
+    if marker not in text:
+        warnings.append(f"{normalized}: missing required foundation specs section")
+        return []
+    section = text.split(marker, 1)[1]
+    section = re.split(r"^##\s+", section, maxsplit=1, flags=re.MULTILINE)[0]
+    groups = [Group(
+        id="subject:foundations",
+        kind="subject",
+        title="Product Foundations",
+        meta={"source": {"adapter": "spec_tree", "path": normalized}},
+    )]
+    seen = set()
+    project_root = root.resolve()
+    for match in _FOUNDATION_ROW_RE.finditer(section):
+        label, raw_target, purpose = match.groups()
+        raw_target = raw_target.split("#", 1)[0]
+        try:
+            source = (path.parent / raw_target).resolve()
+            source.relative_to(project_root)
+        except (OSError, ValueError):
+            warnings.append(f"{normalized}: foundation link escapes project: {raw_target}")
+            continue
+        slug = source.stem
+        if not _DEP_SLUG_RE.fullmatch(slug):
+            warnings.append(f"{normalized}: malformed foundation slug ignored: {slug}")
+            continue
+        group_id = f"foundation:{slug}"
+        if group_id in seen:
+            warnings.append(f"{normalized}: duplicate foundation ignored: {slug}")
+            continue
+        if not source.is_file():
+            warnings.append(f"{normalized}: foundation source unavailable: {raw_target}")
+            continue
+        seen.add(group_id)
+        source_relpath = source.relative_to(project_root).as_posix()
+        groups.append(Group(
+            id=group_id,
+            kind="foundation",
+            title=label.strip(),
+            parent="subject:foundations",
+            meta={
+                "source": {"adapter": "spec_tree", "path": source_relpath},
+                "summary": purpose.strip(),
+            },
+        ))
+    if len(groups) == 1:
+        warnings.append(f"{normalized}: no required foundation rows found")
+    return groups
 
 
 def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
@@ -663,6 +739,11 @@ def scan(cfg, root: Path) -> ScanResult:
     items = []
     milestones = []
 
+    foundation_index = cfg.get("sources.spec_tree.foundation_index", "")
+    if foundation_index:
+        for group in _foundation_index_groups(root, foundation_index, warnings):
+            groups[group.id] = group
+
     if pattern:
         try:
             paths = sorted(root.glob(pattern), key=lambda path: path.as_posix())
@@ -686,9 +767,11 @@ def scan(cfg, root: Path) -> ScanResult:
         milestones.extend(dag_milestones)
         for group in dag_groups:
             if group.id in groups:
-                warnings.append(
-                    f"{dag_relpath}: foundation group {group.id} collides with scanned group"
-                )
+                existing = groups[group.id]
+                if existing.kind != "foundation" or group.kind != "foundation":
+                    warnings.append(
+                        f"{dag_relpath}: foundation group {group.id} collides with scanned group"
+                    )
             else:
                 groups[group.id] = group
 

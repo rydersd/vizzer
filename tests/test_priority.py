@@ -57,6 +57,19 @@ def test_diamond_reach_counts_target_once():
     assert root["target_items"] == ["story:v1"]
 
 
+def test_authored_appetite_cannot_change_structural_priority():
+    large = _item("a-large", appetite="large")
+    small = _item("z-small", appetite="small")
+    target = _item("v1", ["a-large", "z-small"])
+    graph = Graph(items=[large, small, target])
+
+    apply_priorities(graph, _cfg())
+
+    assert large.priority["score"] == small.priority["score"]
+    assert graph.priority["recommendations"][:2] == [large.id, small.id]
+    assert "appetite" not in large.priority["rationale"]
+
+
 def test_cycle_cannot_inflate_reach_or_depth():
     graph = Graph(items=[
         _item("entry"),

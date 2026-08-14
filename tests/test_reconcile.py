@@ -194,7 +194,9 @@ def test_reconcile_applies_opt_in_assessment_after_priority_and_questions(tmp_pa
     ]))])
 
     assert graph.assessment["method"] == "deterministic-delivery-assessment-v1"
-    assert graph.assessment["items"]["story:a"]["size"]["assessed_band"] == "S"
+    size = graph.assessment["items"]["story:a"]["size"]
+    assert size["normalized_appetite"] == "S"
+    assert size["assessed_band"] is None
 
 
 def test_duplicate_ids_from_different_files_are_reported(tmp_path):
@@ -298,6 +300,118 @@ def test_config_declared_groups_create_a_parent_level(tmp_path):
     assert by_id["capability:core-platform"].parent == "product:core"
     # deeper levels are untouched, so the chain still walks up to the product
     assert by_id["epic:billing/ui"].parent == "capability:billing"
+
+
+def test_config_can_authoritatively_reparent_groups_without_warning_noise(tmp_path):
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group
+
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "reconcile": {"group_parent_authority": "config"},
+        "group": [{
+            "id": "utility:cleanup", "title": "Utility · Cleanup",
+            "source": "spec/capability-taxonomy.md",
+            "contains": ["epic:cleanup/floor"],
+        }],
+    }))
+    scans = [("spec_tree", ScanResult(groups=[
+        Group(id="capability:cleanup", kind="capability", title="Cleanup"),
+        Group(id="epic:cleanup/floor", kind="epic", title="Floor",
+              parent="capability:cleanup"),
+    ]))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+    groups = {group.id: group for group in graph.groups}
+
+    assert groups["epic:cleanup/floor"].parent == "utility:cleanup"
+    assert groups["utility:cleanup"].meta["source"]["path"] == \
+        "spec/capability-taxonomy.md"
+    assert not any("re-parented" in warning for warning in graph.warnings)
+
+
+def test_config_authority_can_extend_a_scanned_group_as_a_parent(tmp_path):
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group
+
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "reconcile": {"group_parent_authority": "config"},
+        "group": [{
+            "id": "capability:perspective", "title": "Perspective",
+            "contains": ["subcapability:rulers", "subcapability:planes"],
+        }, {
+            "id": "subcapability:rulers", "title": "Rulers", "contains": [],
+        }, {
+            "id": "subcapability:planes", "title": "Planes", "contains": [],
+        }],
+    }))
+    scans = [("spec_tree", ScanResult(groups=[
+        Group(id="capability:perspective", kind="capability", title="Perspective",
+              meta={"source": {"adapter": "spec_tree", "path": "spec/perspective.md"}}),
+    ]))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+    groups = {group.id: group for group in graph.groups}
+
+    assert groups["capability:perspective"].meta["source"]["path"] == \
+        "spec/perspective.md"
+    assert groups["subcapability:rulers"].parent == "capability:perspective"
+    assert groups["subcapability:planes"].parent == "capability:perspective"
+    assert not any("collides" in warning for warning in graph.warnings)
+
+
+def test_config_can_retire_a_scanned_group_only_after_all_members_move(tmp_path):
+    """A legacy folder shell must not survive as an empty product root."""
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group, Item
+
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "reconcile": {
+            "group_parent_authority": "config",
+            "retire_empty_groups": ["capability:legacy"],
+        },
+        "group": [{
+            "id": "subject:product", "title": "Product",
+            "contains": ["epic:legacy/one"],
+        }],
+    }))
+    scans = [("spec_tree", ScanResult(
+        groups=[
+            Group(id="capability:legacy", kind="capability", title="Legacy"),
+            Group(id="epic:legacy/one", kind="epic", title="One",
+                  parent="capability:legacy"),
+        ],
+        items=[Item(id="story:one", title="One", group="epic:legacy/one")],
+    ))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+
+    assert "capability:legacy" not in {group.id for group in graph.groups}
+    assert next(group for group in graph.groups
+                if group.id == "epic:legacy/one").parent == "subject:product"
+    assert not any("retire" in warning for warning in graph.warnings)
+
+
+def test_config_refuses_to_retire_a_group_that_still_owns_work(tmp_path):
+    from vizzer.adapters import ScanResult
+    from vizzer.config import Config, DEFAULTS, deep_merge
+    from vizzer.model import Group, Item
+
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "reconcile": {"retire_empty_groups": ["capability:live"]},
+    }))
+    scans = [("spec_tree", ScanResult(
+        groups=[Group(id="capability:live", kind="capability", title="Live")],
+        items=[Item(id="story:live", title="Live", group="capability:live")],
+    ))]
+
+    graph = build_graph(cfg, tmp_path, scans)
+
+    assert "capability:live" in {group.id for group in graph.groups}
+    assert any("cannot retire nonempty group capability:live" in warning
+               for warning in graph.warnings)
 
 
 def test_config_declared_group_naming_an_unknown_child_warns(tmp_path):

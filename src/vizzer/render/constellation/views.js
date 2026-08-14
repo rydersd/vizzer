@@ -64,6 +64,16 @@ function renderStructure(entries){
       current=structureGroups.get(current).parent||'';
     }
   }
+  // Product foundations are structural contracts even when no current Story
+  // relation points at them. Omitting an unreferenced invariant makes the
+  // hierarchy look healthier precisely when its wiring is incomplete.
+  for(const group of structureGroups.values())if(group.kind==='foundation'){
+    let current=group.id,seen=new Set();
+    while(current&&structureGroups.has(current)&&!seen.has(current)){
+      includedGroups.add(current);seen.add(current);
+      current=structureGroups.get(current).parent||'';
+    }
+  }
   const descendants=new Map();
   const entriesUnder=id=>{
     if(descendants.has(id))return descendants.get(id);
@@ -80,7 +90,9 @@ function renderStructure(entries){
     const children=(structureChildren.get(group.id)||[]).filter(child=>includedGroups.has(child.id));
     const open=depth<2||searchTerms.length?' open':'';
     const progress=delivery.length?` · ${shipped}/${delivery.length} delivery shipped`:'';
-    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
+    const contract=group.p
+      ?`<div class="structurecontract">${group.summary?`<p>${esc(group.summary)}</p>`:''}${group.h&&!SERVED?`<a href="${esc(group.h)}">read contract ${icon('arrow-up-right')}</a>`:`<button type="button" data-open-group="${esc(group.id)}">read contract</button>`}</div>`:'';
+    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${contract}${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
   };
   const roots=[...includedGroups].map(id=>structureGroups.get(id)).filter(group=>
     group&&(!group.parent||!includedGroups.has(group.parent))).sort((a,b)=>a.title.localeCompare(b.title));
@@ -158,6 +170,14 @@ function bindInteractiveView(){
     applyViewState(button);
   }));
   viewPanel.querySelector('[data-question-metric]')?.addEventListener('click',()=>setQuestionFilter(true));
+  viewPanel.querySelectorAll('[data-open-group]').forEach(button=>button.addEventListener('click',async()=>{
+    button.disabled=true;
+    try{
+      const response=await fetch('/api/open/'+encodeURIComponent(button.dataset.openGroup),{method:'POST'});
+      if(!response.ok)throw new Error('open failed');
+      button.textContent='contract opened';
+    }catch(_){button.textContent='could not open';button.disabled=false;}
+  }));
 }
 function renderCurrentView(){
   if(currentView==='constellation'){viewPanel.hidden=true;return;}

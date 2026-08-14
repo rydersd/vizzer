@@ -84,7 +84,10 @@ def _declared_groups(cfg: Config):
             child_id for child_id in contains
             if isinstance(child_id, str) and child_id
         }))
-        declarations.append((group_id, title, child_ids))
+        source = entry.get("source")
+        if not isinstance(source, str) or not source:
+            source = None
+        declarations.append((group_id, title, child_ids, source))
     return sorted(declarations)
 
 
@@ -104,11 +107,12 @@ def _would_create_group_cycle(groups_by_id, child_id: str, parent_id: str) -> bo
 def _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
     declarations = _declared_groups(cfg)
     scanned_group_ids = set(groups_by_id)
+    config_owns_parents = cfg.get("reconcile.group_parent_authority", "") == "config"
 
     # Materialize every parent first so declarations can refer to one another
     # regardless of their order in the config file.
-    for group_id, title, _ in declarations:
-        if group_id in scanned_group_ids:
+    for group_id, title, _, source in declarations:
+        if group_id in scanned_group_ids and not config_owns_parents:
             warnings.add(
                 f"declared group {group_id} collides with a scanned group "
                 "(scanned group kept)"
@@ -119,9 +123,11 @@ def _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
                 kind=group_id.split(":", 1)[0],
                 title=title,
                 parent=None,
+                meta=({"source": {"adapter": "config", "path": source}}
+                      if source else {}),
             )
 
-    for parent_id, _, child_ids in declarations:
+    for parent_id, _, child_ids, _ in declarations:
         for child_id in child_ids:
             child_group = groups_by_id.get(child_id)
             child_item = items_by_id.get(child_id)
@@ -139,7 +145,8 @@ def _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
                         "cycle (re-parenting skipped)"
                     )
                 else:
-                    if previous_parent is not None and previous_parent != parent_id:
+                    if (previous_parent is not None and previous_parent != parent_id
+                            and not config_owns_parents):
                         warnings.add(
                             f"declared group {parent_id} re-parented group {child_id} "
                             f"from {previous_parent}"
@@ -154,6 +161,39 @@ def _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
                         f"from {previous_group}"
                     )
                 child_item.group = parent_id
+
+
+def _retire_empty_groups(cfg, groups_by_id, items_by_id, warnings) -> None:
+    """Remove explicitly retired storage shells only after config moves their work.
+
+    This is deliberately opt-in and fail-closed. A scanned directory group may
+    become structurally obsolete while its Epics and Stories retain stable
+    source paths; silently removing any group that still owns a child would
+    hide work, so that case remains visible and warns instead.
+    """
+    retired = cfg.get("reconcile.retire_empty_groups", [])
+    if not isinstance(retired, list):
+        return
+    for group_id in retired:
+        if group_id not in groups_by_id:
+            warnings.add(f"cannot retire unknown group {group_id}")
+            continue
+        child_groups = sorted(
+            group.id for group in groups_by_id.values()
+            if group.parent == group_id
+        )
+        child_items = sorted(
+            item.id for item in items_by_id.values()
+            if item.group == group_id
+        )
+        if child_groups or child_items:
+            members = child_groups + child_items
+            warnings.add(
+                f"cannot retire nonempty group {group_id}: owns "
+                + ", ".join(members)
+            )
+            continue
+        del groups_by_id[group_id]
 
 
 def build_graph(
@@ -270,6 +310,7 @@ def build_graph(
                 groups_by_id[group.id] = copy.deepcopy(group)
 
     _apply_declared_groups(cfg, groups_by_id, items_by_id, warnings)
+    _retire_empty_groups(cfg, groups_by_id, items_by_id, warnings)
 
     # codex-sequence-2026-08-08: nonblocking relations may target synthetic groups
     # such as foundation roots; hard prerequisites remain item-only.

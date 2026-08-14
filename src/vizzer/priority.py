@@ -21,9 +21,6 @@ from .model import Graph, Item
 
 
 _DEFAULT_ROLE_BIAS = {"regression": 80, "active": 50, "ready": 0}
-_DEFAULT_APPETITE_COST = {"small": 0, "medium": 20, "large": 50, "default": 25}
-
-
 def _string_list(value) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -345,9 +342,6 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
         downstream_cache[component_id] = reached
 
     role_bias = _int_map(cfg.get("priority.role_bias", {}), _DEFAULT_ROLE_BIAS)
-    appetite_cost = _int_map(
-        cfg.get("priority.appetite_cost", {}), _DEFAULT_APPETITE_COST
-    )
     eligible_roles = set(_string_list(
         cfg.get("priority.eligible_roles", ["ready", "active", "regression"])
     ))
@@ -400,14 +394,12 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
         course_order = ordered_targets[0][0] if ordered_targets else None
         if not reached:
             reasons.append("outside target dependency reach")
-        appetite = item.appetite if item.appetite in appetite_cost else "default"
         values = {
             "direct_target": direct_target,
             "target_dependents": len(dependent_targets),
             "critical_path_depth": max(0, depth),
             "milestone_member": int(item.id in incomplete_milestone_items),
             "role_bias": role_bias.get(role, 0),
-            "appetite_cost": appetite_cost.get(appetite, appetite_cost["default"]),
             "course_order": course_order,
         }
         score = (
@@ -416,7 +408,6 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             + values["critical_path_depth"] * 40
             + values["milestone_member"] * 100
             + values["role_bias"]
-            - values["appetite_cost"]
         )
         item.priority = {
             "eligible": not reasons,
@@ -426,7 +417,7 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             "target_items": sorted(reached),
             "rationale": (
                 f"{len(dependent_targets)} incomplete target dependent(s), "
-                f"depth {max(0, depth)}, role {role}, appetite {appetite}"
+                f"depth {max(0, depth)}, role {role}"
                 if not reasons else "; ".join(reasons)
             ),
         }
@@ -440,7 +431,6 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
         -item.priority["score"],
         -item.priority["components"]["target_dependents"],
         -item.priority["components"]["critical_path_depth"],
-        item.priority["components"]["appetite_cost"],
         item.id,
     ))
     raw_limit = cfg.get("priority.limit", 10)

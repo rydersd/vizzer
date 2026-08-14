@@ -118,14 +118,28 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}
-.caphead{font-size:12px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
-.caphead>span{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
+.caphead{font-size:12px;font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.caplabel{min-width:0;display:grid;gap:1px;color:var(--ink)}
+.caplabel>span{overflow-wrap:anywhere}
+.caplabel small{color:var(--mut);font:8px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
 .capbar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
 .capbar i{height:100%;background:var(--shipped)}
 .capbar b{height:100%;background:var(--buggap)}
+.railcapability{margin:0 0 5px;border:1px solid transparent;border-radius:9px;overflow:hidden}
+.railcapability[open]{border-color:var(--line);background:color-mix(in srgb,var(--panel) 76%,transparent)}
+.railcapability>summary{list-style:none;padding:7px 8px;cursor:pointer}
+.railcapability>summary::-webkit-details-marker{display:none}
+.railcapability>summary::before{content:'\25b8';float:left;width:14px;margin:1px 2px 0 -2px;color:var(--mut);font-size:10px;transition:transform .12s ease}
+.railcapability[open]>summary::before{transform:rotate(90deg)}
+.railcapability>summary .caphead,.railcapability>summary .capbar{margin-left:14px}
+.railcapabilitybody{display:grid;gap:1px;padding:0 5px 6px 18px;border-top:1px solid color-mix(in srgb,var(--line) 62%,transparent)}
+.railcapabilitybody .cap{padding:7px 6px}
+.railcapabilitybody .cap:first-child{margin-top:4px}
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
+@media (prefers-reduced-motion:reduce){.railcapability>summary::before{transition:none}}
 :root{--dossier-width:clamp(360px,36vw,560px)}
 #dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
@@ -142,6 +156,8 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #dossieridentity h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:8px}
 .dossierpills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
+.dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
+.dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
 #dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
 #dossierfooter{flex:none;min-width:0}
 #dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}
@@ -203,7 +219,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .viewhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.viewhead h1{font:700 22px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}.viewhead p{max-width:620px;color:var(--mut);font-size:12px}
 .viewgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.viewsection{margin:0 0 24px}.viewsection h2{font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0 0 9px}.viewsection h2 span{color:var(--ink)}
 .viewcard{position:relative;display:block;width:100%;min-height:76px;text-align:left;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--panel);color:var(--ink);cursor:pointer}.viewcard:hover,.viewcard:focus-visible{border-color:var(--accent);outline:none;transform:translateY(-1px)}.viewcard.blocked{border-color:var(--owner-override);padding-right:34px;box-shadow:inset 3px 0 var(--owner-override)}.viewcard.blocked::after{content:'\00d7';position:absolute;right:11px;top:8px;color:var(--owner-override);font:800 18px/1 ui-monospace,"SF Mono",Menlo,monospace}.viewcard b{display:block;font-size:13px;line-height:1.3}.viewcard small{display:block;color:var(--mut);font:10px/1.35 ui-monospace,"SF Mono",Menlo,monospace;margin-top:5px}.viewcard .viewflag{color:var(--owner-override);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-.structuregroup{margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 72%,transparent);overflow:hidden}.structuregroup>.structuregroup{margin-left:12px}.structuregroup>summary{list-style:none;cursor:pointer;padding:10px 12px;color:var(--ink)}.structuregroup>summary::-webkit-details-marker{display:none}.structuregroup>summary::before{content:'\25b8';display:inline-block;width:16px;color:var(--mut);font-size:11px;transition:transform .12s ease}.structuregroup[open]>summary::before{transform:rotate(90deg)}.structuregroup>summary>span{display:inline-flex;align-items:baseline;gap:8px}.structuregroup>summary b{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structuregroup>summary small{color:var(--mut);font:10px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structurebody{padding:0 10px 10px 12px}.structureitems{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin:0 0 4px 12px}.structuregroup.depth-0{margin-bottom:16px;border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}.structuregroup.depth-0>summary{padding:12px}.structuregroup.depth-0>summary b{font-size:14px}@media (prefers-reduced-motion:reduce){.structuregroup>summary::before{transition:none}}
+.structuregroup{margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 72%,transparent);overflow:hidden}.structuregroup>.structuregroup{margin-left:12px}.structuregroup>summary{list-style:none;cursor:pointer;padding:10px 12px;color:var(--ink)}.structuregroup>summary::-webkit-details-marker{display:none}.structuregroup>summary::before{content:'\25b8';display:inline-block;width:16px;color:var(--mut);font-size:11px;transition:transform .12s ease}.structuregroup[open]>summary::before{transform:rotate(90deg)}.structuregroup>summary>span{display:inline-flex;align-items:baseline;gap:8px}.structuregroup>summary b{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structuregroup>summary small{color:var(--mut);font:10px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structurebody{padding:0 10px 10px 12px}.structurecontract{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 8px 12px;padding:8px 10px;border-left:2px solid color-mix(in srgb,var(--accent) 42%,var(--line));background:color-mix(in srgb,var(--panel2) 84%,transparent)}.structurecontract p{max-width:70ch;margin:0;color:var(--mut);font:11px/1.45 var(--sans)}.structurecontract a,.structurecontract button{flex:0 0 auto;border:0;background:none;color:var(--accent);font:700 10px/1.4 ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer;text-decoration:none}.structurecontract button:disabled{cursor:default;opacity:.65}.structureitems{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin:0 0 4px 12px}.structuregroup.depth-0{margin-bottom:16px;border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}.structuregroup.depth-0>summary{padding:12px}.structuregroup.depth-0>summary b{font-size:14px}@media (prefers-reduced-motion:reduce){.structuregroup>summary::before{transition:none}}
 .viewcolumns{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-items:start}.viewcolumn{border:1px solid var(--line);border-radius:10px;padding:10px;background:color-mix(in srgb,var(--panel) 70%,transparent)}.viewcolumn h2{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace;margin-bottom:9px}.viewcolumn .viewcard+.viewcard{margin-top:7px}
 .metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel);cursor:pointer;color:var(--ink);text-align:left}.metric:hover,.metric:focus-visible{border-color:var(--accent);outline:none}.metric strong{display:block;font:700 28px/1 ui-monospace,"SF Mono",Menlo,monospace}.metric span{display:block;color:var(--mut);font-size:11px;margin-top:5px}
 .viewtable{width:100%;border-collapse:collapse;font-size:12px}.viewtable th{position:sticky;top:0;background:var(--bg2);color:var(--mut);font:700 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:8px;border-bottom:1px solid var(--line)}.viewtable td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}.viewtable button{border:0;background:none;color:var(--ink);text-align:left;cursor:pointer;padding:0;font:inherit}.viewtable button:hover{text-decoration:underline}.viewemptycopy{padding:32px;border:1px dashed var(--line);border-radius:10px;color:var(--mut);text-align:center}
@@ -229,7 +245,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 <canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
-  <div id="title"><b>project — constellation</b><small>v0.8.31</small></div>
+  <div id="title"><b>project — constellation</b><small>v0.8.33</small></div>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -293,7 +309,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 
 </script>
 <script>
-const DATA={"engineVersion":"0.8.31","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":""},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.33","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -379,7 +395,7 @@ const areaDefinitions=configuredAreas.length?configuredAreas:(discoveredProducts
 const hasAreaFacets=areaDefinitions.length>0;
 let areaMode=areaDefinitions[0]?.id||null;
 let areaFocus=null;
-let capFocus = null, sel = -1, hover = -1, questionOnly = false;
+let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
 const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
@@ -394,6 +410,16 @@ const matchesSearch = n => searchTerms.length===0 || (!n.foundation &&
 // camera centre: eases toward the centroid of whatever is visible
 let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
 const nodeHasOwnerQuestions = n => (n.oq||[]).length>0;
+const hierarchyGroups=new Map((DATA.groups||[]).map(group=>[group.id,group]));
+const nodeBelongsToGroup=(node,groupId)=>{
+  let current=node.group||'',seen=new Set();
+  while(current&&!seen.has(current)){
+    if(current===groupId)return true;
+    seen.add(current);
+    current=hierarchyGroups.get(current)?.parent||'';
+  }
+  return false;
+};
 const currentArea=()=>areaDefinitions.find(area=>area.id===areaMode)||areaDefinitions[0]||null;
 const nodeAreaValues=n=>{const area=currentArea();return area?(n.facets?.[area.facet]||[]):[];};
 const passesAreaFilters=n=>{
@@ -407,7 +433,8 @@ const passesSharedFilters = n => filt[n.g] && rfilt[relKey(n)]
   && (roleFocus==='all'||(n.role||'delivery')===roleFocus)
   && passesAreaFilters(n)
   && (!questionOnly || nodeHasOwnerQuestions(n));
-function visible(n){ return passesSharedFilters(n) && (!capFocus || n.c===capFocus); }
+const passesHierarchyFocus=n=>groupFocus?nodeBelongsToGroup(n,groupFocus):(!capFocus||n.c===capFocus);
+function visible(n){ return passesSharedFilters(n) && passesHierarchyFocus(n); }
 function retarget(){
   let sx=0, sy=0, sz=0, k=0;
   for (const n of DATA.nodes) if (visible(n)){ sx+=n.x; sy+=n.y; sz+=n.z; k++; }
@@ -567,6 +594,16 @@ function renderStructure(entries){
       current=structureGroups.get(current).parent||'';
     }
   }
+  // Product foundations are structural contracts even when no current Story
+  // relation points at them. Omitting an unreferenced invariant makes the
+  // hierarchy look healthier precisely when its wiring is incomplete.
+  for(const group of structureGroups.values())if(group.kind==='foundation'){
+    let current=group.id,seen=new Set();
+    while(current&&structureGroups.has(current)&&!seen.has(current)){
+      includedGroups.add(current);seen.add(current);
+      current=structureGroups.get(current).parent||'';
+    }
+  }
   const descendants=new Map();
   const entriesUnder=id=>{
     if(descendants.has(id))return descendants.get(id);
@@ -583,7 +620,9 @@ function renderStructure(entries){
     const children=(structureChildren.get(group.id)||[]).filter(child=>includedGroups.has(child.id));
     const open=depth<2||searchTerms.length?' open':'';
     const progress=delivery.length?` · ${shipped}/${delivery.length} delivery shipped`:'';
-    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
+    const contract=group.p
+      ?`<div class="structurecontract">${group.summary?`<p>${esc(group.summary)}</p>`:''}${group.h&&!SERVED?`<a href="${esc(group.h)}">read contract ${icon('arrow-up-right')}</a>`:`<button type="button" data-open-group="${esc(group.id)}">read contract</button>`}</div>`:'';
+    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${contract}${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
   };
   const roots=[...includedGroups].map(id=>structureGroups.get(id)).filter(group=>
     group&&(!group.parent||!includedGroups.has(group.parent))).sort((a,b)=>a.title.localeCompare(b.title));
@@ -661,6 +700,14 @@ function bindInteractiveView(){
     applyViewState(button);
   }));
   viewPanel.querySelector('[data-question-metric]')?.addEventListener('click',()=>setQuestionFilter(true));
+  viewPanel.querySelectorAll('[data-open-group]').forEach(button=>button.addEventListener('click',async()=>{
+    button.disabled=true;
+    try{
+      const response=await fetch('/api/open/'+encodeURIComponent(button.dataset.openGroup),{method:'POST'});
+      if(!response.ok)throw new Error('open failed');
+      button.textContent='contract opened';
+    }catch(_){button.textContent='could not open';button.disabled=false;}
+  }));
 }
 function renderCurrentView(){
   if(currentView==='constellation'){viewPanel.hidden=true;return;}
@@ -711,7 +758,7 @@ function updateVisibleCounts(){
   // Delivery health is intentionally scoped to delivery items. Catalog rows,
   // evidence ledgers, decisions, and references are useful context, not stories.
   const metricNodes=deliveryNodes.filter(n=>filt[n.g]&&rfilt[relKey(n)]&&passesAreaFilters(n)
-    &&(!questionOnly||nodeHasOwnerQuestions(n))&&(!capFocus||n.c===capFocus));
+    &&(!questionOnly||nodeHasOwnerQuestions(n))&&passesHierarchyFocus(n));
   const shipped=metricNodes.filter(n=>n.g==='shipped').length;
   const bugGaps=metricNodes.filter(n=>n.st==='bug-gap').length;
   const questionStories=metricNodes.filter(nodeHasOwnerQuestions).length;
@@ -894,12 +941,74 @@ for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['str
 chips.appendChild(lensSeg);
 // ---- rail ----
 const rail = document.getElementById('rail');
-function meterButton(key,label,matches,total,shipped,bugs,onSelect){
-  const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
-  d.innerHTML=`<span class="caphead">${esc(label)}<span>${shipped}/${total}</span></span>
+const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
+const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
+const capTail=id=>id.includes(':')?id.slice(id.indexOf(':')+1):id;
+function meterMarkup(label,total,shipped,bugs,kind=''){
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}</span></span><span class="capcount">${shipped}/${total}</span></span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
-  capabilityMeters.set(key,{element:d,label,matches,count:d.querySelector('.caphead>span'),shipped:d.querySelector('.capbar i'),bugs:d.querySelector('.capbar b')});
-  d.onclick=()=>onSelect(d);rail.appendChild(d);
+}
+function registerMeter(key,element,label,matches){
+  capabilityMeters.set(key,{element,label,matches,count:element.querySelector('.capcount'),shipped:element.querySelector('.capbar i'),bugs:element.querySelector('.capbar b')});
+}
+function meterButton(key,label,matches,total,shipped,bugs,onSelect,container=rail,kind=''){
+  const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
+  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind);
+  registerMeter(key,d,label,matches);
+  d.onclick=()=>onSelect(d);container.appendChild(d);
+  return d;
+}
+function syncRailSelection(active){
+  rail.querySelectorAll('.cap').forEach(button=>{
+    const selected=button===active&&Boolean(capFocus||groupFocus);
+    button.classList.toggle('on',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+}
+function selectHierarchy(button,capability,groupId=null){
+  const alreadySelected=capFocus===capability&&groupFocus===groupId;
+  capFocus=alreadySelected?null:capability;
+  groupFocus=alreadySelected?null:groupId;
+  syncRailSelection(button);
+  applyViewState(button);
+}
+function renderCapabilityAccordions(){
+  const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
+  const groups=DATA.groups||[];
+  const roots=new Map(groups.filter(group=>!group.parent).map(group=>[capTail(group.id),group]));
+  const orderedCaps=[...caps].sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total||a.localeCompare(b));
+  orderedCaps.forEach((capability,index)=>{
+    const root=roots.get(capability),summaryMatches=node=>node.c===capability;
+    const summaryNodes=deliveryNodes.filter(summaryMatches);
+    const summaryShipped=summaryNodes.filter(node=>node.g==='shipped').length;
+    const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
+    const details=document.createElement('details');details.className='railcapability';
+    if(capFocus===capability||(!capFocus&&index===0))details.open=true;
+    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' '),summaryNodes.length,summaryShipped,summaryBugs);
+    details.appendChild(summary);
+    registerMeter(`capability:${capability}`,summary,root?.title||capability,summaryMatches);
+    details.addEventListener('toggle',()=>{
+      if(!details.open)return;
+      rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});
+    });
+    const children=document.createElement('div');children.className='railcapabilitybody';
+    meterButton(`all:${capability}`,'All work',summaryMatches,summaryNodes.length,summaryShipped,summaryBugs,
+      button=>selectHierarchy(button,capability),children,'capability');
+    const kindOrder={capability:0,tool:1,subcapability:2,utility:3,assistance:4};
+    groups.filter(group=>group.parent===root?.id)
+      .map(group=>({group,matches:node=>nodeBelongsToGroup(node,group.id)}))
+      .map(entry=>({...entry,nodes:deliveryNodes.filter(entry.matches)}))
+      .filter(entry=>entry.nodes.length)
+      .sort((a,b)=>(kindOrder[a.group.kind]??9)-(kindOrder[b.group.kind]??9)||structuralTitle(a.group).localeCompare(structuralTitle(b.group)))
+      .forEach(({group,matches,nodes})=>{
+        const shipped=nodes.filter(node=>node.g==='shipped').length;
+        const bugs=nodes.filter(node=>node.st==='bug-gap').length;
+        const button=meterButton(group.id,structuralTitle(group),matches,nodes.length,shipped,bugs,
+          selected=>selectHierarchy(selected,capability,group.id),children,group.kind);
+        if(groupFocus===group.id){button.classList.add('on');button.setAttribute('aria-pressed','true');}
+      });
+    details.appendChild(children);rail.appendChild(details);
+  });
 }
 function renderRail(){
   rail.replaceChildren();capabilityMeters.clear();
@@ -926,15 +1035,7 @@ function renderRail(){
     }
     return;
   }
-  caps.sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total).forEach(c=>{
-    const v=DATA.caps[c], matches=n=>n.c===c;
-    const bg=deliveryNodes.filter(n=>matches(n)&&n.st==='bug-gap').length;
-    meterButton(c,c.replace(/-/g,' '),matches,v.total,v.shipped,bg,d=>{
-      capFocus=capFocus===c?null:c;
-      rail.querySelectorAll('.cap').forEach(x=>{x.classList.toggle('on',x===d&&Boolean(capFocus));x.setAttribute('aria-pressed',String(x===d&&Boolean(capFocus)));});
-      applyViewState(d);
-    });
-  });
+  renderCapabilityAccordions();
 }
 renderRail();
 updateViewStatus();
@@ -1372,13 +1473,17 @@ function openNode(i,{inPlace=false}={}){
     ?assessment.range.filter(Boolean).join('–'):'?';
   const dimensionText=assessment
     ?Object.entries(assessment.dimensions||{}).map(([name,value])=>`${name} ${value.band||'?'} (${value.provenance||'unknown'})`).join(' · '):'';
+  const burdenEstablished=assessment?assessment.burdenEstablished===true:false;
+  const deliverySizeText=!assessment?'':burdenEstablished
+    ?`${assessment.band||'unassessed'} · ${assessment.uncertainty||'U3'} · plausible ${assessedRange} · ${assessment.provenance||'unknown'}`
+    :`unassessed · authored-appetite proxy ${assessment.appetiteBand||'?'} · ${assessment.uncertainty||'U3'} · plausible ${assessedRange}`;
   const assessmentEvidence=assessment
     ?(assessment.evidence||[]).slice(0,4).join(' · '):'';
   const assessmentUnknowns=assessment
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}`;
+  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -1388,7 +1493,7 @@ function openNode(i,{inPlace=false}={}){
       <span>visual</span><b>${Math.round(progressOpacity(n)*100)}% fill progress · ${esc(relKey(n))} ${Math.round(versionOpacity(n)*100)}% version ring</b>
       <span>touched</span><b>${touched}</b>
       ${trail?`<span>progress</span><b>${esc(trail)}</b>`:''}
-      ${!assessment?'':`<span>delivery size</span><b>${esc(assessment.band||'unassessed')} · ${esc(assessment.uncertainty||'U3')} · plausible ${esc(assessedRange)} · ${esc(assessment.provenance||'unknown')}</b>
+      ${!assessment?'':`<span>delivery size</span><b>${esc(deliverySizeText)}</b>
       <span>authored appetite</span><b>${esc(assessment.rawAuthoredAppetite||'—')}</b>
       <span>burden</span><b>${esc(dimensionText||'dimensions not established')}</b>
       <span>structural impact</span><b>${assessment.targetReach||0} target(s) · ${assessment.immediateUnlock||0} immediate unlock(s) · ${assessment.frontierReach||0} frontier · ${esc(assessment.impactProvenance||'unknown')}</b>
@@ -1437,6 +1542,54 @@ function openNode(i,{inPlace=false}={}){
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
   document.documentElement.classList.add('dossier-open');
 }
+
+// ---- keyboard traversal over authoritative activity records ----
+// DATA.work is serialized for deterministic artifacts, not presentation order.
+// Derive both lanes from timestamps and deduplicate by Story before navigating.
+function workNavigationIndexes(lane){
+  const latestByNode=new Map();
+  for(const work of DATA.work||[]){
+    if(!work||!Number.isInteger(work.n)||work.n<0||work.n>=DATA.nodes.length)continue;
+    if(lane==='active'&&!freshWork(work))continue;
+    const stamp=Date.parse(work.updatedAt);
+    if(!Number.isFinite(stamp))continue;
+    const previous=latestByNode.get(work.n);
+    if(previous==null||stamp>previous)latestByNode.set(work.n,stamp);
+  }
+  return [...latestByNode.entries()]
+    .sort((a,b)=>b[1]-a[1]||DATA.nodes[a[0]].id.localeCompare(DATA.nodes[b[0]].id))
+    .map(([index])=>index);
+}
+function workNavigationHint(){
+  const active=workNavigationIndexes('active').length,recent=workNavigationIndexes('recent').length;
+  const lanes=[];
+  if(active)lanes.push(`<span><kbd>←</kbd><kbd>→</kbd> active ${active}</span>`);
+  if(recent)lanes.push(`<span><kbd>↑</kbd><kbd>↓</kbd> recent ${recent}</span>`);
+  dossier.setAttribute('aria-keyshortcuts',lanes.length?'ArrowLeft ArrowRight ArrowUp ArrowDown':'');
+  return lanes.length?`<p class="dossierkeyboard" aria-label="Keyboard Story navigation">${lanes.join('')}</p>`:'';
+}
+function navigateWorkLane(lane,step){
+  const indexes=workNavigationIndexes(lane);
+  if(!indexes.length)return false;
+  const position=indexes.indexOf(sel);
+  const target=position<0?indexes[0]:indexes[(position+step+indexes.length)%indexes.length];
+  openNode(target);
+  return true;
+}
+function arrowKeyOwnedByControl(target){
+  if(!target)return false;
+  const tag=String(target.tagName||'').toUpperCase();
+  const role=target.getAttribute?.('role')||'';
+  return target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(tag)||
+    ['separator','slider','spinbutton','listbox','menu','menubar','tree','grid'].includes(role);
+}
+addEventListener('keydown',event=>{
+  const route={ArrowLeft:['active',-1],ArrowRight:['active',1],ArrowUp:['recent',-1],ArrowDown:['recent',1]}[event.key];
+  if(!route||event.defaultPrevented||event.isComposing||event.altKey||event.ctrlKey||
+      event.metaKey||event.shiftKey||!dossier.classList.contains('open')||
+      arrowKeyOwnedByControl(event.target))return;
+  if(navigateWorkLane(route[0],route[1]))event.preventDefault();
+});
 
 // ---- 3d render ----
 const bgcv=document.getElementById('bgcv'), bgctx=bgcv.getContext('2d');
