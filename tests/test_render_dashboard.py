@@ -197,7 +197,7 @@ def test_dashboard_renders_persisted_priority_rationale(tmp_path):
     assert "score 940" in section and "depth 1" in section
 
 
-def test_dashboard_with_assessment_withholds_unassessed_priority_recommendation(tmp_path):
+def test_dashboard_keeps_structural_priority_separate_from_unassessed_portfolio(tmp_path):
     graph = _graph()
     graph.priority = {
         "target_tier": "configured-items",
@@ -214,7 +214,11 @@ def test_dashboard_with_assessment_withholds_unassessed_priority_recommendation(
 
     out = render_all(graph, _cfg(), tmp_path, only={"dashboard"})["dashboard.md"]
 
-    assert "## Recommended uptake" not in out
+    recommendation = out.split("## Recommended uptake", 1)[1].split("\n## ", 1)[0]
+    assert "story:ready" not in recommendation  # Links use the stable source slug.
+    assert "ready" in recommendation
+    assert "1 otherwise eligible item(s) remain unsized" in out
+    assert "excluded from small/anchor lanes" in out
 
 
 def test_dashboard_renders_separate_assessed_portfolio_lanes(tmp_path):
