@@ -189,3 +189,18 @@ pointer-transparent, 360x320, 320x260, and 280x240 routes passed, the drawer
 resized from 461 to 557 px and persisted, six-answer failure/retry state held,
 the discussion queue remained intercepted and non-mutating, and pan, pinch,
 orbit, cursor, and explicit-close selection behavior all passed.
+
+The clean-source post-push rerun then found the center exception itself was too
+wide: a nearby glyph only 1.217957 px from the pointer stole an exact
+front-painted endpoint. Version 0.8.36 contracts the semantic center to at most
+0.75 px (and 15% of the X radius) and adds a synthetic endpoint whose competing
+center is 1.204 px away. This follow-up stays open until the real served graph
+and both Python suites pass again; the 0.8.35 receipt above is retained rather
+than silently rewritten.
+
+That 0.8.36 closure gate passed: Python 3.12 reported 364/364 and Python 3.9
+reported 362 passed with two expected version-gated skips. The real served
+IllTool graph then passed 39 semantic centers, 39 physical center clicks, 430
+question-X points with 20 legitimate paint occlusions, and 23 post-answer
+points with zero ownership failures. The wide, contracted, drawer, draft,
+failure/retry, discussion, camera, cursor, and explicit-close checks also passed.
