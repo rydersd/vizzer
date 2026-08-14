@@ -108,6 +108,17 @@ DATA.nodes[${neighbor}].oq=originalQuestions;})()`);
 out.crossingQuestionXCenterTarget={selected:ev(`sel`),hover:ev(`crossingQuestionHover`),
   expected:exact,title:ev(`DATA.nodes[sel].t`)};
 ev(`(()=>{sel=-1;dossier.classList.remove('open');
+const originalQuestions=DATA.nodes[${neighbor}].oq;DATA.nodes[${neighbor}].oq=[0];
+P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=-20;P[${exact}].on=true;P[${exact}].s=4;
+P[${neighbor}].x=307.7;P[${neighbor}].y=300.3;P[${neighbor}].d=20;P[${neighbor}].on=true;P[${neighbor}].s=4;
+cv.dispatch('pointermove',{clientX:304,clientY:304,pointerId:29});
+globalThis.paintedEndpointHover=hover;
+cv.dispatch('pointerdown',{clientX:304,clientY:304,pointerId:29});
+cv.dispatch('pointerup',{clientX:304,clientY:304,pointerId:29});
+DATA.nodes[${neighbor}].oq=originalQuestions;})()`);
+out.paintedQuestionXEndpointTarget={selected:ev(`sel`),hover:ev(`paintedEndpointHover`),
+  expected:exact,title:ev(`DATA.nodes[sel].t`)};
+ev(`(()=>{sel=-1;dossier.classList.remove('open');
 P[${exact}].x=300;P[${exact}].y=300;P[${exact}].d=20;P[${exact}].on=true;P[${exact}].s=2;
 P[${neighbor}].x=307;P[${neighbor}].y=300;P[${neighbor}].d=-20;P[${neighbor}].on=true;P[${neighbor}].s=2;
 cv.dispatch('pointermove',{clientX:300,clientY:300,pointerId:28});
@@ -1263,7 +1274,8 @@ def test_constellation_pulses_only_actionable_owner_questions(tmp_path):
     assert "const nodePaintRadius = i =>" in html
     assert "function questionGlyphPaintDistance(i,x,y)" in html
     assert "glyphPaintDistance<=2.5" in html
-    assert "hover=questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best)" in html
+    assert "hover=questionCenterBest>=0?questionCenterBest:" in html
+    assert "(questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best))" in html
     assert ".62+.12*activeWave" in html and ".82+.16*activeWave" in html
 
 
@@ -1698,6 +1710,9 @@ def test_constellation_exact_target_cards_and_lifecycle_hold_execute(tmp_path):
         "selected": 1, "expected": 1, "title": "B",
     }
     assert state["crossingQuestionXCenterTarget"] == {
+        "selected": 1, "hover": 1, "expected": 1, "title": "B",
+    }
+    assert state["paintedQuestionXEndpointTarget"] == {
         "selected": 1, "hover": 1, "expected": 1, "title": "B",
     }
     assert state["advertisedHoverTarget"] == {

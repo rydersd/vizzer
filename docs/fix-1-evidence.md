@@ -163,3 +163,29 @@ discussion lanes and their Markdown session handoff landed in 0.8.28. The respon
 session-persistent drawer and live-width canvas boundary landed in 0.8.29. The pinned,
 vertically composed action footer landed in 0.8.30. Owner confirmation
 in the real front tab remains the closure condition.
+
+## 2026-08-14 overlapping question-X ownership follow-up (0.8.35)
+
+The real IllTool graph exposed a counterexample that the synthetic center-click
+coverage did not: a visible endpoint of Story 302's question X was stolen by
+Story 511's overlapping X because the old ranking treated stroke misses within
+0.05 px as equal and then preferred the nearer center. At the failing point,
+the intended front-painted stroke miss was approximately `4e-14` px with a
+6.095592 px center distance; the competing stroke miss was 0.014754 px with a
+5.213973 px center distance. Center proximity was therefore overriding visible
+paint ownership.
+
+The 0.8.35 hit rule preserves a small deliberate center core, then ranks by
+materially closest painted X stroke and actual front-most/later painter order.
+The synthetic `paintedQuestionXEndpointTarget` regression keeps an underneath X
+center closer to the pointer while requiring the visible front-painted endpoint
+to retain hover and click ownership.
+
+The non-mutating browser smoke against the real served IllTool 0.8.35 graph
+passed: 40 semantic center cases and 40 physical center clicks had zero failures;
+451 question-X samples had 17 legitimate paint occlusions and zero ownership
+failures; 23 post-answer cases had zero failures. The decorative ring remained
+pointer-transparent, 360x320, 320x260, and 280x240 routes passed, the drawer
+resized from 461 to 557 px and persisted, six-answer failure/retry state held,
+the discussion queue remained intercepted and non-mutating, and pan, pinch,
+orbit, cursor, and explicit-close selection behavior all passed.

@@ -197,8 +197,18 @@ try{
           paintPosition.get(candidate)>paintPosition.get(index)&&questionGlyphPaintDistance(candidate,x,y)<=2.5);
         if(occluder!=null){covered++;continue;}
         updatePointerState(x,y);cases++;
-        if(hover!==index)failures.push({index,hover,x,y,title:DATA.nodes[index].t,
-          hoverTitle:hover<0?null:DATA.nodes[hover].t,distance:Math.hypot(P[index].x-x,P[index].y-y)});
+        if(hover!==index){
+          const contenders=order.filter(candidate=>ownerQuestions(candidate).length&&
+            questionGlyphPaintDistance(candidate,x,y)<=2.5).map(candidate=>({candidate,
+              paintDistance:questionGlyphPaintDistance(candidate,x,y),
+              centerDistance:Math.hypot(P[candidate].x-x,P[candidate].y-y),depth:P[candidate].d}));
+          failures.push({index,hover,x,y,title:DATA.nodes[index].t,
+            hoverTitle:hover<0?null:DATA.nodes[hover].t,distance:Math.hypot(P[index].x-x,P[index].y-y),
+            targetPaintDistance:questionGlyphPaintDistance(index,x,y),targetRadius:questionGlyphRadius(index),
+            hoverDistance:hover<0?null:Math.hypot(P[hover].x-x,P[hover].y-y),
+            hoverPaintRadius:hover<0?null:nodePaintRadius(hover),
+            hoverQuestions:hover<0?null:ownerQuestions(hover).length,contenders});
+        }
       }
     }
     return{cases,covered,failures:failures.slice(0,24)};
