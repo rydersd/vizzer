@@ -53,6 +53,11 @@ def test_loopback_developer_queries_drill_from_capability_to_object_neighborhood
         assert {entry["id"] for entry in capability["objects"]} == {
             "story:canvas-core", "story:snap-to-grid",
         }
+        assert all(
+            entry["detail"]["id"] == entry["id"]
+            for entry in capability["objects"]
+            if not entry.get("boundaryOnly")
+        )
 
         status, neighborhood = _get(
             connection,
@@ -63,6 +68,8 @@ def test_loopback_developer_queries_drill_from_capability_to_object_neighborhood
         assert {entry["id"] for entry in neighborhood["objects"]} == {
             "story:canvas-core", "story:snap-to-grid",
         }
+        assert all(entry["detail"]["id"] == entry["id"]
+                   for entry in neighborhood["objects"])
         assert neighborhood["relations"][0]["kind"] == "depends-on"
 
         status, rejected = _get(

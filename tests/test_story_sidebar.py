@@ -3,6 +3,7 @@ from pathlib import Path
 from vizzer.model import Item
 from vizzer.story_sidebar import (
     canonical_story_sections, extract_story_sidebar_sections, object_detail_provider,
+    object_detail_providers,
 )
 
 
@@ -54,3 +55,19 @@ def test_gherkin_is_acceptance_fallback():
     assert canonical_story_sections("```gherkin\nGiven a ready service\n```") == {
         "acceptance": "Given a ready service"
     }
+
+
+def test_detail_identity_changes_with_authored_sections(tmp_path):
+    story = tmp_path / "stories/check.md"
+    story.parent.mkdir()
+    story.write_text("## Definition of done\n- First check.\n", encoding="utf-8")
+    item = Item(
+        id="story:check", title="Check",
+        source={"adapter": "docs", "path": "stories/check.md"},
+    )
+    _provide, identify = object_detail_providers(tmp_path)
+    before = identify(item)
+
+    story.write_text("## Definition of done\n- Revised check.\n", encoding="utf-8")
+    _provide, identify = object_detail_providers(tmp_path)
+    assert identify(item) != before

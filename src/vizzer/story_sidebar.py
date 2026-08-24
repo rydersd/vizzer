@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .model import Item
-from .object_detail import object_detail_for
+from .object_detail import object_detail_for, object_detail_identity
 
 
 _HEADING_RE = re.compile(r"^(#{2,6})\s+(.+?)\s*#*\s*$", re.MULTILINE)
@@ -75,7 +75,9 @@ def canonical_story_sections(markdown: str) -> dict[str, str]:
     }
 
 
-def object_detail_provider(root: Path) -> Callable[[Item], dict[str, Any]]:
+def object_detail_providers(
+    root: Path,
+) -> tuple[Callable[[Item], dict[str, Any]], Callable[[Item], str]]:
     """Build a safe, cached provider shared by every renderer in one pass.
 
     Non-Markdown and non-project-relative sources still receive the normalized
@@ -84,7 +86,7 @@ def object_detail_provider(root: Path) -> Callable[[Item], dict[str, Any]]:
     project_root = root.resolve()
     cache: dict[str, dict[str, str]] = {}
 
-    def provide(item: Item) -> dict[str, Any]:
+    def sections_for(item: Item) -> dict[str, str]:
         raw_path = item.source.get("path", "")
         sections: dict[str, str] = {}
         if isinstance(raw_path, str) and raw_path:
@@ -102,6 +104,18 @@ def object_detail_provider(root: Path) -> Callable[[Item], dict[str, Any]]:
                 sections = cache[cache_key]
             except (OSError, UnicodeError, ValueError):
                 sections = {}
-        return object_detail_for(item, sections=sections)
+        return sections
 
+    def provide(item: Item) -> dict[str, Any]:
+        return object_detail_for(item, sections=sections_for(item))
+
+    def identify(item: Item) -> str:
+        return object_detail_identity(item, sections=sections_for(item))
+
+    return provide, identify
+
+
+def object_detail_provider(root: Path) -> Callable[[Item], dict[str, Any]]:
+    """Return the eager provider for renderers that materialize every dossier."""
+    provide, _identify = object_detail_providers(root)
     return provide

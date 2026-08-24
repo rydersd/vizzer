@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 
 import pytest
@@ -7,7 +8,9 @@ from vizzer.config import Config
 from vizzer.developer_graph import (
     DeveloperGraphError,
     from_work_graph,
+    index_from_work_graph,
     validate_developer_graph,
+    validate_developer_graph_index,
 )
 from vizzer.model import ActiveWork, Graph, Group, Item, Relation
 from vizzer.object_detail import object_detail_for
@@ -85,6 +88,57 @@ def test_adapter_injects_shared_detail_without_renderer_source_parsing():
 
     value = from_work_graph(neutral_graph(), config(), detail_provider=details)
     assert value["objects"][0]["detail"]["sections"]["definitionOfDone"]
+
+
+def test_compact_index_defers_object_detail_without_weakening_public_contract():
+    calls = []
+
+    def details(item):
+        calls.append(item.id)
+        return object_detail_for(item)
+
+    value, resolve = index_from_work_graph(
+        neutral_graph(), config(), detail_provider=details,
+        detail_identity_provider=lambda item: hashlib.sha256(
+            item.id.encode("utf-8")
+        ).hexdigest(),
+    )
+    assert calls == []
+    assert all("detail" not in entry for entry in value["objects"])
+    validate_developer_graph_index(value)
+    with pytest.raises(DeveloperGraphError, match="detail is missing"):
+        validate_developer_graph(value)
+    assert resolve("service:catalog")["id"] == "service:catalog"
+    assert calls == ["service:catalog"]
+
+
+def test_complete_graph_rejects_cross_wired_detail_identity():
+    value = from_work_graph(neutral_graph(), config())
+    value["objects"][0]["detail"]["id"] = value["objects"][1]["id"]
+    with pytest.raises(DeveloperGraphError, match="detail id does not match"):
+        validate_developer_graph(value)
+
+
+def test_compact_snapshot_tracks_lazy_detail_identity_and_rejects_weak_markers():
+    graph = neutral_graph()
+    first, _ = index_from_work_graph(graph, config())
+    changed, _ = index_from_work_graph(
+        graph,
+        config(),
+        detail_provider=object_detail_for,
+        detail_identity_provider=lambda item: hashlib.sha256(
+            f"changed:{item.id}".encode("utf-8")
+        ).hexdigest(),
+    )
+    assert first["detailSnapshot"] != changed["detailSnapshot"]
+
+    with pytest.raises(DeveloperGraphError, match="identity is invalid"):
+        index_from_work_graph(
+            graph,
+            config(),
+            detail_provider=object_detail_for,
+            detail_identity_provider=lambda _item: "not-a-digest",
+        )
 
 
 def test_contract_rejects_dangling_duplicate_cycle_and_count_lies():

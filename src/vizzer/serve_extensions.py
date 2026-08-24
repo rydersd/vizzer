@@ -14,7 +14,7 @@ from urllib.parse import SplitResult, parse_qs, unquote
 
 from . import __version__, process_render_id
 from .config import Config
-from .developer_graph import DeveloperGraphError, from_work_graph
+from .developer_graph import DeveloperGraphError, index_from_work_graph
 from .developer_query import DeveloperGraphIndex, DeveloperQueryError
 from .developer_views import (
     DeveloperViewError, delete_view, load_view_store, upsert_view,
@@ -24,7 +24,7 @@ from .review_contract import ReviewContractError
 from .review_service import (
     ReviewServiceError, append_review_event, resolve_evidence, review_state,
 )
-from .story_sidebar import object_detail_provider
+from .story_sidebar import object_detail_providers
 
 
 @dataclass(frozen=True)
@@ -146,12 +146,20 @@ class DeveloperFlowHttpExtension:
         key = (ctx.root.resolve().as_posix(), id(ctx.graph))
         with self._lock:
             if self._key != key or self._index is None:
-                projected = from_work_graph(
+                detail_provider, detail_identity_provider = object_detail_providers(
+                    ctx.root
+                )
+                projected, indexed_detail_provider = index_from_work_graph(
                     ctx.graph,
                     ctx.cfg,
-                    detail_provider=object_detail_provider(ctx.root),
+                    detail_provider=detail_provider,
+                    detail_identity_provider=detail_identity_provider,
                 )
-                self._index = DeveloperGraphIndex(projected, assume_validated=True)
+                self._index = DeveloperGraphIndex(
+                    projected,
+                    assume_validated=True,
+                    detail_provider=indexed_detail_provider,
+                )
                 self._key = key
             return self._index
 

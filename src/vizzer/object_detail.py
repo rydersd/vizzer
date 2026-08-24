@@ -6,6 +6,7 @@ not infer repository layout, Markdown headings, language, or framework.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from typing import Any
 
@@ -70,6 +71,39 @@ def object_detail_for(item: Item, *, sections: dict[str, object] | None = None) 
     }
     validate_object_detail(detail)
     return detail
+
+
+def object_detail_identity(
+    item: Item, *, sections: dict[str, object] | None = None,
+) -> str:
+    """Fingerprint every semantic input without retaining a dossier dictionary."""
+    supplied = sections or {}
+    payload = [
+        SCHEMA,
+        item.id,
+        item.title,
+        item.one_liner or "",
+        item.status,
+        [
+            [name, supplied[name]]
+            for name in SECTION_NAMES
+            if supplied.get(name) is not None
+        ],
+        item.role,
+        item.release or "",
+        item.appetite or "",
+        item.tags,
+        item.flags,
+        item.facets,
+        item.deps,
+        [[relation.kind, relation.target] for relation in item.relations],
+        item.source.get("adapter", ""),
+        item.source.get("path", ""),
+    ]
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def validate_object_detail(value: object) -> None:

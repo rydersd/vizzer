@@ -1,13 +1,20 @@
 """Portable developer-object graph and normalized work-graph adapter."""
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from collections.abc import Callable
 from typing import Any
 
 from .config import Config
 from .model import Graph, Item
-from .object_detail import SCHEMA as DETAIL_SCHEMA, object_detail_for, validate_object_detail
+from .object_detail import (
+    SCHEMA as DETAIL_SCHEMA,
+    object_detail_for,
+    object_detail_identity,
+    validate_object_detail,
+)
 
 
 SCHEMA = 1
@@ -17,6 +24,9 @@ MAX_GROUPS = 20_000
 MAX_TEXT = 4_000
 MAX_DETAIL_BYTES = 64 * 1024
 DetailProvider = Callable[[Item], dict[str, Any]]
+DetailIdentityProvider = Callable[[Item], str]
+IndexedDetailProvider = Callable[[str], dict[str, Any]]
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 
 class DeveloperGraphError(ValueError):
@@ -77,19 +87,18 @@ def _status_role(cfg: Config, item: Item, failure_state: str = "") -> str:
     return {"done": "shipped", "active": "active"}.get(role, "ready")
 
 
-def from_work_graph(
+def _default_detail_identity(item: Item) -> str:
+    return object_detail_identity(item)
+
+
+def _project_work_graph(
     graph: Graph,
     cfg: Config,
     *,
-    detail_provider: DetailProvider | None = None,
+    detail_provider: DetailProvider,
+    detail_identity_provider: DetailIdentityProvider | None,
+    include_object_details: bool,
 ) -> dict[str, Any]:
-    """Project the normalized work graph without recognizing project paths.
-
-    Source-code, runtime, SaaS, database, and work adapters can emit this same
-    contract.  Rich detail is injected through ``detail_provider`` so this
-    adapter never parses a repository-specific source format.
-    """
-    provide_detail = detail_provider or object_detail_for
     groups = []
     group_ids = {group.id for group in graph.groups}
     for group in sorted(graph.groups, key=lambda entry: entry.id):
@@ -115,11 +124,12 @@ def from_work_graph(
             latest_work[work.story_id] = work
 
     objects = []
+    detail_snapshot = hashlib.sha256() if not include_object_details else None
     for item in sorted(graph.items, key=lambda entry: entry.id):
         locator = _text(item.source.get("path"), limit=1_000)
         work = latest_work.get(item.id)
         failure_state = work.state if work is not None else ""
-        details = {
+        details = ({
             "role": _text(item.role, limit=120),
             "release": _text(item.release, limit=120),
             "appetite": _text(item.appetite, limit=120),
@@ -130,7 +140,7 @@ def from_work_graph(
                 _text(name, limit=120): [_text(entry, limit=500) for entry in values[:64]]
                 for name, values in list(item.facets.items())[:64]
             },
-        }
+        } if include_object_details else {})
         if work is not None:
             details["activeWork"] = {
                 "actor": _text(work.agent, limit=160),
@@ -141,8 +151,6 @@ def from_work_graph(
                 "updatedAt": _text(work.updated_at, limit=80),
                 "blockedBy": [_text(value, limit=500) for value in work.blocked_by[:64]],
             }
-        detail = provide_detail(item)
-        validate_object_detail(detail)
         value = {
             "id": item.id,
             "kind": _kind(item.id),
@@ -155,9 +163,24 @@ def from_work_graph(
                 _text(item.source.get("adapter"), limit=120) or "work-graph",
                 locator=locator,
             ),
-            "details": details,
-            "detail": detail,
         }
+        if details:
+            value["details"] = details
+        if include_object_details:
+            detail = detail_provider(item)
+            validate_object_detail(detail)
+            value["detail"] = detail
+        else:
+            assert detail_snapshot is not None and detail_identity_provider is not None
+            identity = detail_identity_provider(item)
+            if not isinstance(identity, str) or not _SHA256_RE.fullmatch(identity):
+                raise DeveloperGraphError(
+                    f"developer object detail identity is invalid: {item.id}"
+                )
+            detail_snapshot.update(item.id.encode("utf-8"))
+            detail_snapshot.update(b"\0")
+            detail_snapshot.update(identity.encode("ascii"))
+            detail_snapshot.update(b"\n")
         if failure_state in {"blocked", "error", "failed"}:
             value["failure"] = {
                 "message": _text(work.checkpoint, limit=1_000)
@@ -237,8 +260,82 @@ def from_work_graph(
         },
         "provenance": _provenance("normalized-work-graph"),
     }
-    validate_developer_graph(result)
+    if detail_snapshot is not None:
+        result["detailSnapshot"] = detail_snapshot.hexdigest()
+    if include_object_details:
+        validate_developer_graph(result)
+    else:
+        validate_developer_graph_index(result)
     return result
+
+
+def from_work_graph(
+    graph: Graph,
+    cfg: Config,
+    *,
+    detail_provider: DetailProvider | None = None,
+) -> dict[str, Any]:
+    """Project the complete portable developer-graph contract.
+
+    Source-code, runtime, SaaS, database, and work adapters can emit this same
+    contract. Rich detail is injected through ``detail_provider`` so this
+    adapter never parses a repository-specific source format.
+    """
+    return _project_work_graph(
+        graph,
+        cfg,
+        detail_provider=detail_provider or object_detail_for,
+        detail_identity_provider=None,
+        include_object_details=True,
+    )
+
+
+def index_from_work_graph(
+    graph: Graph,
+    cfg: Config,
+    *,
+    detail_provider: DetailProvider | None = None,
+    detail_identity_provider: DetailIdentityProvider | None = None,
+) -> tuple[dict[str, Any], IndexedDetailProvider]:
+    """Project a validated compact index and a lazy object-detail resolver.
+
+    The complete public contract still requires ``detail`` on every object.
+    Large served graphs do not need 100,000 duplicate dossier dictionaries in
+    memory, however: queries materialize and validate detail only for the
+    bounded page they return.
+    """
+    provide_detail = detail_provider or object_detail_for
+    if detail_provider is not None and detail_identity_provider is None:
+        raise DeveloperGraphError(
+            "a compact custom detail provider needs a matching identity provider"
+        )
+    identify_detail = detail_identity_provider or _default_detail_identity
+    items = {item.id: item for item in graph.items}
+    projected = _project_work_graph(
+        graph,
+        cfg,
+        detail_provider=provide_detail,
+        detail_identity_provider=identify_detail,
+        include_object_details=False,
+    )
+
+    def resolve(object_id: str) -> dict[str, Any]:
+        try:
+            item = items[object_id]
+        except KeyError:
+            raise DeveloperGraphError(
+                f"unknown developer object detail: {object_id}"
+            ) from None
+        detail = provide_detail(item)
+        try:
+            validate_object_detail(detail)
+        except ValueError as exc:
+            raise DeveloperGraphError(
+                f"invalid developer graph object detail: {object_id}"
+            ) from exc
+        return detail
+
+    return projected, resolve
 
 
 def _bounded_text(value: object, subject: str, maximum: int) -> str:
@@ -258,7 +355,7 @@ def _validate_provenance(value: object, subject: str) -> None:
         _bounded_text(value["locator"], f"{subject} provenance locator", 1_000)
 
 
-def validate_developer_graph(value: object) -> None:
+def _validate_developer_graph(value: object, *, require_object_details: bool) -> None:
     """Fail closed on identity, hierarchy, endpoints, provenance, and bounds."""
     if not isinstance(value, dict) or value.get("schema") != SCHEMA:
         raise DeveloperGraphError("developer graph schema must be 1")
@@ -314,6 +411,10 @@ def validate_developer_graph(value: object) -> None:
                 raise DeveloperGraphError(
                     f"invalid developer graph group detail: {group['id']}"
                 ) from exc
+            if group["detail"]["id"] != group["id"]:
+                raise DeveloperGraphError(
+                    f"developer graph group detail id does not match: {group['id']}"
+                )
         if "details" in group:
             try:
                 encoded_group_details = json.dumps(
@@ -353,10 +454,21 @@ def validate_developer_graph(value: object) -> None:
         if group_id is not None and group_id not in group_ids:
             raise DeveloperGraphError(f"unknown developer graph object group: {group_id}")
         _validate_provenance(obj.get("provenance"), "developer graph object")
-        try:
-            validate_object_detail(obj.get("detail"))
-        except ValueError as exc:
-            raise DeveloperGraphError(f"invalid developer graph object detail: {obj['id']}") from exc
+        if "detail" in obj:
+            try:
+                validate_object_detail(obj["detail"])
+            except ValueError as exc:
+                raise DeveloperGraphError(
+                    f"invalid developer graph object detail: {obj['id']}"
+                ) from exc
+            if obj["detail"]["id"] != obj["id"]:
+                raise DeveloperGraphError(
+                    f"developer graph object detail id does not match: {obj['id']}"
+                )
+        elif require_object_details:
+            raise DeveloperGraphError(
+                f"developer graph object detail is missing: {obj['id']}"
+            )
         failure = obj.get("failure")
         if failure is not None:
             if not isinstance(failure, dict):
@@ -364,13 +476,24 @@ def validate_developer_graph(value: object) -> None:
             for field, maximum in (("message", 1_000), ("source", 160), ("at", 80)):
                 _bounded_text(failure.get(field), f"developer graph failure {field}", maximum)
             _validate_provenance(failure.get("provenance"), "developer graph failure")
-        try:
-            encoded_details = json.dumps(obj.get("details"), ensure_ascii=False,
-                                         sort_keys=True, separators=(",", ":")).encode("utf-8")
-        except (TypeError, ValueError) as exc:
-            raise DeveloperGraphError("developer graph object details must be JSON data") from exc
-        if len(encoded_details) > MAX_DETAIL_BYTES:
-            raise DeveloperGraphError("developer graph object details exceed the byte limit")
+        if "details" in obj:
+            try:
+                encoded_details = json.dumps(
+                    obj["details"], ensure_ascii=False,
+                    sort_keys=True, separators=(",", ":"),
+                ).encode("utf-8")
+            except (TypeError, ValueError) as exc:
+                raise DeveloperGraphError(
+                    "developer graph object details must be JSON data"
+                ) from exc
+            if len(encoded_details) > MAX_DETAIL_BYTES:
+                raise DeveloperGraphError(
+                    "developer graph object details exceed the byte limit"
+                )
+        elif require_object_details:
+            raise DeveloperGraphError(
+                f"developer graph object details are missing: {obj['id']}"
+            )
 
     for relation in relations:
         if relation.get("source") not in object_ids or relation.get("target") not in object_ids:
@@ -403,4 +526,20 @@ def validate_developer_graph(value: object) -> None:
             or not 1 <= boundary_cap <= 1_000):
         raise DeveloperGraphError(
             "developer graph boundaryMaterializationCap must be 1 through 1000"
+        )
+
+
+def validate_developer_graph(value: object) -> None:
+    """Validate the complete public graph contract, including every dossier."""
+    _validate_developer_graph(value, require_object_details=True)
+
+
+def validate_developer_graph_index(value: object) -> None:
+    """Validate the compact internal index; query responses hydrate dossiers."""
+    _validate_developer_graph(value, require_object_details=False)
+    if (not isinstance(value, dict)
+            or not isinstance(value.get("detailSnapshot"), str)
+            or not _SHA256_RE.fullmatch(value["detailSnapshot"])):
+        raise DeveloperGraphError(
+            "developer graph index needs a lowercase SHA-256 detail snapshot"
         )

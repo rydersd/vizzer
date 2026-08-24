@@ -7,10 +7,10 @@ from importlib.resources import files
 from pathlib import Path
 
 from ..config import Config
-from ..developer_graph import from_work_graph
+from ..developer_graph import from_work_graph, index_from_work_graph
 from ..developer_query import DeveloperGraphIndex
 from ..model import Graph
-from ..story_sidebar import object_detail_provider
+from ..story_sidebar import object_detail_provider, object_detail_providers
 
 
 ASSET_DIR = "developer_flow_assets"
@@ -39,19 +39,33 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     """Return nothing when disabled without touching optional asset resources."""
     if not bool(cfg.get("developer_flow.enabled", False)):
         return {}
-    full_data = from_work_graph(
-        graph, cfg, detail_provider=object_detail_provider(root)
-    )
     restart_stable_origin = bool(cfg.get("server.port", 0))
-    cap = full_data["limits"]["materializationCap"]
-    if len(full_data["objects"]) > cap:
-        initial = DeveloperGraphIndex(full_data, assume_validated=True).query({
+    configured_cap = cfg.get("developer_flow.materialization_cap", 1_200)
+    cap = (
+        configured_cap
+        if isinstance(configured_cap, int) and not isinstance(configured_cap, bool)
+        else 1_200
+    )
+    cap = max(100, min(cap, 5_000))
+    if len(graph.items) > cap:
+        detail_provider, detail_identity_provider = object_detail_providers(root)
+        indexed_data, indexed_detail_provider = index_from_work_graph(
+            graph,
+            cfg,
+            detail_provider=detail_provider,
+            detail_identity_provider=detail_identity_provider,
+        )
+        initial = DeveloperGraphIndex(
+            indexed_data,
+            assume_validated=True,
+            detail_provider=indexed_detail_provider,
+        ).query({
             "schema": 1,
             "scope": {"kind": "overview"},
             "page": {"limit": cap},
         })
         data = {
-            **full_data,
+            **indexed_data,
             "objects": initial["objects"],
             "relations": initial["relations"],
             "groups": initial["groups"],
@@ -66,6 +80,9 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             },
         }
     else:
+        full_data = from_work_graph(
+            graph, cfg, detail_provider=object_detail_provider(root)
+        )
         data = {
             **full_data,
             "summaries": [],

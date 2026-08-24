@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections import Counter, defaultdict
+import threading
+from collections import Counter, OrderedDict, defaultdict
+from collections.abc import Callable
 from typing import Any
 
-from .developer_graph import validate_developer_graph
+from .developer_graph import validate_developer_graph, validate_developer_graph_index
+from .object_detail import validate_object_detail
 
 
 QUERY_SCHEMA = 1
@@ -25,6 +28,8 @@ PRIMARY_OBJECT_BUDGET = 2 * 1024 * 1024
 BOUNDARY_OBJECT_BUDGET = 512 * 1024
 RELATION_BUDGET = 1024 * 1024
 MAX_BOUNDARY_OBJECTS = 250
+DETAIL_CACHE_LIMIT = MAX_LIMIT
+DETAIL_CACHE_BYTES = 8 * 1024 * 1024
 
 
 class DeveloperQueryError(ValueError):
@@ -66,13 +71,28 @@ def _fingerprint(value: object) -> str:
 class DeveloperGraphIndex:
     """Immutable in-memory index over one validated developer-graph snapshot."""
 
-    def __init__(self, graph: dict[str, Any], *, assume_validated: bool = False):
+    def __init__(
+        self,
+        graph: dict[str, Any],
+        *,
+        assume_validated: bool = False,
+        detail_provider: Callable[[str], dict[str, Any]] | None = None,
+    ):
         # Public/adaptor input remains fail-closed.  The normalized work-graph
         # adapter validates immediately before returning, so its two internal
         # consumers can avoid a second O(objects + relations) validation pass.
         if not assume_validated:
-            validate_developer_graph(graph)
+            if detail_provider is None:
+                validate_developer_graph(graph)
+            else:
+                validate_developer_graph_index(graph)
         self.graph = graph
+        self._detail_provider = detail_provider
+        self._detail_cache: OrderedDict[
+            str, tuple[dict[str, Any], int]
+        ] = OrderedDict()
+        self._detail_cache_bytes = 0
+        self._detail_lock = threading.Lock()
         self.objects = {entry["id"]: entry for entry in graph["objects"]}
         self.groups = {entry["id"]: entry for entry in graph["groups"]}
         self.relations = list(graph["relations"])
@@ -93,9 +113,60 @@ class DeveloperGraphIndex:
                 self.incident[relation["target"]].append(relation)
         for values in self.incident.values():
             values.sort(key=lambda entry: entry["id"])
-        # Stable ids do not imply stable content. Status, detail, title, or
-        # provenance changes must invalidate cursors from the old snapshot.
+        # Stable ids do not imply stable content. Status, title, provenance,
+        # grouping, relationships, or the compact graph's detailSnapshot must
+        # invalidate old cursors even though lazy dossiers are not retained.
         self.fingerprint = _fingerprint(graph)
+
+    def _object_record(self, object_id: str) -> dict[str, Any]:
+        """Hydrate one complete public object while bounding retained detail."""
+        source = self.objects[object_id]
+        if "detail" in source:
+            return source
+        if self._detail_provider is None:
+            raise DeveloperQueryError(
+                f"developer object detail is unavailable: {object_id}"
+            )
+        with self._detail_lock:
+            cached = self._detail_cache.get(object_id)
+            if cached is not None:
+                self._detail_cache.move_to_end(object_id)
+                return cached[0]
+            detail = self._detail_provider(object_id)
+            try:
+                validate_object_detail(detail)
+            except ValueError as exc:
+                raise DeveloperQueryError(
+                    f"invalid developer object detail: {object_id}"
+                ) from exc
+            if detail["id"] != object_id:
+                raise DeveloperQueryError(
+                    f"developer object detail id does not match: {object_id}"
+                )
+            core = detail["core"]
+            details = {
+                "role": core["role"],
+                "release": core["release"],
+                "appetite": core["appetite"],
+                "sourceLocator": detail["provenance"]["locator"],
+                "tags": list(core["tags"]),
+                "flags": list(core["flags"]),
+                "facets": dict(core["facets"]),
+            }
+            active_work = source.get("details", {}).get("activeWork")
+            if active_work is not None:
+                details["activeWork"] = active_work
+            record = {**source, "details": details, "detail": detail}
+            encoded_size = len(_canonical(record))
+            self._detail_cache[object_id] = (record, encoded_size)
+            self._detail_cache_bytes += encoded_size
+            while (len(self._detail_cache) > DETAIL_CACHE_LIMIT
+                   or self._detail_cache_bytes > DETAIL_CACHE_BYTES):
+                _evicted_id, (_evicted, evicted_size) = self._detail_cache.popitem(
+                    last=False
+                )
+                self._detail_cache_bytes -= evicted_size
+            return record
 
     def _descendant_groups(self, root: str) -> set[str]:
         found, pending = set(), [root]
@@ -216,10 +287,10 @@ class DeveloperGraphIndex:
     ) -> tuple[list[str], int]:
         """Bound a page by records and encoded bytes, never merely by count."""
         selected = list(prefix or [])
-        used = sum(len(_canonical(self.objects[object_id])) for object_id in selected)
+        used = sum(len(_canonical(self._object_record(object_id))) for object_id in selected)
         consumed = 0
         for object_id in candidates[offset:offset + max(0, limit - len(selected))]:
-            size = len(_canonical(self.objects[object_id]))
+            size = len(_canonical(self._object_record(object_id)))
             if consumed and used + size > PRIMARY_OBJECT_BUDGET:
                 break
             if not consumed and used + size > PRIMARY_OBJECT_BUDGET:
@@ -435,7 +506,7 @@ class DeveloperGraphIndex:
             "schema": RESPONSE_SCHEMA,
             "snapshot": self.fingerprint,
             "scope": scope,
-            "objects": [self.objects[object_id] for object_id in page_ids] + [
+            "objects": [self._object_record(object_id) for object_id in page_ids] + [
                 self._boundary_object(object_id) for object_id in boundary_ids
             ],
             "relations": relevant_relations,

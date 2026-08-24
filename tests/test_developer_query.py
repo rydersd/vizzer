@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 
 import pytest
@@ -6,9 +7,10 @@ import pytest
 from vizzer.developer_query import (
     MAX_RESPONSE_BYTES, DeveloperGraphIndex, DeveloperQueryError,
 )
-from vizzer.developer_graph import from_work_graph
+from vizzer.developer_graph import from_work_graph, index_from_work_graph
 from vizzer.config import Config
 from vizzer.model import Graph, Group, Item
+from vizzer.object_detail import object_detail_for
 
 from test_developer_flow import config, fixture
 
@@ -34,6 +36,46 @@ def test_overview_is_aggregate_only_and_group_query_is_bounded():
     assert len(page["objects"]) <= 1
     assert page["page"]["returned"] == len(page["objects"])
     assert all(entry["id"] != "" for entry in page["groups"])
+
+
+def test_compact_index_hydrates_only_the_bounded_query_page():
+    calls = []
+
+    def details(item):
+        calls.append(item.id)
+        return object_detail_for(item)
+
+    projected, provider = index_from_work_graph(
+        fixture(), config(True), detail_provider=details,
+        detail_identity_provider=lambda item: hashlib.sha256(
+            item.id.encode("utf-8")
+        ).hexdigest(),
+    )
+    index = DeveloperGraphIndex(projected, detail_provider=provider)
+    overview = index.query({"schema": 1, "scope": {"kind": "overview"}})
+    assert calls == []
+
+    group_id = overview["summaries"][0]["groupId"]
+    page = index.query({
+        "schema": 1,
+        "scope": {"kind": "group", "id": group_id},
+        "page": {"limit": 2},
+    })
+    primary = [entry for entry in page["objects"] if not entry.get("boundaryOnly")]
+    assert calls == [entry["id"] for entry in primary]
+    assert all(entry["detail"]["id"] == entry["id"] for entry in primary)
+
+
+def test_lazy_detail_provider_cannot_cross_wire_object_identity():
+    projected, _ = index_from_work_graph(fixture(), config(True))
+    wrong = object_detail_for(fixture().items[-1])
+    index = DeveloperGraphIndex(projected, detail_provider=lambda _object_id: wrong)
+    focus = projected["objects"][0]["id"]
+    with pytest.raises(DeveloperQueryError, match="detail id does not match"):
+        index.query({
+            "schema": 1,
+            "scope": {"kind": "object", "id": focus},
+        })
 
 
 def test_object_query_returns_only_focus_and_one_hop_with_relation_labels():
@@ -196,6 +238,7 @@ def test_cursor_is_bound_to_snapshot_and_exact_query():
 
     mutated = copy.deepcopy(graph)
     mutated["objects"][0]["id"] += "-changed"
+    mutated["objects"][0]["detail"]["id"] = mutated["objects"][0]["id"]
     for relation in mutated["relations"]:
         if relation["source"] == graph["objects"][0]["id"]:
             relation["source"] = mutated["objects"][0]["id"]

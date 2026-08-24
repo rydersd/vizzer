@@ -49,3 +49,25 @@ still too high to claim comfortable Salesforce-scale startup. G-002 remains open
 index proves lower cold-start time and memory across process restarts. A corpus whose old and new
 canonical fingerprints differ, a malformed adapter graph accepted through the default constructor,
 or a served response exceeding its existing byte/card caps would falsify this result.
+
+## 2026-08-24 lazy-detail follow-up
+
+Fresh measurement on `codex/view-annotations-risk-remediation`, based on upstream
+`83c66ffe4019b91eeedecfbb9c43ae9f34abfb7a` with the lazy-detail candidate dirty, separated the
+cost instead of attributing the whole process to “the index”:
+
+| Stage | Wall time | Maximum RSS |
+|---|---:|---:|
+| Source `Graph` only | 2.247 s | 251,543,552 bytes |
+| Eager complete projection | 20.485 s | 721,453,056 bytes |
+| Eager projection + in-memory index | 28.264 s | 728,612,864 bytes |
+| Identity-bound lazy-detail index + overview + 600-card group query | 12.270 s | 528,154,624 bytes |
+
+The candidate removes about 200 MB of peak memory and 56% of the measured startup/query time by
+retaining compact card/search records and materializing full shared dossiers only for the bounded
+page returned to the client. It also binds dossier identity to the requested object and retains an
+8 MiB / 5,000-entry LRU detail cache. The compact snapshot includes every lazy dossier's semantic
+identity, so authored detail changes still invalidate old cursors. This is meaningful progress, not
+completion: the normalized source
+`Graph` remains a 251 MB floor and the compact projection is still rebuilt after every process
+restart. A persisted, fingerprint-bound query store remains the next scale boundary.

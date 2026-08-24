@@ -1,11 +1,13 @@
+import hashlib
 import json
 import time
 from pathlib import Path
 
 from vizzer.config import Config
-from vizzer.developer_graph import from_work_graph
+from vizzer.developer_graph import from_work_graph, index_from_work_graph
 from vizzer.developer_query import MAX_RESPONSE_BYTES, DeveloperGraphIndex
 from vizzer.model import Graph, Group, Item
+from vizzer.object_detail import object_detail_for
 from vizzer.render import developer_flow
 
 
@@ -84,9 +86,23 @@ def test_25k_enterprise_slice_is_bounded_and_discloses_omitted_objects():
         },
     })
     started = time.monotonic()
-    data = from_work_graph(large_graph(25_000, group_count=10), cfg)
-    index = DeveloperGraphIndex(data)
+    detail_calls = []
+
+    def details(item):
+        detail_calls.append(item.id)
+        return object_detail_for(item)
+
+    data, detail_provider = index_from_work_graph(
+        large_graph(25_000, group_count=10), cfg, detail_provider=details,
+        detail_identity_provider=lambda item: hashlib.sha256(
+            item.id.encode("utf-8")
+        ).hexdigest(),
+    )
+    index = DeveloperGraphIndex(
+        data, assume_validated=True, detail_provider=detail_provider,
+    )
     overview = index.query({"schema": 1, "scope": {"kind": "overview"}})
+    assert detail_calls == []
     group = index.query({
         "schema": 1,
         "scope": {"kind": "group", "id": overview["summaries"][0]["groupId"]},
@@ -100,6 +116,7 @@ def test_25k_enterprise_slice_is_bounded_and_discloses_omitted_objects():
     assert data["limits"]["sourceObjectCount"] == 25_000
     assert group["page"]["matched"] == 2_500
     assert group["page"]["primaryReturned"] == 600
+    assert len(detail_calls) == group["page"]["primaryReturned"]
     assert group["page"]["nextCursor"]
     assert group["page"]["encodedBytes"] == len(encoded) <= MAX_RESPONSE_BYTES
     assert elapsed < 25.0, f"25k normalization + indexing + query took {elapsed:.2f}s"

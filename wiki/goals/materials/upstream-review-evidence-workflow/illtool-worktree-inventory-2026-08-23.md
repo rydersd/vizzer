@@ -72,3 +72,22 @@ instead of assuming the first inventory remained current:
 This closes the first pass's explicit follow-up. The conclusion would be wrong if the live
 review-capture lane added a generic engine module after `a23cccc29b18`; re-run this comparison if
 that HEAD changes before merge.
+
+## Goal-continuation recheck — 2026-08-24
+
+After upstream `main` advanced to `83c66ffe4019b91eeedecfbb9c43ae9f34abfb7a`, the thirteen
+owner-named paths were resolved again from disk:
+
+- `illtool-standalone` is live at `claude/drawing-assist-spec@504219216ed8` and dirty with 20 tracked
+  paths plus two untracked stories. Its changes are active IllTool product/spec and generated-view
+  work, not a second generic Vizzer engine; this audit did not modify them.
+- `illtool-standalone-w2b-components@252592c02802`,
+  `illtool-standalone-w2b-panels@b2ff30312dd4`, and
+  `illtool-standalone-w2b-spine@b53c7d8ceecd` remain live, registered, and clean.
+- `align`, `fpsbug`, `objectlock`, `prefs`, and `strokelabels` remain absent.
+- `curvebounds`, `pr810`, and `review-capture` remain non-repository historical directories;
+  `selgate` remains a source-free tombstone.
+
+This recheck changes no migration disposition. It would be falsified by unique generic engine source
+inside a newly restored path or by a later IllTool branch adding a project-neutral module that is
+not represented in the upstream migration matrix.

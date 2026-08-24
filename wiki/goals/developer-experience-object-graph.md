@@ -1,9 +1,9 @@
 # G-002 — Developer-experience object graph
 
-> Status: implemented and merged to upstream `main`; performance follow-up retained
+> Status: implemented v1 and merged to upstream `main`; enterprise-scale follow-up active
 > Ambition: ambitious
 > Created: 2026-08-23
-> Updated: 2026-08-23
+> Updated: 2026-08-24
 
 ## Owner thought
 
@@ -176,6 +176,7 @@ filtering, and detail concepts.
 - [SVG export presentation parity review](materials/developer-experience-object-graph/svg-export-parity-review-2026-08-24.md)
 - [Compound routing and icon delivery review](materials/developer-experience-object-graph/compound-routing-icon-delivery-review-2026-08-24.md)
 - [Responsive dossier and low-detail review](materials/developer-experience-object-graph/responsive-dossier-and-lod-review-2026-08-24.md)
+- [Scale and continuity ledger](materials/developer-experience-object-graph/scale-continuity-2026-08-24.md)
 - [Readable story-neighborhood screenshot](materials/developer-experience-object-graph/upstream-neutral-story-neighborhood.jpg)
 - [Full-width IllTool capability overview](materials/developer-experience-object-graph/illtool-capability-overview-full-width-2026-08-23.jpg)
 - [Full-width Drawing story and shared detail](materials/developer-experience-object-graph/illtool-drawing-story-detail-full-width-2026-08-23.jpg)
