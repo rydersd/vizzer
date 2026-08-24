@@ -40,3 +40,35 @@ IllTool `main`; the detached `pr810` and `review-capture` remnants are historica
 that need targeted comparison. This conclusion is wrong if a relevant untracked file sits outside
 the scanned Vizzer, spec-ops, review, capture, and test patterns; the next pass must compare the
 named capture artifacts and branch histories directly rather than trusting filenames.
+
+## Publication revalidation
+
+A second read-only scan after the upstream branch was pushed re-resolved every owner-named path
+instead of assuming the first inventory remained current:
+
+- `illtool-standalone` had advanced to `claude/review-shots-0823@a23cccc29b18`. Its three new
+  commits add review screenshots, archive records, and an IllTool screenshot-attachment script.
+  They are the live review-capture ledger lane explicitly excluded by G-001; they do not add a new
+  generic Vizzer engine contract. A file-by-file comparison of its dirty upstream Vizzer checkout
+  against `codex/developer-flow-upstream@95ff95b` found the shared review adapter and Markdown
+  parser identical, while the isolated branch contains the later source-section, owner-lineage,
+  descriptor-walk, render-identity, Developer Flow, and evidence-display hardening.
+- `illtool-standalone-w2b-components@252592c02802`,
+  `illtool-standalone-w2b-panels@b2ff30312dd4`, and
+  `illtool-standalone-w2b-spine@b53c7d8ceecd` remain live and clean. Their relevant branch deltas
+  are generated graph/view refreshes or feature-specific CI selectors, not a distinct Vizzer
+  review implementation.
+- `curvebounds`, `pr810`, and `review-capture` remain broken-link historical directories. Targeted
+  reads covered the DoD test extractor, review-sheet/image/launch/archive modules, the blank-capture
+  task, and `ReviewWindowCaptureContracts.swift`. Their reusable invariants are represented by
+  source-fingerprinted DoD sections, bounded evidence validation, separate machine/owner events,
+  and adapter-owned capture/execution. Their test-name grammar, app-library moves, process launch,
+  accessibility ids, pixel-surface expectations, and fixture lifecycle are host policy and stay
+  out of core.
+- `align`, `fpsbug`, `objectlock`, `prefs`, and `strokelabels` no longer exist at their named paths;
+  `selgate` remains a source-free tombstone. Their earlier inspected state is preserved above, so
+  disappearance is not misreported as new evidence.
+
+This closes the first pass's explicit follow-up. The conclusion would be wrong if the live
+review-capture lane added a generic engine module after `a23cccc29b18`; re-run this comparison if
+that HEAD changes before merge.

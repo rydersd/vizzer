@@ -58,21 +58,21 @@ project vocabulary, while preserving the larger generic agent-to-owner review go
   explicit 18-unit parallel lanes/24-unit node clearance; 126 focused tests and full-size browser
   receipts cover the revised geometry.
 - Final post-geometry Python audit: 488 passed, 2 skipped in 83.04 seconds.
+- Fixed route-label occlusion in both the live canvas and SVG export, including wide-label export
+  bounds. Final settled audit: 489 passed, 2 skipped; pushed `95ff95b`.
+- Revalidated every owner-named IllTool path against its current on-disk state. No newer generic
+  engine seam was found; the only new relevant commits belong to the excluded review-capture lane.
 
 ## Now
 
-Finish the publication and IllTool re-vendor gate. The migration matrix classifies every audited
-family as ported or deliberately excluded; the remaining material risk is Developer Flow
-cold-start/memory at the 100,000-object safety ceiling.
+G-001 is complete on the pushed upstream review branch. Keep G-002's measured 100k cold-start/RSS
+limit visible rather than turning a correctness ceiling into an enterprise-performance claim.
 
 ## Next
 
-1. Run the complete suite against the settled post-geometry render identity and inspect the diff.
-2. Commit and push the review branch with `--force-with-lease` because it was rebased onto main.
-3. Re-vendor that exact upstream revision into IllTool, enable the optional add-on, refresh, and
-   prove `:8477` exposes Views → Developer Flow plus the direct URL.
-4. Keep the 100k persisted/incremental-index work as a named performance follow-up rather than
-   smuggling it into a completion claim.
+1. Repository owner decides when/how to merge `codex/developer-flow-upstream` into `main`.
+2. If G-002 resumes, design persisted/incremental indexes and adapter-side aggregation against an
+   explicit startup/RSS budget before making an enterprise-performance claim.
 
 ## Open questions
 

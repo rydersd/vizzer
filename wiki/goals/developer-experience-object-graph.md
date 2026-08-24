@@ -1,6 +1,6 @@
 # G-002 — Developer-experience object graph
 
-> Status: implementation complete on review branch; publication pending
+> Status: implemented and pushed on review branch; performance follow-up retained
 > Ambition: ambitious
 > Created: 2026-08-23
 > Updated: 2026-08-23
@@ -91,9 +91,9 @@ filtering, and detail concepts.
 - [React Flow optional-bundle evaluation](materials/developer-experience-object-graph/react-flow-evaluation-2026-08-23.md)
 - [IllTool prototype findings and browser receipts](materials/developer-experience-object-graph/illtool-prototype-findings-2026-08-23.md)
 - [Upstream project-neutral verification](materials/developer-experience-object-graph/upstream-verification-2026-08-23.md)
-- [Readable story-neighborhood screenshot](materials/developer-experience-object-graph/upstream-neutral-story-neighborhood.png)
-- [Full-width IllTool capability overview](materials/developer-experience-object-graph/illtool-capability-overview-full-width-2026-08-23.png)
-- [Full-width Drawing story and shared detail](materials/developer-experience-object-graph/illtool-drawing-story-detail-full-width-2026-08-23.png)
-- [Unclipped capability frame at review scale](materials/developer-experience-object-graph/illtool-capability-frame-unclipped-2026-08-23.png)
-- [Rounded, equally spaced dependency routes](materials/developer-experience-object-graph/illtool-rounded-equidistant-routes-2026-08-23.png)
+- [Readable story-neighborhood screenshot](materials/developer-experience-object-graph/upstream-neutral-story-neighborhood.jpg)
+- [Full-width IllTool capability overview](materials/developer-experience-object-graph/illtool-capability-overview-full-width-2026-08-23.jpg)
+- [Full-width Drawing story and shared detail](materials/developer-experience-object-graph/illtool-drawing-story-detail-full-width-2026-08-23.jpg)
+- [Unclipped capability frame at review scale](materials/developer-experience-object-graph/illtool-capability-frame-unclipped-2026-08-23.jpg)
+- [Rounded, equally spaced dependency routes](materials/developer-experience-object-graph/illtool-rounded-equidistant-routes-2026-08-23.jpg)
 - [Exported routed SVG](materials/developer-experience-object-graph/upstream-neutral-commerce-component.svg)

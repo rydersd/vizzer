@@ -21,7 +21,7 @@
 - The optional bundle is offline and disabled by default in an installed project. Core rendering
   returns before reading React/ELK assets when disabled.
 
-![Selected failure and its functional neighborhood](illtool-story-neighborhood-failure.png)
+![Selected failure and its functional neighborhood](illtool-story-neighborhood-failure.jpg)
 
 This screenshot is provenance-bearing rather than decorative: the selected story's failure strip
 and dossier cite the actual agent, timestamp, message, and `active-work` source. The relationship
@@ -34,7 +34,7 @@ The same prototype added Roadmap scope by release column and capability, plus De
 and Last modified order. Filter ids survive a reload in the hash. `Last modified` reads normalized
 `last_touched`; missing evidence says `unknown` and sorts last.
 
-![Drawing v1 Roadmap ordered by observed recency](illtool-roadmap-drawing-v1-last-modified.png)
+![Drawing v1 Roadmap ordered by observed recency](illtool-roadmap-drawing-v1-last-modified.jpg)
 
 ## Scale receipt and honest limit
 

@@ -35,17 +35,17 @@
 
 ## Browser receipts
 
-![Neutral story functional neighborhood and shared detail](upstream-neutral-story-neighborhood.png)
+![Neutral story functional neighborhood and shared detail](upstream-neutral-story-neighborhood.jpg)
 
-![IllTool capability overview at full browser width](illtool-capability-overview-full-width-2026-08-23.png)
+![IllTool capability overview at full browser width](illtool-capability-overview-full-width-2026-08-23.jpg)
 
-![Drawing story with the shared detail panel at full browser width](illtool-drawing-story-detail-full-width-2026-08-23.png)
+![Drawing story with the shared detail panel at full browser width](illtool-drawing-story-detail-full-width-2026-08-23.jpg)
 
-![Component capability frame with its full wrapped title](illtool-capability-frame-unclipped-2026-08-23.png)
+![Component capability frame with its full wrapped title](illtool-capability-frame-unclipped-2026-08-23.jpg)
 
-![Rounded dependency routes at full browser width](illtool-rounded-equidistant-routes-2026-08-23.png)
+![Rounded dependency routes at full browser width](illtool-rounded-equidistant-routes-2026-08-23.jpg)
 
-![Opaque relationship labels above dependency routes](illtool-edge-label-occlusion-2026-08-23.png)
+![Opaque relationship labels above dependency routes](illtool-edge-label-occlusion-2026-08-23.jpg)
 
 The browser saved and restored a named “Commerce component map”, copied a URL-encoded story view,
 and exported [`upstream-neutral-commerce-component.svg`](upstream-neutral-commerce-component.svg).

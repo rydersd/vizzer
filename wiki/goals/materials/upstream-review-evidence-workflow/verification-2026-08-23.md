@@ -43,7 +43,7 @@ The generated constellation was served on loopback and exercised in the in-app b
 10. Markdown criteria must occur in the authored Definition of Done/acceptance-test section, not
     merely somewhere else in the source file.
 
-![Full-width served review evidence](served-review-evidence-full-width-2026-08-23.png)
+![Full-width served review evidence](served-review-evidence-full-width-2026-08-23.jpg)
 
 The browser target fixture captured during the same verification is
 [`tests/fixtures/review_web/status.jpg`](../../../../tests/fixtures/review_web/status.jpg).

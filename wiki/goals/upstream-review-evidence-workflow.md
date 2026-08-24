@@ -1,6 +1,6 @@
 # G-001 — Upstream the generic review and evidence workflow
 
-> Status: active — generic review loop complete; broader fork migration audit ongoing
+> Status: complete on pushed upstream review branch
 > Ambition: large
 > Created: 2026-08-23
 > Updated: 2026-08-23
@@ -63,6 +63,7 @@ acceptance loop:
 - [Adversarial review of the service and owner UI, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-service-ui-2026-08-23.md)
 - [Final reusable-fork adversarial review, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-final-migration-2026-08-23.md)
 - [Service, fixture, and browser verification, 2026-08-23](materials/upstream-review-evidence-workflow/verification-2026-08-23.md)
+- [Requirement-by-requirement completion audit, 2026-08-23](materials/upstream-review-evidence-workflow/completion-audit-2026-08-23.md)
 - [Project-agnostic review workflow contract](../../docs/review-workflows.md)
 
 ## Progress log
@@ -108,3 +109,11 @@ acceptance loop:
 - 2026-08-23 — Final combined suite: 488 passed, 2 skipped. Frontend build and production audit,
   Python wheel/sdist, deterministic zipapp, compile, archive-integrity, diff, and project-identity
   leakage checks passed before publication.
+- 2026-08-23 — Revalidated every owner-named IllTool path after the live worktree set changed. The
+  only newer relevant lane is the explicitly excluded review-screenshot/archive work; surviving
+  Wave 2b trees contain generated snapshots rather than another review engine. Pushed the combined
+  upstream branch through `95ff95b` and began a requirement-by-requirement completion audit.
+- 2026-08-23 — Completed the fresh neutral web/local served exercise, security/authority audit,
+  offline no-dependency wheel install, reproducible zipapp check, optional frontend build/audit,
+  and full test rerun. The completion matrix records direct evidence and falsifiers for every G-001
+  success condition; G-001 is complete on the pushed review branch without claiming a merge.
