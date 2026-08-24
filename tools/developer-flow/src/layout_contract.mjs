@@ -1,22 +1,69 @@
+import {groupSymbolName,objectSymbolName} from './vizzer_sf_symbols.mjs';
+
 const EDGE_LANE_GAP = 18;
 const EDGE_NODE_GAP = 24;
 
-function lineCount(value, maxCharacters) {
-  const words=String(value||'').trim().split(/\s+/).filter(Boolean);
-  if(!words.length)return 1;
-  let lines=1,used=0;
-  for(const word of words){
-    if(!used){
-      lines+=Math.floor((word.length-1)/maxCharacters);
-      used=((word.length-1)%maxCharacters)+1;
-    }else if(used+1+word.length<=maxCharacters)used+=1+word.length;
-    else{
-      lines++;
-      lines+=Math.floor((word.length-1)/maxCharacters);
-      used=((word.length-1)%maxCharacters)+1;
-    }
+function textUnits(value) {
+  let units=0;
+  for(const character of String(value||'')){
+    if(/\s/.test(character))units+=.55;
+    else if(/[MW@#%&]/.test(character))units+=1.9;
+    else if(/[ilI1|.,:;!'`]/.test(character))units+=.48;
+    else if(/[A-Z0-9]/.test(character))units+=1.1;
+    else if(character.codePointAt(0)>0x7f)units+=1.35;
+    else units+=1;
   }
+  return units;
+}
+
+function splitToken(value,maximum) {
+  const chunks=[];let chunk='';
+  for(const character of String(value||'')){
+    if(chunk&&textUnits(chunk+character)>maximum){chunks.push(chunk);chunk=character;}
+    else chunk+=character;
+  }
+  if(chunk)chunks.push(chunk);
+  return chunks;
+}
+
+export function wrapTextLines(value,maxUnits) {
+  const maximum=Math.max(1,Number(maxUnits)||1);
+  const words=String(value||'').trim().split(/\s+/).filter(Boolean)
+    .flatMap(word=>textUnits(word)<=maximum?[word]:splitToken(word,maximum));
+  if(!words.length)return [];
+  const lines=[];let line='';
+  for(const word of words){
+    const next=line?`${line} ${word}`:word;
+    if(line&&textUnits(next)>maximum){lines.push(line);line=word;}else line=next;
+  }
+  if(line)lines.push(line);
   return lines;
+}
+
+export function groupFramePresentation(title,statusCounts={},collapsed=false) {
+  const titleLines=wrapTextLines(title,collapsed?24:36);
+  const statusEntries=Object.entries(statusCounts||{}).filter(([,count])=>count)
+    .map(([role,count])=>({role,count,label:`${count} ${role}`}));
+  return {titleLines:titleLines.length?titleLines:['Untitled group'],statusEntries,
+    symbol:groupSymbolName()};
+}
+
+export function objectCardPresentation(object,expanded=false) {
+  const detailEntries=expanded?Object.entries(object?.details||{})
+    .filter(([,value])=>typeof value==='string'&&value).slice(0,5)
+    .map(([key,value])=>({
+      key,
+      keyLines:wrapTextLines(key,12),
+      valueLines:wrapTextLines(value,42),
+    })):[];
+  return {
+    symbol:objectSymbolName(object),
+    titleLines:wrapTextLines(object?.title||object?.id||'Untitled object',expanded?40:22),
+    summaryLines:object?.summary?wrapTextLines(object.summary,expanded?62:43):[],
+    failureLines:object?.failure?.message
+      ?wrapTextLines(object.failure.message,expanded?54:42):[],
+    detailEntries,
+  };
 }
 
 function statusRowCount(statusCounts, availableWidth) {
@@ -33,8 +80,8 @@ function statusRowCount(statusCounts, availableWidth) {
 
 export function groupFrameMetrics(title,statusCounts={},collapsed=false) {
   const width=collapsed?360:undefined;
-  const titleLines=lineCount(title,collapsed?24:36);
-  const headerHeight=Math.max(52,18+titleLines*18);
+  const presentation=groupFramePresentation(title,statusCounts,collapsed);
+  const headerHeight=Math.max(52,18+presentation.titleLines.length*18);
   const rows=statusRowCount(statusCounts,(width||360)-36);
   const aggregateHeight=collapsed?56+(rows?rows*19+8:0):0;
   return {width,headerHeight,height:collapsed?headerHeight+aggregateHeight:undefined};
@@ -42,14 +89,16 @@ export function groupFrameMetrics(title,statusCounts={},collapsed=false) {
 
 export function objectCardMetrics(object,expanded=false) {
   const width=expanded?440:320;
-  const titleLines=lineCount(object?.title,expanded?40:22);
-  const headerHeight=Math.max(62,34+titleLines*18);
-  const summaryLines=object?.summary?lineCount(object.summary,expanded?62:43):0;
-  const summaryHeight=summaryLines?22+summaryLines*19:0;
-  const failureLines=object?.failure?.message?lineCount(object.failure.message,expanded?62:42):0;
-  const failureHeight=failureLines?16+failureLines*18:0;
-  const contentHeight=headerHeight+summaryHeight+failureHeight+38;
-  return {width,headerHeight,height:expanded?Math.max(340,contentHeight+112):Math.max(138,contentHeight)};
+  const presentation=objectCardPresentation(object,expanded);
+  const headerHeight=Math.max(62,34+presentation.titleLines.length*18);
+  const summaryHeight=presentation.summaryLines.length?22+presentation.summaryLines.length*19:0;
+  const failureHeight=presentation.failureLines.length?16+presentation.failureLines.length*18:0;
+  const detailHeight=presentation.detailEntries.length?20+presentation.detailEntries.reduce(
+    (height,entry)=>height+Math.max(entry.keyLines.length,entry.valueLines.length,1)*16+7,0,
+  ):0;
+  const contentHeight=headerHeight+summaryHeight+detailHeight+failureHeight+38;
+  return {width,headerHeight,height:expanded?Math.max(340,contentHeight):Math.max(138,contentHeight),
+    summaryHeight,detailHeight,failureHeight,presentation};
 }
 
 export function rootLayoutOptions(direction) {
@@ -84,6 +133,45 @@ export function groupLayoutOptions(direction,headerHeight=52) {
     'elk.layered.spacing.edgeNodeBetweenLayers': String(EDGE_NODE_GAP),
     'elk.layered.spacing.nodeNodeBetweenLayers': '92',
   };
+}
+
+export function absoluteEdgeRoutes(layout) {
+  const parentById=new Map(),originById=new Map(),edges=[];
+  const visit=(entry,parentId=null,parentOrigin={x:0,y:0})=>{
+    const origin={x:parentOrigin.x+(Number(entry?.x)||0),
+      y:parentOrigin.y+(Number(entry?.y)||0)};
+    parentById.set(entry.id,parentId);
+    originById.set(entry.id,origin);
+    edges.push(...(entry.edges||[]));
+    for(const child of entry.children||[])visit(child,entry.id,origin);
+  };
+  visit(layout);
+  const ancestors=id=>{
+    const result=[];let cursor=id,guard=0;
+    while(cursor!=null&&parentById.has(cursor)&&guard++<100){
+      result.push(cursor);cursor=parentById.get(cursor);
+    }
+    return result;
+  };
+  const lowestCommonAncestor=ids=>{
+    const lineages=ids.filter(id=>parentById.has(id)).map(ancestors);
+    if(!lineages.length||lineages.length!==ids.length)return null;
+    return lineages[0].find(candidate=>lineages.every(lineage=>lineage.includes(candidate)))||null;
+  };
+  const routes=new Map();
+  for(const edge of edges){
+    const section=edge.sections?.[0];
+    if(!section){routes.set(edge.id,[]);continue;}
+    // ELK returns compound edges on the root graph, but section coordinates are
+    // local to the endpoints' lowest common ancestor—not to the edge owner.
+    const endpointIds=[...(edge.sources||[]),...(edge.targets||[])];
+    const lca=lowestCommonAncestor(endpointIds);
+    const offset=originById.get(lca)||{x:0,y:0};
+    routes.set(edge.id,[section.startPoint,...(section.bendPoints||[]),section.endPoint]
+      .map(point=>({x:(Number(point?.x)||0)+offset.x,
+        y:(Number(point?.y)||0)+offset.y})));
+  }
+  return routes;
 }
 
 export function roundedOrthogonalPath(points,radius=10) {
@@ -151,4 +239,52 @@ export function pathMidpoint(points) {
     remaining-=segment.length;
   }
   return {x:points.at(-1).x,y:points.at(-1).y};
+}
+
+function pointAlongPath(points,fraction) {
+  if(points.length<2)return {...(points[0]||{x:0,y:0}),dx:1,dy:0};
+  const segments=[];let total=0;
+  for(let index=1;index<points.length;index++){
+    const start=points[index-1],end=points[index];
+    const length=Math.hypot(end.x-start.x,end.y-start.y);
+    if(length){segments.push({start,end,length});total+=length;}
+  }
+  let remaining=total*Math.min(1,Math.max(0,fraction));
+  for(const segment of segments){
+    if(remaining<=segment.length){
+      const ratio=remaining/segment.length;
+      return {x:segment.start.x+(segment.end.x-segment.start.x)*ratio,
+        y:segment.start.y+(segment.end.y-segment.start.y)*ratio,
+        dx:(segment.end.x-segment.start.x)/segment.length,
+        dy:(segment.end.y-segment.start.y)/segment.length};
+    }
+    remaining-=segment.length;
+  }
+  const last=segments.at(-1);
+  return {x:last.end.x,y:last.end.y,dx:(last.end.x-last.start.x)/last.length,
+    dy:(last.end.y-last.start.y)/last.length};
+}
+
+function rectangleOverlap(first,second,gap=0) {
+  return Math.max(0,Math.min(first.x+first.width,second.x+second.width)
+    -Math.max(first.x,second.x)+gap*2)
+    *Math.max(0,Math.min(first.y+first.height,second.y+second.height)
+      -Math.max(first.y,second.y)+gap*2);
+}
+
+export function placePathLabel(points,label,obstacles=[],occupied=[]) {
+  const width=Math.max(42,Math.min(180,String(label||'').length*5.4+14)),height=18;
+  const candidates=[];
+  for(const fraction of [.5,.35,.65,.2,.8]){
+    const point=pointAlongPath(points,fraction);
+    for(const offset of [0,-16,16]){
+      const x=point.x-point.dy*offset,y=point.y+point.dx*offset;
+      const rect={x:x-width/2,y:y-height/2,width,height};
+      const nodeOverlap=obstacles.reduce((sum,item)=>sum+rectangleOverlap(rect,item,5),0);
+      const labelOverlap=occupied.reduce((sum,item)=>sum+rectangleOverlap(rect,item,7),0);
+      candidates.push({x,y,rect,score:nodeOverlap*1000+labelOverlap*2000+Math.abs(offset)});
+    }
+  }
+  candidates.sort((left,right)=>left.score-right.score);
+  return candidates[0]||{x:0,y:0,rect:{x:0,y:0,width,height}};
 }

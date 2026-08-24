@@ -424,6 +424,8 @@ enabled = false
 materialization_cap = 1200
 # Deterministic ELK layered orientation: RIGHT or DOWN.
 direction = "RIGHT"
+# Project-relative store for named views, notes, and canvas annotations.
+views_path = "vizzer/developer-views.json"
 
 [reconcile]
 # Source priority used when multiple adapters describe the same item.

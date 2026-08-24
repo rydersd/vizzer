@@ -7,7 +7,7 @@ function reviewEvidence(event){
   if(!event?.evidence?.length)return '<p class="reviewempty">No evidence attached.</p>';
   return `<div class="reviewevidence">${event.evidence.map(item=>!item.available
     ?`<div class="reviewmissing">${esc(item.error||'Evidence is unavailable.')}</div>`:item.kind==='screenshot'
-    ?`<figure><a class="reviewevidencelink" href="${esc(item.url)}" target="_blank" rel="noopener" title="Open evidence at actual size"><img src="${esc(item.url)}" alt="${esc(item.caption||'Captured done state')}"></a><figcaption>${esc(item.caption||item.requirementId)}${item.width&&item.height?` · ${item.width}×${item.height}`:''} · open for actual size${item.available===null?' · check on open':''}</figcaption></figure>`
+    ?`<figure><a class="reviewevidencelink" href="${esc(item.url)}" target="_blank" rel="noopener" title="Open evidence at actual size"><img src="${esc(item.url)}" alt="${esc(item.caption||'Captured done state')}"></a><figcaption>${esc(item.caption||item.requirementId)}${item.width&&item.height?` · ${item.width}×${item.height}`:''}${item.capture?` · ${esc(item.capture.adapter)} · redaction ${esc(item.capture.redaction)}`:''} · open for actual size${item.available===null?' · check on open':''}</figcaption></figure>`
     :`<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.caption||item.requirementId)} · ${esc(item.kind)}</a>`).join('')}</div>`;
 }
 function reviewRun(event,label){

@@ -16,6 +16,9 @@ from . import __version__, process_render_id
 from .config import Config
 from .developer_graph import DeveloperGraphError, from_work_graph
 from .developer_query import DeveloperGraphIndex, DeveloperQueryError
+from .developer_views import (
+    DeveloperViewError, delete_view, load_view_store, upsert_view,
+)
 from .model import Graph
 from .review_contract import ReviewContractError
 from .review_service import (
@@ -32,7 +35,7 @@ class ServeRequestContext:
     csrf_token: str
     current_engine: Callable[[], bool]
     same_origin: Callable[[], bool]
-    read_json: Callable[[str], dict]
+    read_json: Callable[..., dict]
     mutation_guard: Callable[[], ContextManager]
     send_json: Callable[[int, dict], None]
     send_bytes: Callable[[int, bytes, str], None]
@@ -148,7 +151,7 @@ class DeveloperFlowHttpExtension:
                     ctx.cfg,
                     detail_provider=object_detail_provider(ctx.root),
                 )
-                self._index = DeveloperGraphIndex(projected)
+                self._index = DeveloperGraphIndex(projected, assume_validated=True)
                 self._key = key
             return self._index
 
@@ -160,6 +163,19 @@ class DeveloperFlowHttpExtension:
         return entries[0] if entries else default
 
     def get(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        if parsed.path == "/api/developer-flow/views" and not parsed.query:
+            if not ctx.current_engine():
+                return True
+            if not ctx.cfg.get("developer_flow.enabled", False):
+                ctx.send_json(404, {"error": "developer flow is disabled"})
+                return True
+            try:
+                store = load_view_store(ctx.cfg, ctx.root)
+            except DeveloperViewError as exc:
+                ctx.send_json(500, {"error": str(exc)})
+            else:
+                ctx.send_json(200, {**store, "csrfToken": ctx.csrf_token})
+            return True
         if parsed.path != "/api/developer-flow":
             return False
         if not ctx.current_engine():
@@ -213,6 +229,45 @@ class DeveloperFlowHttpExtension:
         return True
 
     def post(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        if parsed.path == "/api/developer-flow/views" and not parsed.query:
+            if not ctx.current_engine():
+                return True
+            if not ctx.same_origin():
+                ctx.send_json(403, {"error": "same-origin CSRF check failed"})
+                return True
+            if not ctx.cfg.get("developer_flow.enabled", False):
+                ctx.send_json(404, {"error": "developer flow is disabled"})
+                return True
+            try:
+                body = ctx.read_json("saved view", 4 * 1024 * 1024)
+                action = body.get("action")
+                expected = body.get("expectedRevision")
+                if action == "upsert" and set(body) == {
+                    "action", "expectedRevision", "view",
+                }:
+                    with ctx.mutation_guard():
+                        store = upsert_view(
+                            ctx.cfg, ctx.root, body["view"],
+                            expected_revision=expected,
+                        )
+                elif action == "delete" and set(body) == {
+                    "action", "expectedRevision", "id",
+                }:
+                    with ctx.mutation_guard():
+                        store = delete_view(
+                            ctx.cfg, ctx.root, body["id"],
+                            expected_revision=expected,
+                        )
+                else:
+                    raise DeveloperViewError("saved view request is malformed")
+            except DeveloperViewError as exc:
+                status = 409 if "is stale; current revision" in str(exc) else 400
+                ctx.send_json(status, {"error": str(exc)})
+            except (OSError, UnicodeError) as exc:
+                ctx.send_json(500, {"error": f"could not persist saved view: {exc}"})
+            else:
+                ctx.send_json(200, store)
+            return True
         if parsed.path != "/api/developer-flow":
             return False
         ctx.send_json(405, {"error": "GET required"})

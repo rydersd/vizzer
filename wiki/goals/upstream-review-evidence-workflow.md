@@ -123,3 +123,8 @@ acceptance loop:
   zipapp, link, leakage, credential-pattern, ancestry, and remote-identity checks. Upstream `main`
   fast-forwarded from `8ae6462` to `ba468ef` without force; G-002's measured 100k cold-start cost
   remains an explicit performance follow-up rather than a hidden enterprise-readiness claim.
+- 2026-08-23 — Hardened new screenshot writes without invalidating historical ledgers: every newly
+  appended screenshot now carries a semantic caption plus capture adapter, UTC observation time,
+  and an explicit `not-needed`/`reviewed` redaction attestation. The served review projection makes
+  that capture provenance visible. This makes the host claim auditable; it still does not promote
+  pixels into proof that a Definition of Done is true.

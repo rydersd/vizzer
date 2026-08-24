@@ -100,7 +100,7 @@ snapshots for review, archives, and model context—not a second user interface.
 | `constellation.html#ledgers` / `ledger-table.md` | Inspect ownership, progress, checkpoints, and staleness; export the ledger table separately. |
 | `constellation.html#workstreams` | Inspect durable workstream intent, current Claude/Codex/human sessions, checkpoints, path scopes, collisions, and peer discussions. |
 | `constellation.html#reviews` | Compare DoD-derived repeatable steps, the latest agent run and full-width evidence, then record a separate owner verdict while served. |
-| `developer-flow.html` | Optional 2D React Flow + ELK object graph: capability aggregates, nested functional frames, story/object neighborhoods, shared dossier detail, typed routed dependencies, durable URLs/named saves, and SVG export. |
+| `developer-flow.html` | Optional 2D React Flow + ELK object graph: capability aggregates, nested functional frames, story/object neighborhoods, shared dossier detail, typed routed dependencies, durable named views, notes/freehand annotations, and SVG export. |
 | `decision-journal.md` | LLM-readable export of open questions and accepted decisions, including recommendation deviations and whether the source story contains the evolution event. |
 | `discussion-queue.md` | Provider-specific, top-first Story discussion lanes for future Codex and Claude sessions; queued is not answered or applied. |
 | `manifest.json` | Machine-readable index of docs represented by enabled adapters (titles, statuses, git dates). It is not a whole-repository corpus manifest unless the configured adapters cover that corpus. |
@@ -108,10 +108,14 @@ snapshots for review, archives, and model context—not a second user interface.
 
 Developer Flow view state is encoded in bounded query parameters, so an ordinary browser bookmark
 and **Share link** restore the semantic scope, filters, selected object, relationship filter, and
-layout direction. Named saves remain in browser-local storage, scoped to the project/path. **Export
-SVG** writes the currently visible, filtered constellation as real vector paths and text; it does
-not smuggle hidden objects or dossier prose into the file. Shared URLs contain object/group ids and
-filter text, so treat them as project metadata rather than public links.
+layout direction. While served, named views—including view notes, anchored note cards, and
+freehand vector strokes—are stored in the project-relative `developer_flow.views_path` document
+with revision checks; shared links reference that saved-view id. Static-file saves use
+browser-local storage and cannot share annotations between browsers. **Export SVG** writes the
+currently visible, filtered constellation plus its annotations as real vector paths and text; it
+does not smuggle hidden objects or dossier prose into the file. Shared URLs and saved documents
+contain project ids, filter text, and authored notes, so treat them as project metadata rather than
+public links.
 
 ## The graph contract
 
@@ -212,6 +216,7 @@ The one file you edit. Keys and defaults:
 | `developer_flow.enabled` | `false` | Generate the optional precompiled 2D developer-object graph. No Node, React, CDN, or extra Python dependency is required at runtime. |
 | `developer_flow.materialization_cap` | `1200` | Maximum rich cards returned/mounted for one focused slice (100–5000); larger graphs use bounded served queries and disclose omissions. |
 | `developer_flow.direction` | `"RIGHT"` | Initial deterministic ELK layout direction: `RIGHT` or `DOWN`. |
+| `developer_flow.views_path` | `"vizzer/developer-views.json"` | Project-relative, revisioned named-view store for notes and canvas annotations while served. |
 
 Four table-arrays: `[[source_area]]` gives an arbitrary folder an `id`, `title`,
 semantic `role`, and adapter; `[[status]]` replaces the status vocabulary (`name`,

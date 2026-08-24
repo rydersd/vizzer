@@ -266,7 +266,8 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             })
             return False
 
-        def _read_json_body(self, subject: str = "planning") -> dict:
+        def _read_json_body(self, subject: str = "planning",
+                            maximum: int = 65536) -> dict:
             raw_length = self.headers.get("Content-Length", "")
             try:
                 length = int(raw_length)
@@ -274,9 +275,12 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 raise QuestionAnswerError(
                     "request needs a valid Content-Length"
                 ) from None
-            if length <= 0 or length > 65536:
+            if (isinstance(maximum, bool) or not isinstance(maximum, int)
+                    or maximum <= 0):
+                raise QuestionAnswerError("request byte budget is invalid")
+            if length <= 0 or length > maximum:
                 raise QuestionAnswerError(
-                    f"{subject} request body must be 1..65536 bytes"
+                    f"{subject} request body must be 1..{maximum} bytes"
                 )
             if self.headers.get_content_type() != "application/json":
                 raise QuestionAnswerError(

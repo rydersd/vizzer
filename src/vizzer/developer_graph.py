@@ -7,7 +7,7 @@ from typing import Any
 
 from .config import Config
 from .model import Graph, Item
-from .object_detail import object_detail_for, validate_object_detail
+from .object_detail import SCHEMA as DETAIL_SCHEMA, object_detail_for, validate_object_detail
 
 
 SCHEMA = 1
@@ -39,6 +39,37 @@ def _provenance(source: str, *, locator: str = "") -> dict[str, str]:
     return result
 
 
+def _group_detail(group: object, parent_id: str | None) -> dict[str, Any]:
+    """Give selectable groups the same renderer-neutral dossier floor as objects."""
+    group_id = _text(getattr(group, "id", ""), limit=500)
+    title = _text(getattr(group, "title", ""), limit=500) or group_id
+    kind = _text(getattr(group, "kind", ""), limit=120) or "group"
+    detail = {
+        "schema": DETAIL_SCHEMA,
+        "id": group_id,
+        "title": title,
+        "summary": f"Authored {kind} grouping.",
+        "status": "group",
+        "sections": {},
+        "core": {
+            "role": kind,
+            "release": "",
+            "appetite": "",
+            "tags": [],
+            "flags": [],
+            "facets": {},
+        },
+        "relationships": {
+            "dependsOn": [],
+            "typed": ([{"kind": "contained-by", "target": parent_id}]
+                      if parent_id else []),
+        },
+        "provenance": {"adapter": "work-graph-group", "locator": ""},
+    }
+    validate_object_detail(detail)
+    return detail
+
+
 def _status_role(cfg: Config, item: Item, failure_state: str = "") -> str:
     if failure_state in {"blocked", "error", "failed"}:
         return "blocked"
@@ -62,13 +93,19 @@ def from_work_graph(
     groups = []
     group_ids = {group.id for group in graph.groups}
     for group in sorted(graph.groups, key=lambda entry: entry.id):
+        parent_id = group.parent if group.parent in group_ids else None
+        detail = _group_detail(group, parent_id)
         groups.append({
             "id": group.id,
             "title": _text(group.title, limit=500) or group.id,
             "kind": _text(group.kind, limit=120) or "group",
-            "parentId": group.parent if group.parent in group_ids else None,
+            "parentId": parent_id,
+            "entityType": "group",
+            "summary": detail["summary"],
             "grouping": "authored",
             "provenance": _provenance("work-graph-group"),
+            "details": {"grouping": "authored", "parentId": parent_id or ""},
+            "detail": detail,
         })
 
     latest_work = {}
@@ -196,6 +233,7 @@ def from_work_graph(
             "sourceRelationCount": len(relations),
             "sourceGroupCount": len(groups),
             "materializationCap": max(100, min(cap, 5_000)),
+            "boundaryMaterializationCap": 250,
         },
         "provenance": _provenance("normalized-work-graph"),
     }
@@ -264,6 +302,32 @@ def validate_developer_graph(value: object) -> None:
         if group.get("grouping") not in {"authored", "derived", "inferred"}:
             raise DeveloperGraphError("developer graph group needs a grouping authority")
         _validate_provenance(group.get("provenance"), "developer graph group")
+        if "entityType" in group and group["entityType"] != "group":
+            raise DeveloperGraphError("developer graph group entityType must be group")
+        if "summary" in group and (not isinstance(group["summary"], str)
+                                   or len(group["summary"]) > MAX_TEXT):
+            raise DeveloperGraphError("developer graph group summary must be bounded text")
+        if "detail" in group:
+            try:
+                validate_object_detail(group["detail"])
+            except ValueError as exc:
+                raise DeveloperGraphError(
+                    f"invalid developer graph group detail: {group['id']}"
+                ) from exc
+        if "details" in group:
+            try:
+                encoded_group_details = json.dumps(
+                    group["details"], ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            except (TypeError, ValueError) as exc:
+                raise DeveloperGraphError(
+                    "developer graph group details must be JSON data"
+                ) from exc
+            if len(encoded_group_details) > MAX_DETAIL_BYTES:
+                raise DeveloperGraphError(
+                    "developer graph group details exceed the byte limit"
+                )
         parent = group.get("parentId")
         if parent is not None and parent not in group_ids:
             raise DeveloperGraphError(f"unknown developer graph parent group: {parent}")
@@ -334,3 +398,9 @@ def validate_developer_graph(value: object) -> None:
     cap = limits.get("materializationCap")
     if isinstance(cap, bool) or not isinstance(cap, int) or not 100 <= cap <= 5_000:
         raise DeveloperGraphError("developer graph materializationCap must be 100 through 5000")
+    boundary_cap = limits.get("boundaryMaterializationCap", 250)
+    if (isinstance(boundary_cap, bool) or not isinstance(boundary_cap, int)
+            or not 1 <= boundary_cap <= 1_000):
+        raise DeveloperGraphError(
+            "developer graph boundaryMaterializationCap must be 1 through 1000"
+        )

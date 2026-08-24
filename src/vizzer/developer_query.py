@@ -37,11 +37,41 @@ def _canonical(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def _fingerprint(value: object) -> str:
+    """Hash canonical JSON without allocating one enterprise-sized byte string."""
+    digest = hashlib.sha256()
+    if not isinstance(value, dict):
+        digest.update(_canonical(value))
+        return digest.hexdigest()
+    digest.update(b"{")
+    for key_index, key in enumerate(sorted(value)):
+        if key_index:
+            digest.update(b",")
+        digest.update(_canonical(key))
+        digest.update(b":")
+        entry = value[key]
+        if isinstance(entry, list):
+            digest.update(b"[")
+            for item_index, item in enumerate(entry):
+                if item_index:
+                    digest.update(b",")
+                digest.update(_canonical(item))
+            digest.update(b"]")
+        else:
+            digest.update(_canonical(entry))
+    digest.update(b"}")
+    return digest.hexdigest()
+
+
 class DeveloperGraphIndex:
     """Immutable in-memory index over one validated developer-graph snapshot."""
 
-    def __init__(self, graph: dict[str, Any]):
-        validate_developer_graph(graph)
+    def __init__(self, graph: dict[str, Any], *, assume_validated: bool = False):
+        # Public/adaptor input remains fail-closed.  The normalized work-graph
+        # adapter validates immediately before returning, so its two internal
+        # consumers can avoid a second O(objects + relations) validation pass.
+        if not assume_validated:
+            validate_developer_graph(graph)
         self.graph = graph
         self.objects = {entry["id"]: entry for entry in graph["objects"]}
         self.groups = {entry["id"]: entry for entry in graph["groups"]}
@@ -65,7 +95,7 @@ class DeveloperGraphIndex:
             values.sort(key=lambda entry: entry["id"])
         # Stable ids do not imply stable content. Status, detail, title, or
         # provenance changes must invalidate cursors from the old snapshot.
-        self.fingerprint = hashlib.sha256(_canonical(graph)).hexdigest()
+        self.fingerprint = _fingerprint(graph)
 
     def _descendant_groups(self, root: str) -> set[str]:
         found, pending = set(), [root]
@@ -216,23 +246,8 @@ class DeveloperGraphIndex:
             used += size
         return result
 
-    def _boundary_group(self, focus_group: str, object_id: str) -> str | None:
-        group_id = self.objects[object_id].get("groupId")
-        if group_id not in self.groups:
-            return None
-        focus_parent = self.groups[focus_group].get("parentId")
-        lineage, current = [], group_id
-        while current in self.groups and len(lineage) < 100:
-            lineage.append(current)
-            current = self.groups[current].get("parentId")
-        if focus_parent in lineage:
-            for candidate in lineage:
-                if self.groups[candidate].get("parentId") == focus_parent:
-                    return candidate
-        return lineage[-1] if lineage else None
-
     def _boundary_object(self, object_id: str) -> dict[str, Any]:
-        """Return only the identity needed to route to a collapsed boundary."""
+        """Return the bounded identity rendered as an outside dependency card."""
         source = self.objects[object_id]
         return {
             "id": source["id"],
@@ -360,16 +375,6 @@ class DeveloperGraphIndex:
                 relation_candidates,
                 MAX_LIMIT,
                 RELATION_BUDGET,
-            )
-            boundary_groups = {
-                group_id for object_id in boundary_ids
-                if (group_id := self._boundary_group(identity, object_id))
-            }
-            for group_id in sorted(boundary_groups):
-                if not any(entry["groupId"] == group_id for entry in summaries):
-                    summaries.append(self._group_summary(group_id, set(self.objects)))
-            group_ids.update(
-                self.objects[object_id].get("groupId") for object_id in boundary_ids
             )
         else:
             incident = [

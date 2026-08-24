@@ -127,7 +127,13 @@ def _event(plan: dict, row_id: str, step_id: str, requirement_id: str,
     if kind == "screenshot":
         width, height = image_dimensions(payload)
         evidence.update({"mediaType": image_media_type(payload),
-                         "width": width, "height": height})
+                         "width": width, "height": height,
+                         "caption": f"Captured state after {step_id}.",
+                         "capture": {
+                             "adapter": "browser-fixture",
+                             "observedAt": "2026-08-23T21:00:00Z",
+                             "redaction": "not-needed",
+                         }})
     return {
         "eventId": event_id,
         "recordedAt": "2026-08-23T21:00:00Z",

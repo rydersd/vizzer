@@ -62,6 +62,7 @@ DEFAULTS = {
         "enabled": False,
         "materialization_cap": 1_200,
         "direction": "RIGHT",
+        "views_path": "vizzer/developer-views.json",
     },
     "reconcile": {"precedence": [
                       "spec_tree", "dag_import", "ledgers", "todos", "conflicts",
@@ -390,6 +391,13 @@ class Config:
             )
         if self.get("developer_flow.direction") not in {"RIGHT", "DOWN"}:
             raise ConfigError("developer_flow.direction must be RIGHT or DOWN")
+        developer_views = self.get("developer_flow.views_path")
+        if not isinstance(developer_views, str) or not developer_views:
+            raise ConfigError("developer_flow.views_path must be a non-empty string")
+        developer_views_path = Path(developer_views)
+        if (developer_views_path.is_absolute() or ".." in developer_views_path.parts
+                or "." in developer_views_path.parts or "\\" in developer_views):
+            raise ConfigError("developer_flow.views_path must stay inside the project")
         signals_path = self.get("assessment.signals_path")
         if not isinstance(signals_path, str) or not signals_path:
             raise ConfigError("assessment.signals_path must be a non-empty string")

@@ -447,7 +447,7 @@ def _evidence(value: object, subject: str, requirement_ids: set[str]) -> dict:
     _exact_fields(
         evidence, subject,
         {"requirementId", "path", "sha256", "bytes"},
-        {"mediaType", "width", "height", "caption"},
+        {"mediaType", "width", "height", "caption", "capture"},
     )
     requirement_id = _id(evidence["requirementId"], f"{subject} requirementId")
     if requirement_id not in requirement_ids:
@@ -475,6 +475,26 @@ def _evidence(value: object, subject: str, requirement_ids: set[str]) -> dict:
         raise ReviewContractError(f"{subject} width and height must be declared together")
     if "caption" in evidence:
         result["caption"] = _text(evidence["caption"], f"{subject} caption", 500)
+    if "capture" in evidence:
+        capture = _object(evidence["capture"], f"{subject} capture")
+        _exact_fields(
+            capture, f"{subject} capture",
+            {"adapter", "observedAt", "redaction"},
+        )
+        redaction = _text(
+            capture["redaction"], f"{subject} capture redaction", 40,
+        )
+        if redaction not in {"not-needed", "reviewed"}:
+            raise ReviewContractError(
+                f"{subject} capture redaction must be not-needed or reviewed"
+            )
+        result["capture"] = {
+            "adapter": _text(capture["adapter"], f"{subject} capture adapter", 120),
+            "observedAt": _timestamp(
+                capture["observedAt"], f"{subject} capture observedAt",
+            ),
+            "redaction": redaction,
+        }
     return result
 
 
@@ -745,6 +765,14 @@ def append_run(path: Path, plan: dict, event: dict, *, project_root: Path,
         requirement["id"]: requirement["kind"]
         for requirement in row["evidenceRequirements"]
     }
+    for evidence in normalized_event["evidence"]:
+        if requirement_kinds[evidence["requirementId"]] != "screenshot":
+            continue
+        if "capture" not in evidence or "caption" not in evidence:
+            raise ReviewContractError(
+                "new screenshot evidence requires a semantic caption and capture "
+                "attestation (adapter, observedAt, redaction)"
+            )
     normalized_event["evidence"] = [
         verify_evidence_file(
             project_root, evidence,

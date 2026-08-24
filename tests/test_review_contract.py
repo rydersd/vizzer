@@ -93,6 +93,12 @@ def run_event(*, actor_kind: str = "agent", verdict: str = "pass",
             "mediaType": "image/png",
             "width": 1,
             "height": 1,
+            "caption": "Sidebar prose at 22 points with chip labels unchanged.",
+            "capture": {
+                "adapter": "browser",
+                "observedAt": "2026-08-23T19:00:00Z",
+                "redaction": "not-needed",
+            },
         }],
         "verdict": verdict,
     }
@@ -267,6 +273,25 @@ def test_append_is_cas_and_preserves_agent_and_owner_runs(tmp_path: Path):
             project_root=tmp_path, expected_revision=0,
         )
     assert json.loads(ledger_path.read_text())["revision"] == 2
+
+
+def test_new_screenshot_run_requires_semantic_capture_attestation(tmp_path: Path):
+    review_plan = materialized_plan(tmp_path)
+    event = run_event(review_plan=review_plan)
+    event["evidence"][0].pop("capture")
+    with pytest.raises(ReviewContractError, match="semantic caption and capture attestation"):
+        append_run(
+            tmp_path / "review" / "runs.json", review_plan, event,
+            project_root=tmp_path, expected_revision=0,
+        )
+
+    event = run_event(review_plan=review_plan)
+    event["evidence"][0].pop("caption")
+    with pytest.raises(ReviewContractError, match="semantic caption and capture attestation"):
+        append_run(
+            tmp_path / "review" / "runs.json", review_plan, event,
+            project_root=tmp_path, expected_revision=0,
+        )
 
 
 def test_owner_cannot_validate_before_or_bypass_the_latest_agent_run(tmp_path: Path):

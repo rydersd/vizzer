@@ -207,6 +207,8 @@ def _event_to_api(plan_id: str, event: dict, requirement_kinds: dict[str, str],
             "width": evidence.get("width"),
             "height": evidence.get("height"),
         }
+        if "capture" in evidence:
+            projected["capture"] = evidence["capture"]
         evidence_parts = PurePosixPath(evidence["path"]).parts
         prefix = paths.evidence_relative.parts
         budget_available = (

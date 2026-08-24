@@ -20,6 +20,12 @@ def _asset(name: str) -> str:
     return (files(__package__) / ASSET_DIR / name).read_text(encoding="utf-8")
 
 
+def _shared_tokens() -> str:
+    return (files(__package__) / "constellation" / "tokens.css").read_text(
+        encoding="utf-8"
+    )
+
+
 def _json_for_script(value: object) -> str:
     return (
         json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -39,7 +45,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     restart_stable_origin = bool(cfg.get("server.port", 0))
     cap = full_data["limits"]["materializationCap"]
     if len(full_data["objects"]) > cap:
-        initial = DeveloperGraphIndex(full_data).query({
+        initial = DeveloperGraphIndex(full_data, assume_validated=True).query({
             "schema": 1,
             "scope": {"kind": "overview"},
             "page": {"limit": cap},
@@ -72,11 +78,14 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     page = (
         shell.replace("__TITLE__", html.escape(str(data["title"])))
         .replace("__DATA__", _json_for_script(data))
+        .replace("__VIZZER_TOKENS__", _shared_tokens())
         .replace("__APP_CSS__", _asset("app.css"))
         .replace("__APP_JS__", _asset("app.js"))
     )
     unresolved = [
-        token for token in ("__TITLE__", "__DATA__", "__APP_CSS__", "__APP_JS__")
+        token for token in (
+            "__TITLE__", "__DATA__", "__VIZZER_TOKENS__", "__APP_CSS__", "__APP_JS__",
+        )
         if token in page
     ]
     if unresolved:

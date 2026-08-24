@@ -89,8 +89,10 @@ def test_group_query_preserves_cross_scope_dependencies_as_lightweight_boundarie
     assert result["page"]["boundaryOmitted"] == 0
     assert result["page"]["relationMatched"] == 1
     assert result["page"]["relationOmitted"] == 0
-    assert any(entry["groupId"] == "capability:identity"
+    assert all(entry["groupId"] != "capability:identity"
                for entry in result["summaries"])
+    assert all(entry["id"] != "capability:identity"
+               for entry in result["groups"])
 
 
 def test_group_query_discloses_truncated_external_boundaries_and_relations():

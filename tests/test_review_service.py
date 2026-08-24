@@ -128,6 +128,12 @@ def _event(plan: dict, *, actor: str = "agent", event_id: str = "agent-run-1") -
             "mediaType": "image/png",
             "width": 1,
             "height": 1,
+            "caption": "Prepared status page after the authored open-status step.",
+            "capture": {
+                "adapter": "browser-fixture",
+                "observedAt": "2026-08-23T20:00:00Z",
+                "redaction": "not-needed",
+            },
         }],
         "verdict": "pass",
     }

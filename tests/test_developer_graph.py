@@ -57,6 +57,7 @@ def config(cap=900):
 def test_work_graph_projection_preserves_neutral_identity_relations_and_failure():
     value = from_work_graph(neutral_graph(), config())
     by_id = {entry["id"]: entry for entry in value["objects"]}
+    groups = {entry["id"]: entry for entry in value["groups"]}
 
     assert by_id["service:catalog"]["kind"] == "service"
     assert by_id["service:catalog"]["groupId"] == "module:commerce/catalog"
@@ -64,6 +65,9 @@ def test_work_graph_projection_preserves_neutral_identity_relations_and_failure(
     assert by_id["service:catalog"]["failure"]["message"] == "Health probe returned 503"
     assert by_id["service:catalog"]["statusRole"] == "blocked"
     assert value["limits"]["materializationCap"] == 900
+    assert groups["area:commerce"]["detail"]["schema"] == "vizzer-object-detail/v1"
+    assert groups["module:commerce/catalog"]["details"]["parentId"] == "area:commerce"
+    assert groups["module:commerce/catalog"]["entityType"] == "group"
     assert {
         (edge["source"], edge["target"], edge["kind"])
         for edge in value["relations"]
