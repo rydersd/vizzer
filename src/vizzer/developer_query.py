@@ -42,30 +42,120 @@ def _canonical(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def _fingerprint(value: object) -> str:
-    """Hash canonical JSON without allocating one enterprise-sized byte string."""
+def developer_graph_fingerprint_stream(
+    scalars: dict[str, Any],
+    lists: dict[str, Any],
+) -> str:
+    """Hash a graph from scalar values plus repeatable or streaming list values."""
     digest = hashlib.sha256()
-    if not isinstance(value, dict):
-        digest.update(_canonical(value))
-        return digest.hexdigest()
     digest.update(b"{")
-    for key_index, key in enumerate(sorted(value)):
+    for key_index, key in enumerate(sorted({*scalars, *lists})):
         if key_index:
             digest.update(b",")
         digest.update(_canonical(key))
         digest.update(b":")
-        entry = value[key]
-        if isinstance(entry, list):
+        if key in lists:
             digest.update(b"[")
-            for item_index, item in enumerate(entry):
+            for item_index, item in enumerate(lists[key]):
                 if item_index:
                     digest.update(b",")
-                digest.update(_canonical(item))
+                digest.update(item if isinstance(item, bytes) else _canonical(item))
             digest.update(b"]")
         else:
-            digest.update(_canonical(entry))
+            digest.update(_canonical(scalars[key]))
     digest.update(b"}")
     return digest.hexdigest()
+
+
+def developer_graph_fingerprint(value: object) -> str:
+    """Return the cursor snapshot identity for a developer-graph projection."""
+    if not isinstance(value, dict):
+        return hashlib.sha256(_canonical(value)).hexdigest()
+    return developer_graph_fingerprint_stream(
+        {key: entry for key, entry in value.items() if not isinstance(entry, list)},
+        {key: entry for key, entry in value.items() if isinstance(entry, list)},
+    )
+
+
+def materialize_developer_object(
+    source: dict[str, Any], detail: dict[str, Any],
+) -> dict[str, Any]:
+    """Combine one compact card record with its validated shared dossier."""
+    try:
+        validate_object_detail(detail)
+    except ValueError as exc:
+        raise DeveloperQueryError(
+            f"invalid developer object detail: {source.get('id', '')}"
+        ) from exc
+    object_id = source.get("id")
+    if detail["id"] != object_id:
+        raise DeveloperQueryError(
+            f"developer object detail id does not match: {object_id}"
+        )
+    core = detail["core"]
+    details = {
+        "role": core["role"],
+        "release": core["release"],
+        "appetite": core["appetite"],
+        "sourceLocator": detail["provenance"]["locator"],
+        "tags": list(core["tags"]),
+        "flags": list(core["flags"]),
+        "facets": dict(core["facets"]),
+    }
+    active_work = source.get("details", {}).get("activeWork")
+    if active_work is not None:
+        details["activeWork"] = active_work
+    return {**source, "details": details, "detail": detail}
+
+
+def normalize_developer_query(
+    request: object,
+) -> tuple[dict, dict, int, str | None]:
+    """Validate and normalize the shared in-memory/persisted query contract."""
+    if not isinstance(request, dict) or request.get("schema") != QUERY_SCHEMA:
+        raise DeveloperQueryError("developer query schema must be 1")
+    if set(request) - {"schema", "scope", "filters", "page"}:
+        raise DeveloperQueryError("developer query has unknown fields")
+    scope = request.get("scope")
+    if not isinstance(scope, dict) or set(scope) - {"kind", "id"}:
+        raise DeveloperQueryError("developer query scope is malformed")
+    kind = scope.get("kind")
+    if kind not in {"overview", "group", "object"}:
+        raise DeveloperQueryError("developer query scope kind is invalid")
+    identity = scope.get("id")
+    if kind == "overview":
+        if identity is not None:
+            raise DeveloperQueryError("overview scope cannot have an id")
+    elif not isinstance(identity, str) or not identity or len(identity) > 500:
+        raise DeveloperQueryError(f"developer query {kind} scope needs a bounded id")
+
+    filters = request.get("filters", {})
+    if not isinstance(filters, dict) or set(filters) - {
+        "query", "kinds", "statuses", "relationKinds",
+    }:
+        raise DeveloperQueryError("developer query filters are malformed")
+    query = filters.get("query", "")
+    if not isinstance(query, str) or len(query) > MAX_QUERY_TEXT:
+        raise DeveloperQueryError("developer query text must be a bounded string")
+    normalized_filters = {"query": query.strip().casefold()}
+    for name in ("kinds", "statuses", "relationKinds"):
+        values = filters.get(name, [])
+        if (not isinstance(values, list) or len(values) > 64
+                or not all(isinstance(value, str) and 0 < len(value) <= 120
+                           for value in values)):
+            raise DeveloperQueryError(f"developer query {name} must be bounded strings")
+        normalized_filters[name] = sorted(set(values))
+
+    page = request.get("page", {})
+    if not isinstance(page, dict) or set(page) - {"limit", "cursor"}:
+        raise DeveloperQueryError("developer query page is malformed")
+    limit = page.get("limit", DEFAULT_LIMIT)
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIMIT:
+        raise DeveloperQueryError(f"developer query limit must be 1 through {MAX_LIMIT}")
+    cursor = page.get("cursor")
+    if cursor is not None and (not isinstance(cursor, str) or len(cursor) > 180):
+        raise DeveloperQueryError("developer query cursor is malformed")
+    return scope, normalized_filters, limit, cursor
 
 
 class DeveloperGraphIndex:
@@ -116,7 +206,7 @@ class DeveloperGraphIndex:
         # Stable ids do not imply stable content. Status, title, provenance,
         # grouping, relationships, or the compact graph's detailSnapshot must
         # invalidate old cursors even though lazy dossiers are not retained.
-        self.fingerprint = _fingerprint(graph)
+        self.fingerprint = developer_graph_fingerprint(graph)
 
     def _object_record(self, object_id: str) -> dict[str, Any]:
         """Hydrate one complete public object while bounding retained detail."""
@@ -132,31 +222,9 @@ class DeveloperGraphIndex:
             if cached is not None:
                 self._detail_cache.move_to_end(object_id)
                 return cached[0]
-            detail = self._detail_provider(object_id)
-            try:
-                validate_object_detail(detail)
-            except ValueError as exc:
-                raise DeveloperQueryError(
-                    f"invalid developer object detail: {object_id}"
-                ) from exc
-            if detail["id"] != object_id:
-                raise DeveloperQueryError(
-                    f"developer object detail id does not match: {object_id}"
-                )
-            core = detail["core"]
-            details = {
-                "role": core["role"],
-                "release": core["release"],
-                "appetite": core["appetite"],
-                "sourceLocator": detail["provenance"]["locator"],
-                "tags": list(core["tags"]),
-                "flags": list(core["flags"]),
-                "facets": dict(core["facets"]),
-            }
-            active_work = source.get("details", {}).get("activeWork")
-            if active_work is not None:
-                details["activeWork"] = active_work
-            record = {**source, "details": details, "detail": detail}
+            record = materialize_developer_object(
+                source, self._detail_provider(object_id)
+            )
             encoded_size = len(_canonical(record))
             self._detail_cache[object_id] = (record, encoded_size)
             self._detail_cache_bytes += encoded_size
@@ -180,50 +248,7 @@ class DeveloperGraphIndex:
 
     @staticmethod
     def _request(request: object) -> tuple[dict, dict, int, str | None]:
-        if not isinstance(request, dict) or request.get("schema") != QUERY_SCHEMA:
-            raise DeveloperQueryError("developer query schema must be 1")
-        if set(request) - {"schema", "scope", "filters", "page"}:
-            raise DeveloperQueryError("developer query has unknown fields")
-        scope = request.get("scope")
-        if not isinstance(scope, dict) or set(scope) - {"kind", "id"}:
-            raise DeveloperQueryError("developer query scope is malformed")
-        kind = scope.get("kind")
-        if kind not in {"overview", "group", "object"}:
-            raise DeveloperQueryError("developer query scope kind is invalid")
-        identity = scope.get("id")
-        if kind == "overview":
-            if identity is not None:
-                raise DeveloperQueryError("overview scope cannot have an id")
-        elif not isinstance(identity, str) or not identity or len(identity) > 500:
-            raise DeveloperQueryError(f"developer query {kind} scope needs a bounded id")
-
-        filters = request.get("filters", {})
-        if not isinstance(filters, dict) or set(filters) - {
-            "query", "kinds", "statuses", "relationKinds",
-        }:
-            raise DeveloperQueryError("developer query filters are malformed")
-        query = filters.get("query", "")
-        if not isinstance(query, str) or len(query) > MAX_QUERY_TEXT:
-            raise DeveloperQueryError("developer query text must be a bounded string")
-        normalized_filters = {"query": query.strip().casefold()}
-        for name in ("kinds", "statuses", "relationKinds"):
-            values = filters.get(name, [])
-            if (not isinstance(values, list) or len(values) > 64
-                    or not all(isinstance(value, str) and 0 < len(value) <= 120
-                               for value in values)):
-                raise DeveloperQueryError(f"developer query {name} must be bounded strings")
-            normalized_filters[name] = sorted(set(values))
-
-        page = request.get("page", {})
-        if not isinstance(page, dict) or set(page) - {"limit", "cursor"}:
-            raise DeveloperQueryError("developer query page is malformed")
-        limit = page.get("limit", DEFAULT_LIMIT)
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= MAX_LIMIT:
-            raise DeveloperQueryError(f"developer query limit must be 1 through {MAX_LIMIT}")
-        cursor = page.get("cursor")
-        if cursor is not None and (not isinstance(cursor, str) or len(cursor) > 180):
-            raise DeveloperQueryError("developer query cursor is malformed")
-        return scope, normalized_filters, limit, cursor
+        return normalize_developer_query(request)
 
     @staticmethod
     def _matches(entry: dict[str, Any], filters: dict[str, Any]) -> bool:

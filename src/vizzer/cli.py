@@ -33,6 +33,7 @@ from .activity import (
     unresolved_blocker_records,
 )
 from .config import Config, ConfigError
+from .developer_store import ensure_developer_store, prepare_developer_store
 from .decision_journal import (
     DecisionJournalError, append_application_event, append_evolution_events,
     restore_story_snapshots, story_snapshots,
@@ -834,6 +835,12 @@ def _serve(root: Path, port: int | None, open_browser: bool = False) -> int:
         print("serve: run 'render' first")
         return 2
     try:
+        ensure_developer_store(graph, cfg, root)
+    except Exception as exc:
+        # The store is a performance cache, never availability or source truth.
+        # The HTTP extension will use the validated in-memory oracle instead.
+        print(f"serve: warning: developer query cache unavailable: {exc}")
+    try:
         server = _make_serve_server(root, graph, views, resolved_port, cfg)
     except OSError as exc:
         print(f"serve: could not bind loopback server: {exc}")
@@ -1085,6 +1092,13 @@ def _render_graph(cfg: Config, graph: Graph, root: Path, only_value: str | None,
     except Exception as exc:
         print(f"{command}: {exc}")
         return 2
+    if only is None or "developer_flow" in only:
+        try:
+            prepare_developer_store(graph, cfg, root)
+        except Exception as exc:
+            # A performance cache must not turn a valid static render into a
+            # failed delivery. Serving will use the in-memory oracle instead.
+            print(f"{command}: warning: developer query cache unavailable: {exc}")
 
     entries = []
     for filename, content in rendered.items():
@@ -1129,6 +1143,10 @@ def _refresh(root: Path) -> int:
     except Exception as exc:
         print(f"refresh: {exc}")
         return 2
+    try:
+        prepare_developer_store(graph, cfg, root)
+    except Exception as exc:
+        print(f"refresh: warning: developer query cache unavailable: {exc}")
     entries = [(root / GRAPH_RELPATH, graph.dumps())]
     if progress.path is not None and progress.content is not None:
         entries.append((progress.path, progress.content))

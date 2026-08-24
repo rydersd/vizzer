@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sqlite3
 import threading
 from typing import Callable, ContextManager
 from urllib.parse import SplitResult, parse_qs, unquote
@@ -16,6 +17,7 @@ from . import __version__, process_render_id
 from .config import Config
 from .developer_graph import DeveloperGraphError, index_from_work_graph
 from .developer_query import DeveloperGraphIndex, DeveloperQueryError
+from .developer_store import DeveloperStoreError, StoredDeveloperGraphIndex
 from .developer_views import (
     DeveloperViewError, delete_view, load_view_store, upsert_view,
 )
@@ -140,26 +142,35 @@ class DeveloperFlowHttpExtension:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._key: tuple[str, int] | None = None
-        self._index: DeveloperGraphIndex | None = None
+        self._index: DeveloperGraphIndex | StoredDeveloperGraphIndex | None = None
 
-    def _graph_index(self, ctx: ServeRequestContext) -> DeveloperGraphIndex:
+    def _graph_index(
+        self, ctx: ServeRequestContext,
+    ) -> DeveloperGraphIndex | StoredDeveloperGraphIndex:
         key = (ctx.root.resolve().as_posix(), id(ctx.graph))
         with self._lock:
             if self._key != key or self._index is None:
-                detail_provider, detail_identity_provider = object_detail_providers(
-                    ctx.root
-                )
-                projected, indexed_detail_provider = index_from_work_graph(
-                    ctx.graph,
-                    ctx.cfg,
-                    detail_provider=detail_provider,
-                    detail_identity_provider=detail_identity_provider,
-                )
-                self._index = DeveloperGraphIndex(
-                    projected,
-                    assume_validated=True,
-                    detail_provider=indexed_detail_provider,
-                )
+                previous = self._index
+                persisted = StoredDeveloperGraphIndex.open_current(ctx.root, ctx.cfg)
+                if persisted is not None:
+                    self._index = persisted
+                else:
+                    detail_provider, detail_identity_provider = object_detail_providers(
+                        ctx.root
+                    )
+                    projected, indexed_detail_provider = index_from_work_graph(
+                        ctx.graph,
+                        ctx.cfg,
+                        detail_provider=detail_provider,
+                        detail_identity_provider=detail_identity_provider,
+                    )
+                    self._index = DeveloperGraphIndex(
+                        projected,
+                        assume_validated=True,
+                        detail_provider=indexed_detail_provider,
+                    )
+                if previous is not None and hasattr(previous, "close"):
+                    previous.close()
                 self._key = key
             return self._index
 
@@ -230,7 +241,7 @@ class DeveloperFlowHttpExtension:
             })
         except (DeveloperGraphError, DeveloperQueryError, ValueError) as exc:
             ctx.send_json(400, {"error": str(exc)})
-        except (OSError, UnicodeError) as exc:
+        except (OSError, UnicodeError, sqlite3.Error, DeveloperStoreError) as exc:
             ctx.send_json(500, {"error": f"could not build developer view: {exc}"})
         else:
             ctx.send_json(200, response)

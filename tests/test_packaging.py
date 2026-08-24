@@ -54,6 +54,7 @@ def test_build_pyz(tmp_path):
     assert "__main__.py" in names and "vizzer/model.py" in names
     assert "vizzer/assessment.py" in names
     assert "vizzer/discussion_queue.py" in names
+    assert "vizzer/developer_store.py" in names
     assert "vizzer/context/story-sizing-and-portfolio-selection.md" in names
     assert "vizzer/context/prds-and-living-product-specs.md" in names
     assert FRONTEND_RESOURCES <= set(names)
@@ -83,6 +84,7 @@ def test_install_from_pyz(tmp_path):
     assert (project / "vizzer" / "engine" / "vizzer" / "model.py").exists()
     assert (project / "vizzer" / "engine" / "vizzer" / "assessment.py").exists()
     assert (project / "vizzer" / "engine" / "vizzer" / "discussion_queue.py").exists()
+    assert (project / "vizzer" / "engine" / "vizzer" / "developer_store.py").exists()
     installed_frontend = project / "vizzer" / "engine" / "vizzer" / "render" / "constellation"
     for relative in FRONTEND_RESOURCES:
         assert (installed_frontend / Path(relative).name).is_file()

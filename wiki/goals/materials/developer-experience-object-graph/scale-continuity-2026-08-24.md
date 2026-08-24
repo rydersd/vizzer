@@ -28,14 +28,20 @@ project-agnostic adapter contract.
   remains an explicit contract; the built-in Markdown adapter is covered by mutation tests.
 - Bound retained hydrated detail with an 8 MiB / 5,000-entry LRU. Request byte limits remain the
   stronger per-response boundary.
-- Do not call the current in-memory optimization “enterprise ready.” The source Graph and compact
-  projection are still rebuilt on every server process.
+- Persist large projections in ignored `.vizzer/cache/` using standard-library SQLite. Build through
+  a shared streaming projector, replace atomically, bind metadata to canonical graph bytes,
+  projection configuration, and renderer identity, open read-only, and fall back to the in-memory
+  oracle on any mismatch.
+- Store full dossier JSON as compressed inert data plus typed search/routing columns. Revalidate
+  object/detail identity and row identity on every returned record; never deserialize executable
+  Python objects.
 
 ## Done
 
 - G-001 generic web/local review workflow is merged and independently audited.
 - G-002 interaction, grouping, routing, detail, LOD, responsive chrome, saved views, annotations,
-  undo/redo, visibility, and SVG behavior are merged to upstream `main` at `83c66ff`.
+  undo/redo, visibility, and SVG behavior are merged to upstream `main` at `83c66ff`; lazy detail
+  materialization followed at `091a2fc`.
 - All thirteen owner-named IllTool paths were re-resolved on 2026-08-24. The primary checkout and
   three Wave-2b worktrees are live; five paths are gone; four are historical remnants/tombstones.
   No new generic Vizzer engine was found outside the already-audited upstream work.
@@ -43,22 +49,25 @@ project-agnostic adapter contract.
   with 519 tests and two environment-dependent skips, and both distribution artifacts built.
 - Same-machine 100,000-object measurement improved from 728.6 MB / 28.3 s to 528.2 MB / 12.3 s
   while retaining cursor invalidation for lazy dossier changes.
+- A standard-library SQLite store now covers aggregate overview, nested group filters, object
+  neighborhoods, external boundaries, typed relations, byte-bounded pagination, omission counts,
+  shared dossier detail, and snapshot-bound cursors. Oracle-parity, read-only, mutation, corrupt
+  cache, atomic-failure, render integration, and HTTP no-reprojection tests are implemented.
+- The streaming builder avoids retaining the compact 100,000-object projection. Its measured local
+  cache is 159,141,888 bytes for a 37,260,684-byte normalized graph.
 
 ## Now
 
-Publish the validated lazy-detail slice as an incremental upstream scale improvement, then continue
-with the persisted derived query store. The in-memory implementation remains the correctness oracle.
+The persisted-store release candidate passed the complete Python suite, byte-clean frontend rebuild,
+wheel/sdist build, HTTP no-reprojection proof, and 100,000-object replay. Publish the exact reviewed
+commit. The in-memory implementation remains the correctness oracle.
 
 ## Next
 
-1. Design a standard-library SQLite derived store keyed by the normalized graph fingerprint and
-   Vizzer render identity.
-2. Materialize it during refresh/render with an atomic replacement and open it read-only while
-   serving.
-3. Query groups, filters, incidents, pagination, boundary cards, and omission counts without holding
-   the complete projected graph in memory.
-4. Re-measure cold build, warm restart, first query, steady-state RSS, and invalidation at 100,000+
-   objects. Keep the existing in-memory implementation as a correctness oracle.
+1. Decide after the release benchmark whether loading the complete normalized `Graph` at server
+   startup is still an unacceptable memory floor for multi-million-object installations.
+2. If it is, introduce a separate bounded source-locator/owner-operation index for non-Developer
+   Flow endpoints; do not contort the normalized graph contract or silently disable other APIs.
 
 ## Open Questions
 
@@ -72,9 +81,14 @@ with the persisted derived query store. The in-memory implementation remains the
   every dossier, compact indexes are separately fail-closed, hydrated dossier IDs are bound to the
   requested object, response/card byte caps remain intact, and semantic detail changes invalidate
   cursors.
-- Medium residual risk: startup still rebuilds the normalized `Graph` and compact projection, so the
-  measured gain does not establish comfortable 100,000-object warm restarts. The persisted-store
-  benchmark is the required falsifier.
+- The persisted store removes compact-projection reconstruction from warm serving, but Vizzer still
+  loads the normalized `Graph` because source opening, questions, planning, reviews, and other APIs
+  use it. Claiming a 43 MB server from the SQLite-only probe would therefore be marketing nonsense;
+  the full warm-server measurement is the release claim.
+- Building the cache adds work and disk: the 100,000-object build used 28.9 seconds of CPU and took
+  31.2 seconds on an idle run or 70.3 seconds during a deliberately contended rerun; measured peak
+  RSS ranged from 465–627 MB including canonical graph loading, and it writes a 159 MB local file.
+  That is an explicit refresh-time trade for faster, lower-memory restarts.
 - Low residual risk: Vizzer cannot prove that a third-party adapter's detail identity function tells
   the truth. The interface makes that trust explicit; built-in Markdown mutation tests provide an
   independent check for the bundled adapter.
@@ -86,11 +100,13 @@ with the persisted derived query store. The in-memory implementation remains the
 
 - `src/vizzer/developer_graph.py`
 - `src/vizzer/developer_query.py`
+- `src/vizzer/developer_store.py`
 - `src/vizzer/object_detail.py`
 - `src/vizzer/render/developer_flow.py`
 - `src/vizzer/serve_extensions.py`
 - `src/vizzer/story_sidebar.py`
 - `tests/test_developer_graph.py`
 - `tests/test_developer_query.py`
+- `tests/test_developer_store.py`
 - `tests/test_developer_flow_scale.py`
 - `wiki/goals/developer-experience-object-graph.md`

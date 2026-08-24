@@ -117,6 +117,15 @@ does not smuggle hidden objects or dossier prose into the file. Shared URLs and 
 contain project ids, filter text, and authored notes, so treat them as project metadata rather than
 public links.
 
+For graphs larger than `developer_flow.materialization_cap`, `render` and `refresh` also build an
+atomic, fingerprint-bound SQLite projection at `.vizzer/cache/developer-flow-v1.sqlite3`. The
+installer gitignores that local derived cache. `serve` opens an exact current cache read-only and
+queries bounded cards, relationships, filters, and rollups without reconstructing the complete
+Developer Flow projection; a missing, stale, corrupt, graph/config/renderer-mismatched cache falls
+back to the validated in-memory implementation and never changes the authoritative normalized
+graph. The cache uses only Python's standard library and is not required for static-file viewing or
+package install.
+
 ## The graph contract
 
 `vizzer/vizzer-graph.json` is **derived** — regenerate it with `refresh` (or

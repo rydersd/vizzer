@@ -91,14 +91,7 @@ def _default_detail_identity(item: Item) -> str:
     return object_detail_identity(item)
 
 
-def _project_work_graph(
-    graph: Graph,
-    cfg: Config,
-    *,
-    detail_provider: DetailProvider,
-    detail_identity_provider: DetailIdentityProvider | None,
-    include_object_details: bool,
-) -> dict[str, Any]:
+def _project_groups(graph: Graph) -> tuple[list[dict[str, Any]], set[str]]:
     groups = []
     group_ids = {group.id for group in graph.groups}
     for group in sorted(graph.groups, key=lambda entry: entry.id):
@@ -116,83 +109,83 @@ def _project_work_graph(
             "details": {"grouping": "authored", "parentId": parent_id or ""},
             "detail": detail,
         })
+    return groups, group_ids
 
+
+def _latest_work(graph: Graph) -> dict[str, Any]:
     latest_work = {}
     for work in graph.active_work:
         current = latest_work.get(work.story_id)
         if current is None or work.updated_at > current.updated_at:
             latest_work[work.story_id] = work
+    return latest_work
 
-    objects = []
-    detail_snapshot = hashlib.sha256() if not include_object_details else None
-    for item in sorted(graph.items, key=lambda entry: entry.id):
-        locator = _text(item.source.get("path"), limit=1_000)
-        work = latest_work.get(item.id)
-        failure_state = work.state if work is not None else ""
-        details = ({
-            "role": _text(item.role, limit=120),
-            "release": _text(item.release, limit=120),
-            "appetite": _text(item.appetite, limit=120),
-            "sourceLocator": locator,
-            "tags": [_text(tag, limit=500) for tag in item.tags[:64]],
-            "flags": [_text(flag, limit=500) for flag in item.flags[:64]],
-            "facets": {
-                _text(name, limit=120): [_text(entry, limit=500) for entry in values[:64]]
-                for name, values in list(item.facets.items())[:64]
-            },
-        } if include_object_details else {})
-        if work is not None:
-            details["activeWork"] = {
-                "actor": _text(work.agent, limit=160),
-                "task": _text(work.task, limit=500),
-                "state": _text(work.state, limit=120),
-                "checkpoint": _text(work.checkpoint, limit=1_000),
-                "startedAt": _text(work.started_at, limit=80),
-                "updatedAt": _text(work.updated_at, limit=80),
-                "blockedBy": [_text(value, limit=500) for value in work.blocked_by[:64]],
-            }
-        value = {
-            "id": item.id,
-            "kind": _kind(item.id),
-            "title": _text(item.title, limit=500) or item.id,
-            "summary": _text(item.one_liner, limit=4_000),
-            "status": _text(item.status, limit=120) or "unknown",
-            "statusRole": _status_role(cfg, item, failure_state),
-            "groupId": item.group if item.group in group_ids else None,
-            "provenance": _provenance(
-                _text(item.source.get("adapter"), limit=120) or "work-graph",
-                locator=locator,
-            ),
+
+def _project_object(
+    item: Item,
+    cfg: Config,
+    group_ids: set[str],
+    latest_work: dict[str, Any],
+    *,
+    detail_provider: DetailProvider,
+    include_object_details: bool,
+) -> dict[str, Any]:
+    locator = _text(item.source.get("path"), limit=1_000)
+    work = latest_work.get(item.id)
+    failure_state = work.state if work is not None else ""
+    details = ({
+        "role": _text(item.role, limit=120),
+        "release": _text(item.release, limit=120),
+        "appetite": _text(item.appetite, limit=120),
+        "sourceLocator": locator,
+        "tags": [_text(tag, limit=500) for tag in item.tags[:64]],
+        "flags": [_text(flag, limit=500) for flag in item.flags[:64]],
+        "facets": {
+            _text(name, limit=120): [_text(entry, limit=500) for entry in values[:64]]
+            for name, values in list(item.facets.items())[:64]
+        },
+    } if include_object_details else {})
+    if work is not None:
+        details["activeWork"] = {
+            "actor": _text(work.agent, limit=160),
+            "task": _text(work.task, limit=500),
+            "state": _text(work.state, limit=120),
+            "checkpoint": _text(work.checkpoint, limit=1_000),
+            "startedAt": _text(work.started_at, limit=80),
+            "updatedAt": _text(work.updated_at, limit=80),
+            "blockedBy": [_text(value, limit=500) for value in work.blocked_by[:64]],
         }
-        if details:
-            value["details"] = details
-        if include_object_details:
-            detail = detail_provider(item)
-            validate_object_detail(detail)
-            value["detail"] = detail
-        else:
-            assert detail_snapshot is not None and detail_identity_provider is not None
-            identity = detail_identity_provider(item)
-            if not isinstance(identity, str) or not _SHA256_RE.fullmatch(identity):
-                raise DeveloperGraphError(
-                    f"developer object detail identity is invalid: {item.id}"
-                )
-            detail_snapshot.update(item.id.encode("utf-8"))
-            detail_snapshot.update(b"\0")
-            detail_snapshot.update(identity.encode("ascii"))
-            detail_snapshot.update(b"\n")
-        if failure_state in {"blocked", "error", "failed"}:
-            value["failure"] = {
-                "message": _text(work.checkpoint, limit=1_000)
-                or f"Agent work is {failure_state}",
-                "source": _text(work.agent, limit=160) or "activity",
-                "at": _text(work.updated_at, limit=80),
-                "provenance": _provenance("active-work"),
-            }
-        objects.append(value)
+    value = {
+        "id": item.id,
+        "kind": _kind(item.id),
+        "title": _text(item.title, limit=500) or item.id,
+        "summary": _text(item.one_liner, limit=4_000),
+        "status": _text(item.status, limit=120) or "unknown",
+        "statusRole": _status_role(cfg, item, failure_state),
+        "groupId": item.group if item.group in group_ids else None,
+        "provenance": _provenance(
+            _text(item.source.get("adapter"), limit=120) or "work-graph",
+            locator=locator,
+        ),
+    }
+    if details:
+        value["details"] = details
+    if include_object_details:
+        detail = detail_provider(item)
+        validate_object_detail(detail)
+        value["detail"] = detail
+    if failure_state in {"blocked", "error", "failed"}:
+        value["failure"] = {
+            "message": _text(work.checkpoint, limit=1_000)
+            or f"Agent work is {failure_state}",
+            "source": _text(work.agent, limit=160) or "activity",
+            "at": _text(work.updated_at, limit=80),
+            "provenance": _provenance("active-work"),
+        }
+    return value
 
-    object_ids = {entry["id"] for entry in objects}
-    relations = []
+
+def _iter_relations(graph: Graph, object_ids: set[str]):
     seen = set()
     for item in sorted(graph.items, key=lambda entry: entry.id):
         for dependency in sorted(set(item.deps)):
@@ -202,7 +195,7 @@ def _project_work_graph(
             if identity in seen:
                 continue
             seen.add(identity)
-            relations.append({
+            yield {
                 "id": identity,
                 "source": item.id,
                 "target": dependency,
@@ -210,12 +203,12 @@ def _project_work_graph(
                 "direction": "directed",
                 "confidence": "observed",
                 "provenance": _provenance("work-graph-dependency"),
-            })
+            }
         for index, relation in enumerate(item.relations):
             if relation.target not in object_ids:
                 continue
             identity = f"relation:{item.id}:{relation.kind}:{relation.target}:{index}"
-            relations.append({
+            yield {
                 "id": identity,
                 "source": item.id,
                 "target": relation.target,
@@ -223,18 +216,25 @@ def _project_work_graph(
                 "direction": "directed",
                 "confidence": "observed",
                 "provenance": _provenance("work-graph-relation"),
-            })
+            }
+
+
+def _envelope(
+    graph: Graph,
+    cfg: Config,
+    groups: list[dict[str, Any]],
+    *,
+    object_count: int,
+    relation_count: int,
+) -> dict[str, Any]:
 
     cap = cfg.get("developer_flow.materialization_cap", 1_200)
     if isinstance(cap, bool) or not isinstance(cap, int):
         cap = 1_200
-    result = {
+    return {
         "schema": SCHEMA,
         "title": _text(cfg.get("render.title", ""), limit=500)
         or _text(cfg.get("project.name", "project"), limit=500),
-        "objects": objects,
-        "relations": relations,
-        "groups": groups,
         "vocab": {
             "objectKinds": {
                 kind: {"label": kind.replace("-", " ")}
@@ -252,13 +252,55 @@ def _project_work_graph(
             },
         },
         "limits": {
-            "sourceObjectCount": len(objects),
-            "sourceRelationCount": len(relations),
+            "sourceObjectCount": object_count,
+            "sourceRelationCount": relation_count,
             "sourceGroupCount": len(groups),
             "materializationCap": max(100, min(cap, 5_000)),
             "boundaryMaterializationCap": 250,
         },
         "provenance": _provenance("normalized-work-graph"),
+    }
+
+
+def _project_work_graph(
+    graph: Graph,
+    cfg: Config,
+    *,
+    detail_provider: DetailProvider,
+    detail_identity_provider: DetailIdentityProvider | None,
+    include_object_details: bool,
+) -> dict[str, Any]:
+    groups, group_ids = _project_groups(graph)
+    latest_work = _latest_work(graph)
+    detail_snapshot = hashlib.sha256() if not include_object_details else None
+    objects = []
+    for item in sorted(graph.items, key=lambda entry: entry.id):
+        value = _project_object(
+            item, cfg, group_ids, latest_work,
+            detail_provider=detail_provider,
+            include_object_details=include_object_details,
+        )
+        if detail_snapshot is not None:
+            assert detail_identity_provider is not None
+            identity = detail_identity_provider(item)
+            if not isinstance(identity, str) or not _SHA256_RE.fullmatch(identity):
+                raise DeveloperGraphError(
+                    f"developer object detail identity is invalid: {item.id}"
+                )
+            detail_snapshot.update(item.id.encode("utf-8"))
+            detail_snapshot.update(b"\0")
+            detail_snapshot.update(identity.encode("ascii"))
+            detail_snapshot.update(b"\n")
+        objects.append(value)
+    relations = list(_iter_relations(graph, {item.id for item in graph.items}))
+    result = {
+        **_envelope(
+            graph, cfg, groups,
+            object_count=len(objects), relation_count=len(relations),
+        ),
+        "objects": objects,
+        "relations": relations,
+        "groups": groups,
     }
     if detail_snapshot is not None:
         result["detailSnapshot"] = detail_snapshot.hexdigest()
@@ -267,6 +309,49 @@ def _project_work_graph(
     else:
         validate_developer_graph_index(result)
     return result
+
+
+def stream_work_graph_index(
+    graph: Graph,
+    cfg: Config,
+    *,
+    detail_identity_provider: DetailIdentityProvider,
+    object_visitor: Callable[[Item, dict[str, Any]], None],
+) -> tuple[dict[str, Any], Any]:
+    """Visit compact objects once and return an envelope plus relation iterator.
+
+    This is the large derived-store seam: it shares projection semantics with
+    the in-memory contract without retaining another 100,000-record Python list.
+    The caller owns per-record validation and durable storage.
+    """
+    groups, group_ids = _project_groups(graph)
+    latest_work = _latest_work(graph)
+    detail_snapshot = hashlib.sha256()
+    for item in sorted(graph.items, key=lambda entry: entry.id):
+        value = _project_object(
+            item, cfg, group_ids, latest_work,
+            detail_provider=object_detail_for,
+            include_object_details=False,
+        )
+        identity = detail_identity_provider(item)
+        if not isinstance(identity, str) or not _SHA256_RE.fullmatch(identity):
+            raise DeveloperGraphError(
+                f"developer object detail identity is invalid: {item.id}"
+            )
+        detail_snapshot.update(item.id.encode("utf-8"))
+        detail_snapshot.update(b"\0")
+        detail_snapshot.update(identity.encode("ascii"))
+        detail_snapshot.update(b"\n")
+        object_visitor(item, value)
+    object_ids = {item.id for item in graph.items}
+    relation_count = sum(1 for _ in _iter_relations(graph, object_ids))
+    envelope = _envelope(
+        graph, cfg, groups,
+        object_count=len(graph.items), relation_count=relation_count,
+    )
+    envelope["groups"] = groups
+    envelope["detailSnapshot"] = detail_snapshot.hexdigest()
+    return envelope, _iter_relations(graph, object_ids)
 
 
 def from_work_graph(

@@ -26,6 +26,7 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
     assert "[assessment]" in toml and "small_limit = 4" in toml
     gi = (repo / ".gitignore").read_text()
     assert "vizzer/archive/" in gi
+    assert ".vizzer/cache/" in gi
     agents = (repo / "AGENTS.md").read_text()
     assert "<!-- vizzer:begin" in agents and "python3 vizzer/engine refresh" in agents
     assert "source story/issue/ledger first" in agents

@@ -613,10 +613,10 @@ def _write_version(target: Path) -> None:
     vizzer.write_marker(target, vizzer.render_id(target))
 
 
-def _ensure_archive_ignored(target: Path) -> None:
+def _ensure_local_state_ignored(target: Path) -> None:
     path = target / ".gitignore"
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
-    required = ("vizzer/archive/", ".vizzer/runtime/")
+    required = ("vizzer/archive/", ".vizzer/runtime/", ".vizzer/cache/")
     existing = {line.strip() for line in text.splitlines()}
     missing = [entry for entry in required if entry not in existing]
     if not missing:
@@ -688,7 +688,7 @@ def install(target: Path, *, claude_skill: bool = False,
     _write_version(target)
     config_text = found.get("config_text") or _config_text(target, found)
     (target / "vizzer" / "vizzer.toml").write_text(config_text, encoding="utf-8")
-    _ensure_archive_ignored(target)
+    _ensure_local_state_ignored(target)
     for harness_doc in _harness_docs(target, harness):
         _upsert_managed_block(harness_doc)
 
