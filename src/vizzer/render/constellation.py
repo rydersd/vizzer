@@ -8,7 +8,7 @@ from importlib.resources import files
 from pathlib import Path
 from urllib.parse import quote
 
-from .. import __version__
+from .. import __version__, process_render_id, process_render_id_reason
 from ..config import Config
 from ..model import Graph, owner_question_fingerprint
 from ..story_sidebar import object_detail_provider
@@ -22,6 +22,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_BOOT_JS__", "boot.js"),
     ("__VIZZER_VIEW_QUERY_JS__", "view_query.js"),
     ("__VIZZER_STATE_JS__", "state.js"),
+    ("__VIZZER_CHROME_LAYOUT_JS__", "chrome_layout.js"),
     ("__VIZZER_PREFERENCES_JS__", "preferences.js"),
     ("__VIZZER_MARKDOWN_JS__", "markdown.js"),
     ("__VIZZER_VIEWS_JS__", "views.js"),
@@ -64,6 +65,15 @@ def _template_text(cfg: Config) -> str:
     if unresolved:
         raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
     return composed
+
+
+def _current_render_id() -> str:
+    value = process_render_id()
+    if value is None:
+        raise RuntimeError(
+            f"cannot render without an engine identity: {process_render_id_reason()}"
+        )
+    return value
 
 # Authored appetite fallback used only when assessment is disabled.
 APPETITE_W = {"small": 1.0, "medium": 1.9, "large": 2.9}
@@ -478,9 +488,11 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "state": entry.state,
             "done": entry.completed,
             "total": entry.total,
+            "startedAt": entry.started_at or "",
             "updatedAt": entry.updated_at,
             "staleAt": entry.stale_at,
             "checkpoint": entry.checkpoint or "",
+            "blockedBy": entry.blocked_by,
         })
         nodes[node_index].setdefault("aw", []).append(work_index)
         # codex-sequence-2026-08-08: activity is searchable without becoming
@@ -491,7 +503,9 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             entry.state,
             entry.checkpoint or "",
             entry.updated_at,
+            entry.started_at or "",
             entry.stale_at,
+            " ".join(entry.blocked_by),
         )))
         for related_id in entry.related_story_ids:
             related_index = idx.get(related_id)
@@ -612,6 +626,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
 
     data = {
         "engineVersion": __version__,
+        "renderId": _current_render_id(),
         "nodes": nodes,
         "groups": rendered_groups,
         "edges": edges,

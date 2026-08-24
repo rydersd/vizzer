@@ -252,4 +252,11 @@ function switchView(view,focus=false){
   renderCurrentView();
   if(focus)(currentView==='constellation'?viewCanvas:viewPanel).focus();
 }
-addEventListener('hashchange',()=>switchView(requestedView(),true));
+function openRequestedStory(){
+  const id=requestedViewParams().get('story');
+  if(!id)return false;
+  const index=nodeById.get(id);
+  if(index===undefined)return false;
+  openNode(index);return true;
+}
+addEventListener('hashchange',()=>{switchView(requestedView(),true);openRequestedStory();});

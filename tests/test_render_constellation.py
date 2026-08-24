@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from vizzer import __version__
+from vizzer import __version__, process_render_id
 from vizzer.config import Config, DEFAULTS, deep_merge
 from vizzer.model import (
     ActiveWork, Graph, Group, Item, OwnerQuestion, OwnerQuestionOption,
@@ -368,8 +368,8 @@ def test_constellation_injects_data(tmp_path):
     assert "__DATA__" not in html and "__TITLE__" not in html and "demo" in html
     d = _data(html)
     assert len(d["nodes"]) == 2 and d["edges"] == [[0, 1]]
-    assert d["engineVersion"]
-    assert "if(body.engineVersion!==ENGINE_VERSION)" in html
+    assert d["engineVersion"] and d["renderId"]
+    assert "if(body.renderId!==RENDER_ID)" in html
     assert "Restart vizzer serve before answering." in html
     assert d["now"] == 900                       # max last_touched — deterministic, no wall clock
     assert d["nodes"][1]["rec"] == 1
@@ -838,7 +838,10 @@ def test_constellation_exposes_interactive_views_and_separate_markdown_exports(t
     assert "function renderFeatures(entries)" in html
     assert "function renderCompletion(entries)" in html
     assert "function renderLedgers(entries)" in html
-    assert "addEventListener('hashchange',()=>switchView(requestedView(),true))" in html
+    assert "addEventListener('hashchange',()=>{switchView(requestedView(),true);openRequestedStory();})" in html
+    assert "query.push(`story=${encodeURIComponent(id)}`)" in html
+    assert 'data-copy-story-link' in html
+    assert "openRequestedStory();\nframe();" in html
     assert "developer-flow.html" not in html
 
 
@@ -1015,6 +1018,19 @@ def test_constellation_activity_lens_pulses_only_explicit_fresh_work_links(tmp_p
     assert "Explicit agent-work linkage pulses" in html
     assert "activeCount===2" in html and "activeCount===2?.55:.22" in html
     assert "ctx.setLineDash([4,4])" in html  # typed relation, not hard dependency
+
+
+def test_constellation_measures_top_chrome_before_positioning_search_and_rail(tmp_path):
+    html = render_all(
+        _graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"},
+    )["constellation.html"]
+
+    assert "function chromeMetrics(topHeight,searchHeight)" in html
+    assert "--search-top',`${metrics.searchTop}px`" in html
+    assert "--rail-top',`${metrics.railTop}px`" in html
+    assert "new ResizeObserver(syncChromeMetrics)" in html
+    assert "top:var(--search-top)" in html
+    assert html.count("top:var(--rail-top)") == 2
 
 
 def test_constellation_work_keyboard_navigation_executes_recency_and_focus_contract(tmp_path):
@@ -1667,7 +1683,10 @@ def test_constellation_physical_option_click_keeps_dossier_open_and_enables_answ
         "backgroundPointerEvents": "none", "backgroundOwnsHit": False,
         "actionLayout": {"pinned": True, "below": True, "leftAligned": True},
         "stalePreflight": {
-            "error": f"Vizzer version mismatch (page {__version__}, server 0.0.0). Reload this page before answering.",
+            "error": (
+                f"Vizzer version mismatch (page {process_render_id()}, server "
+                "0000000000000000). Reload this page before answering."
+            ),
             "postCalls": 0, "retryAvailable": True, "dossierOpen": True,
             "selected": 0, "scroll": 80, "route": "constellation",
             "drafts": [

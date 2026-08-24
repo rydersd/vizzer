@@ -5,8 +5,9 @@ from contextlib import contextmanager
 from urllib.parse import quote
 
 import vizzer.cli as cli
-from vizzer import __version__
+from vizzer import __version__, render_id, write_marker
 from vizzer.cli import _make_serve_server, _read_graph, main
+from vizzer.install import _vendor, _write_version
 
 
 def _question(prompt="Which route wins?"):
@@ -246,7 +247,16 @@ def test_question_http_rejects_writes_from_stale_running_engine(
     tmp_path, make_repo
 ):
     repo = _prepare_repo(tmp_path, make_repo)
-    (repo / "vizzer/VERSION").write_text("999.0.0\n", encoding="utf-8")
+    _vendor(repo / "vizzer/engine")
+    _write_version(repo)
+    installed_layout = (
+        repo / "vizzer/engine/vizzer/render/constellation/layout.css"
+    )
+    installed_layout.write_text(
+        installed_layout.read_text(encoding="utf-8") + "\n/* newer engine */\n",
+        encoding="utf-8",
+    )
+    write_marker(repo, render_id(repo))
     server, thread, connection, guarded = _start(repo)
     try:
         status, stale = _request(connection, "GET", "/api/questions")

@@ -135,6 +135,87 @@ def test_front_matter_release_is_honored(tmp_path):
     assert item.wave == "W1"
 
 
+@pytest.mark.parametrize("evidence", [
+    "---\nstatus: shipped\ncompleted_on: 2026-08-08\n---\n# Story: A\n",
+    "# Story: A\n\n> Status: shipped\n> Completed: 2026-08-08\n",
+    "# Story: A\n\n> Status: shipped\n> Ship evidence (2026-08-08)\n",
+])
+def test_authored_completion_is_recorded_with_provenance(tmp_path, evidence):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text(evidence, encoding="utf-8")
+
+    [item] = spec_tree.scan(cfg(), tmp_path).items
+
+    assert item.completion == {"date": "2026-08-08", "provenance": "authored"}
+
+
+def test_completion_on_non_done_status_warns_and_is_not_promoted(tmp_path):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    (stories / "a.md").write_text(
+        "# Story: A\n\n> Status: specced\n> Completed: 2026-08-08\n",
+        encoding="utf-8",
+    )
+
+    result = spec_tree.scan(cfg(), tmp_path)
+
+    assert result.items[0].completion == {}
+    assert any("not configured done" in warning for warning in result.warnings)
+
+
+def test_git_completion_parser_requires_a_real_custom_done_transition():
+    stream = """\x00COMMIT 2026-08-09T10:00:00Z
+diff --git a/spec/a.md b/spec/a.md
+--- a/spec/a.md
++++ b/spec/a.md
+-status: finished
++status: finished
+\x00COMMIT 2026-08-08T10:00:00Z
+diff --git a/spec/a.md b/spec/a.md
+--- a/spec/a.md
++++ b/spec/a.md
+-status: building
++status: finished
+\x00COMMIT 2026-08-07T10:00:00Z
+diff --git a/spec/b.md b/spec/b.md
+new file mode 100644
+--- /dev/null
++++ b/spec/b.md
++status: finished
+"""
+
+    assert spec_tree._parse_status_flips(stream, {"finished"}) == {
+        "spec/a.md": "2026-08-08"
+    }
+
+
+def test_scan_uses_configured_done_role_for_git_completion(tmp_path, monkeypatch):
+    stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
+    stories.mkdir(parents=True)
+    story = stories / "a.md"
+    story.write_text("# Story: A\n\n> Status: finished\n", encoding="utf-8")
+    configured = Config(data=deep_merge(DEFAULTS, {
+        "status": [
+            {"name": "queued", "role": "ready", "done": False},
+            {"name": "finished", "role": "done", "done": True},
+        ],
+        "sources": {"spec_tree": {
+            "enabled": True, "glob": "spec/*/epics/*/stories/*.md",
+            "levels": ["capability", "epic"],
+        }},
+    }))
+    seen = []
+    monkeypatch.setattr(spec_tree, "_git_status_flip_dates", lambda root, glob, done: (
+        seen.append((glob, done)) or {story.relative_to(tmp_path).as_posix(): "2026-08-08"}
+    ))
+
+    [item] = spec_tree.scan(configured, tmp_path).items
+
+    assert seen == [("spec/*/epics/*/stories/*.md", {"finished"})]
+    assert item.completion == {"date": "2026-08-08", "provenance": "git"}
+
+
 def test_story_tags_and_product_capabilities_are_preserved_as_distinct_dimensions(tmp_path):
     stories = tmp_path / "spec" / "cap" / "epics" / "ep" / "stories"
     stories.mkdir(parents=True)

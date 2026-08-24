@@ -135,9 +135,10 @@ def _agent_work_line(work, item: Item, prefix: str) -> str:
         else "0/0 checkpoints (not estimated)"
     )
     checkpoint = f" · now: {work.checkpoint}" if work.checkpoint else ""
+    start = f" · started `{work.started_at}`" if work.started_at else ""
     return (
         f"- **{work.state}** {item_link(item, prefix)} — {work.agent}: "
-        f"{work.task} · {progress}{checkpoint} · updated `{work.updated_at}`; "
+        f"{work.task} · {progress}{checkpoint}{start} · updated `{work.updated_at}`; "
         f"stale after `{work.stale_at}`"
     )
 

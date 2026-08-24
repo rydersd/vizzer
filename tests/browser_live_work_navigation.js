@@ -31,7 +31,7 @@ try{
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:value,code:value,windowsVirtualKeyCode:code,nativeVirtualKeyCode:code});};
   await send('Runtime.enable');await send('Page.enable');
   await waitFor(()=>evaluate(`document.readyState==='complete'&&typeof workNavigationIndexes==='function'&&document.getElementById('boot').hidden`),'Vizzer boot');
-  const lanes=await evaluate(`({version:ENGINE_VERSION,active:workNavigationIndexes('active'),recent:workNavigationIndexes('recent')})`);
+  const lanes=await evaluate(`({renderId:RENDER_ID,active:workNavigationIndexes('active'),recent:workNavigationIndexes('recent')})`);
   if(!lanes.active.length||lanes.recent.length<2)throw new Error(`insufficient live lanes ${JSON.stringify(lanes)}`);
   const selected=()=>evaluate(`sel`),outside=await evaluate(`DATA.nodes.findIndex((_,index)=>!workNavigationIndexes('active').includes(index))`);
   await evaluate(`openNode(${outside});cv.focus()`);await key('ArrowRight');const activeFirst=await selected();

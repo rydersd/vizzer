@@ -79,8 +79,8 @@ async function preflightQuestionAuthority(forms){
   const response=await fetch('/api/questions',{cache:'no-store'});
   const body=await response.json();
   if(!response.ok)throw new Error(body.error||'question authority unavailable');
-  if(body.engineVersion!==ENGINE_VERSION)throw new Error(
-    `Vizzer version mismatch (page ${ENGINE_VERSION||'unknown'}, server ${body.engineVersion||'unknown'}). Reload this page before answering.`);
+  if(body.renderId!==RENDER_ID)throw new Error(
+    `Vizzer version mismatch (page ${RENDER_ID||'unknown'}, server ${body.renderId||'unknown'}). Reload this page before answering.`);
   const liveQuestions=new Map((body.questions||[]).map(question=>[question.id,question]));
   for(const form of forms){
     const rendered=(DATA.questions||[]).find(question=>question.id===form.dataset.questionId);
@@ -102,8 +102,8 @@ async function preflightDiscussionAuthority(){
   const questionBody=await questionResponse.json(), discussionBody=await discussionResponse.json();
   if(!questionResponse.ok)throw new Error(questionBody.error||'question authority unavailable');
   if(!discussionResponse.ok)throw new Error(discussionBody.error||'discussion queue unavailable');
-  if(questionBody.engineVersion!==ENGINE_VERSION||discussionBody.engineVersion!==ENGINE_VERSION)throw new Error(
-    `Vizzer version mismatch (page ${ENGINE_VERSION||'unknown'}, server ${questionBody.engineVersion||discussionBody.engineVersion||'unknown'}). Reload before queuing discussion.`);
+  if(questionBody.renderId!==RENDER_ID||discussionBody.renderId!==RENDER_ID)throw new Error(
+    `Vizzer version mismatch (page ${RENDER_ID||'unknown'}, server ${questionBody.renderId||discussionBody.renderId||'unknown'}). Reload before queuing discussion.`);
   questionContext=questionBody;discussionContext=discussionBody;discussionError='';
   return questionBody;
 }

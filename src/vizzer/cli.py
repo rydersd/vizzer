@@ -22,7 +22,16 @@ except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None
 
 from .adapters import get_adapters
-from . import __version__
+from . import (
+    RenderIdError, __version__, process_render_id, process_render_id_reason,
+    read_marker, render_id,
+)
+from .activity import (
+    GRANDFATHER_RELPATH,
+    answered_blocker_records,
+    load_grandfathered_blockers,
+    unresolved_blocker_records,
+)
 from .config import Config, ConfigError
 from .decision_journal import (
     DecisionJournalError, append_application_event, append_evolution_events,
@@ -45,6 +54,7 @@ from .question_answers import (
     append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
     read_answers, restore_answers,
 )
+from .question_aging import overdue_warning_lines, question_ages
 from .review_contract import ReviewContractError
 from .review_service import (
     ReviewServiceError, append_review_event, load_review_plans, review_state,
@@ -59,21 +69,32 @@ from .workstreams import (
 
 GRAPH_RELPATH = Path("vizzer/vizzer-graph.json")
 _PROCESS_MUTATION_LOCK = threading.RLock()
+_CAPTURED_AT_IMPORT = process_render_id()
 
 
 def _serve_version_error(root: Path) -> str | None:
     """Explain when a long-running server no longer matches its installation."""
-    marker = root / "vizzer" / "VERSION"
-    if not marker.exists():
+    running = process_render_id()
+    if running is None:
+        return (
+            "Vizzer could not verify the engine this process is running: "
+            f"{process_render_id_reason()}. Restart vizzer serve"
+        )
+    if not (root / "vizzer/engine/vizzer").is_dir():
         return None
     try:
-        installed = marker.read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeError):
-        return "Vizzer could not verify its installed engine version; restart vizzer serve"
-    if installed and installed != __version__:
+        on_disk = render_id(root)
+    except RenderIdError as exc:
+        return f"Vizzer could not identify the installed engine: {exc}"
+    marker = read_marker(root)
+    if marker is None:
+        return "vizzer/RENDER_ID is missing or malformed; run vizzer update"
+    if marker.render_id != on_disk:
+        return "the installed engine changed without updating vizzer/RENDER_ID"
+    if on_disk != running:
         return (
-            f"Vizzer server {__version__} is out of date; installed engine is "
-            f"{installed}. Restart vizzer serve"
+            f"Vizzer server {running} is out of date; installed render ID is "
+            f"{on_disk}. Restart vizzer serve"
         )
     return None
 
@@ -241,6 +262,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             self._send_json(409, {
                 "error": error,
                 "runningEngineVersion": __version__,
+                "renderId": process_render_id(),
             })
             return False
 
@@ -642,7 +664,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     self._send_json(500, {"error": str(exc)})
                     return
                 self._send_json(200, {
-                    "engineVersion": __version__, "schema": 1,
+                    "engineVersion": __version__, "renderId": process_render_id(), "schema": 1,
                     "csrfToken": csrf_token, "warnings": warnings,
                     "queue": queue,
                 })
@@ -659,9 +681,11 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 if not cfg.get("workstreams.enabled", False):
                     self._send_json(404, {"error": "workstreams are disabled"})
                     return
-                warnings = load_workstream_overlay(live_graph, cfg, root)
+                warnings = load_workstream_overlay(
+                    live_graph, cfg, root, include_runtime=True
+                )
                 self._send_json(200, {
-                    "engineVersion": __version__, "schema": 1,
+                    "engineVersion": __version__, "renderId": process_render_id(), "schema": 1,
                     "csrfToken": csrf_token, "warnings": warnings,
                     "workstreams": live_graph.workstreams,
                 })
@@ -690,6 +714,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 assert ledger is not None
                 self._send_json(200, {
                     "engineVersion": __version__,
+                    "renderId": process_render_id(),
                     "schema": 1,
                     "csrfToken": csrf_token,
                     "revision": ledger["revision"],
@@ -721,6 +746,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     return
                 self._send_json(200, {
                     "engineVersion": __version__,
+                    "renderId": process_render_id(),
                     "csrfToken": csrf_token,
                     "overlay": overlay,
                 })
@@ -1131,6 +1157,22 @@ def _check(root: Path, structural: bool) -> int:
     # documented relative `--root .` must compare in the same coordinate
     # system instead of crashing in Path.relative_to.
     root = root.resolve()
+    if (root / "vizzer/engine/vizzer").is_dir():
+        try:
+            installed_render_id = render_id(root)
+        except RenderIdError as exc:
+            print(f"check: installed engine identity failed: {exc}")
+            return 2
+        running_render_id = process_render_id()
+        if running_render_id is None:
+            print(f"check: running engine identity failed: {process_render_id_reason()}")
+            return 2
+        if installed_render_id != running_render_id:
+            print(
+                f"check: running engine {running_render_id} does not match installed "
+                f"engine {installed_render_id}; use the project's vendored engine"
+            )
+            return 2
     disk_graph = _read_graph(root)
     if disk_graph is None:
         print("check: run 'sync' first")
@@ -1149,6 +1191,53 @@ def _check(root: Path, structural: bool) -> int:
     except Exception as exc:
         print(f"check: could not build current graph: {exc}")
         return 2
+
+    answered_blockers = answered_blocker_records(expected_graph)
+    if answered_blockers:
+        for work, decisions in answered_blockers:
+            answers = ", ".join(
+                f"{decision.question.id} at {decision.answered_at}"
+                for decision in decisions
+            )
+            print(
+                f"check: answered blocker: {work.story_id} remains blocked "
+                f"after accepted decision(s) {answers}"
+            )
+        return 1
+
+    grandfathered, grandfather_warnings = load_grandfathered_blockers(root)
+    for warning in grandfather_warnings:
+        print(f"check: {warning}")
+    if grandfather_warnings:
+        return 1
+    unresolved = unresolved_blocker_records(
+        expected_graph,
+        done_statuses=cfg.done_statuses(),
+        grandfathered=grandfathered,
+    )
+    live_blockers = [
+        violation for violation in unresolved if not violation.grandfathered
+    ]
+    carried = len(unresolved) - len(live_blockers)
+    if carried:
+        print(
+            f"check: {carried} grandfathered blocked-record violation(s) "
+            f"remaining (see {GRANDFATHER_RELPATH})"
+        )
+    if live_blockers:
+        for violation in live_blockers:
+            print(
+                f"check: unresolved blocker [{'+'.join(violation.reasons)}]: "
+                f"{violation.remedy}"
+            )
+        return 1
+    question_budget = int(cfg.get("questions.age_budget_hours", 72))
+    ages = question_ages(expected_graph, cfg, root, datetime.now(timezone.utc))
+    overdue = [age for age in ages if age.over_budget]
+    for warning in overdue_warning_lines(ages, question_budget):
+        print(warning)
+    if overdue and cfg.get("questions.age_budget_hard_fail", False):
+        return 1
     graph_path = root / GRAPH_RELPATH
     stale: set[str] = set()
 
@@ -1157,6 +1246,13 @@ def _check(root: Path, structural: bool) -> int:
             load_review_plans(cfg, root)
         except ReviewContractError as exc:
             print(f"check: review contracts are invalid: {exc}")
+            return 2
+    if cfg.get("agent_ops.enabled", False):
+        from .agent_lanes import AgentLaneError, read_ledger
+        try:
+            read_ledger(root, cfg.get("agent_ops.ledger_path"), strict=True)
+        except AgentLaneError as exc:
+            print(f"check: agent operations ledger is invalid: {exc}")
             return 2
 
     # Installed copies carry a marker beside the vendored engine. A partial
@@ -1171,6 +1267,10 @@ def _check(root: Path, structural: bool) -> int:
         else:
             if installed_version != __version__:
                 stale.add("vizzer/VERSION")
+    if (root / "vizzer/engine/vizzer").is_dir():
+        marker = read_marker(root)
+        if marker is None or marker.render_id != installed_render_id:
+            stale.add("vizzer/RENDER_ID")
 
     try:
         disk_text = graph_path.read_text(encoding="utf-8")

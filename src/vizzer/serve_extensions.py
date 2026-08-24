@@ -12,7 +12,7 @@ import threading
 from typing import Callable, ContextManager
 from urllib.parse import SplitResult, parse_qs, unquote
 
-from . import __version__
+from . import __version__, process_render_id
 from .config import Config
 from .developer_graph import DeveloperGraphError, from_work_graph
 from .developer_query import DeveloperGraphIndex, DeveloperQueryError
@@ -55,6 +55,7 @@ class ReviewHttpExtension:
                 return True
             ctx.send_json(200, {
                 "engineVersion": __version__,
+                "renderId": process_render_id(),
                 "csrfToken": ctx.csrf_token,
                 **state,
             })

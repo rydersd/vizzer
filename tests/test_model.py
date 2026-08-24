@@ -11,7 +11,8 @@ def _graph():
                 Group(id="epic:a", kind="epic", title="A", meta={"goal": "g"})],
         items=[Item(id="story:z", title="Z", deps=["story:a"],
                     relations=[Relation(kind="revises", target="story:a")]),
-               Item(id="story:a", title="A", status="shipped", group="epic:a")],
+               Item(id="story:a", title="A", status="shipped", group="epic:a",
+                    completion={"date": "2026-08-08", "provenance": "authored"})],
         conflicts=[{"item": "story:z", "field": "status",
                     "kept": {"adapter": "spec_tree", "value": "building"},
                     "dropped": {"adapter": "dag_import", "value": "specced"}}],
@@ -28,7 +29,9 @@ def _graph():
             state="active", completed=1, total=2,
             updated_at="2026-08-08T17:00:00Z",
             stale_at="2026-08-08T19:00:00Z",
+            started_at="2026-08-08T16:00:00Z",
             checkpoint="negative controls", related_story_ids=["story:a"],
+            blocked_by=["story:a"],
         )],
         owner_questions=[OwnerQuestion(
             id="question:overlay-route",
@@ -70,7 +73,10 @@ def test_dumps_roundtrip():
     assert g2.dumps() == g.dumps()          # deterministic fixpoint
     assert g.dumps().endswith("\n")
     assert g2.item_map()["story:a"].status == "shipped"
+    assert g2.item_map()["story:a"].completion["provenance"] == "authored"
     assert g2.active_work[0].checkpoint == "negative controls"
+    assert g2.active_work[0].started_at == "2026-08-08T16:00:00Z"
+    assert g2.active_work[0].blocked_by == ["story:a"]
     assert g2.owner_questions[0].recommendation.option_id == "shared"
     assert g2.assessment == g.assessment
 
@@ -78,12 +84,42 @@ def test_dumps_roundtrip():
 def test_defaults():
     it = Item(id="x", title="X")
     assert it.status == "unknown" and it.deps == [] and it.relations == []
-    assert it.activity == {} and it.priority == {}
+    assert it.activity == {} and it.priority == {} and it.completion == {}
     assert it.role == "delivery" and it.tags == [] and it.facets == {}
     assert Group(id="g", kind="epic", title="T").meta == {}
     assert Milestone(id="M", title="T").phases == []
     assert Graph().owner_questions == []
     assert Graph().assessment == {}
+
+
+def test_empty_additive_activity_and_completion_fields_stay_omitted():
+    graph = Graph(
+        items=[Item(id="story:a", title="A")],
+        active_work=[ActiveWork(
+            story_id="story:a", agent="Agent", task="Work", state="active",
+            completed=0, total=1, updated_at="2026-08-08T17:00:00Z",
+            stale_at="2026-08-08T19:00:00Z",
+        )],
+    )
+
+    data = graph.to_dict()
+
+    assert "completion" not in data["items"][0]
+    assert "started_at" not in data["active_work"][0]
+    assert "blocked_by" not in data["active_work"][0]
+    assert Graph.from_dict(data).to_dict() == data
+
+
+def test_completion_requires_a_real_date_and_explicit_provenance():
+    for completion in (
+        {"date": "2026-99-08", "provenance": "authored"},
+        {"date": "2026-08-08", "provenance": "guessed"},
+        {"date": "2026-08-08"},
+    ):
+        data = Graph(items=[Item(id="story:a", title="A")]).to_dict()
+        data["items"][0]["completion"] = completion
+        with __import__("pytest").raises(ValueError, match="completion"):
+            Graph.from_dict(data)
 
 
 def test_top_level_assessment_is_additive_but_must_be_an_object():

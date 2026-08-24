@@ -5,6 +5,7 @@ import json
 import re
 import hashlib
 from dataclasses import dataclass, field, asdict
+from datetime import date
 
 SCHEMA = 2
 SUPPORTED_SCHEMAS = {1, SCHEMA}
@@ -55,8 +56,12 @@ class ActiveWork:
     total: int
     updated_at: str
     stale_at: str
+    started_at: str | None = None
     checkpoint: str | None = None
     related_story_ids: list[str] = field(default_factory=list)
+    # Named tracked work this record is waiting on. This is authority, while
+    # related_story_ids is only navigation and may not satisfy a blocker gate.
+    blocked_by: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -140,6 +145,9 @@ class Item:
     priority: dict = field(default_factory=dict)
     # Generated trail/stall evidence. Never a source lifecycle field.
     progress: dict = field(default_factory=dict)
+    # Recorded completion only: {"date": YYYY-MM-DD,
+    # "provenance": "authored"|"git"}. Absence means unknown.
+    completion: dict = field(default_factory=dict)
 
 
 # codex-sequence-2026-08-08: milestone membership is derived DAG metadata.
@@ -237,6 +245,21 @@ def _item_from_dict(data: dict) -> Item:
         raise ValueError("graph item source and activity must be objects")
     if not isinstance(item.priority, dict) or not isinstance(item.progress, dict):
         raise ValueError("graph item priority and progress must be objects")
+    if not isinstance(item.completion, dict):
+        raise ValueError("graph item completion must be an object")
+    if item.completion:
+        if set(item.completion) != {"date", "provenance"}:
+            raise ValueError("graph item completion needs date and provenance only")
+        if not isinstance(item.completion["date"], str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", item.completion["date"]
+        ):
+            raise ValueError("graph item completion date must be YYYY-MM-DD")
+        try:
+            date.fromisoformat(item.completion["date"])
+        except ValueError as exc:
+            raise ValueError("graph item completion date must be a real date") from exc
+        if item.completion["provenance"] not in {"authored", "git"}:
+            raise ValueError("graph item completion provenance must be authored or git")
     for field_name in ("adapter", "path"):
         value = item.source.get(field_name)
         if value is not None and not isinstance(value, str):
@@ -307,6 +330,8 @@ def _active_work_from_dict(data: dict) -> ActiveWork:
     _validate_id(work.story_id, "active work story")
     if work.checkpoint is not None and not isinstance(work.checkpoint, str):
         raise ValueError("graph active work checkpoint must be a string or null")
+    if work.started_at is not None and not isinstance(work.started_at, str):
+        raise ValueError("graph active work started at must be a string or null")
     if (isinstance(work.completed, bool) or not isinstance(work.completed, int)
             or isinstance(work.total, bool) or not isinstance(work.total, int)
             or work.completed < 0 or work.total < 0 or work.completed > work.total):
@@ -315,6 +340,10 @@ def _active_work_from_dict(data: dict) -> ActiveWork:
         isinstance(value, str) for value in work.related_story_ids
     ):
         raise ValueError("graph active work related story ids must be strings")
+    if not isinstance(work.blocked_by, list) or not all(
+        isinstance(value, str) for value in work.blocked_by
+    ):
+        raise ValueError("graph active work blocked by ids must be strings")
     return work
 
 
@@ -442,6 +471,8 @@ class Graph:
                 serialized.pop("priority")
             if not serialized["progress"]:
                 serialized.pop("progress")
+            if not serialized["completion"]:
+                serialized.pop("completion")
             if not serialized["tags"]:
                 serialized.pop("tags")
             if not serialized["facets"]:
@@ -466,12 +497,17 @@ class Graph:
         if self.assessment:
             result["assessment"] = self.assessment
         if self.active_work:
-            result["active_work"] = [
-                asdict(work) for work in sorted(
-                    self.active_work,
-                    key=lambda work: (work.story_id, work.agent, work.task),
-                )
-            ]
+            result["active_work"] = []
+            for work in sorted(
+                self.active_work,
+                key=lambda value: (value.story_id, value.agent, value.task),
+            ):
+                serialized_work = asdict(work)
+                if serialized_work["started_at"] is None:
+                    serialized_work.pop("started_at")
+                if not serialized_work["blocked_by"]:
+                    serialized_work.pop("blocked_by")
+                result["active_work"].append(serialized_work)
         if self.owner_questions:
             result["owner_questions"] = [
                 asdict(question) for question in sorted(

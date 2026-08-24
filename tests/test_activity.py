@@ -2,10 +2,16 @@ import json
 
 # codex-sequence-2026-08-08: active-work instrumentation negative controls.
 
-from vizzer.activity import load_active_work
+from vizzer.activity import (
+    answered_blocker_records, load_active_work, load_grandfathered_blockers,
+    unresolved_blocker_records,
+)
 from vizzer.adapters import ScanResult
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import Graph, Item
+from vizzer.model import (
+    ActiveWork, Graph, Item, OwnerDecision, OwnerQuestion, OwnerQuestionOption,
+    OwnerQuestionRecommendation, owner_question_fingerprint,
+)
 from vizzer.reconcile import build_graph
 
 
@@ -57,6 +63,33 @@ def _question(**overrides):
     return value
 
 
+def _owner_question(story_id="story:a"):
+    return OwnerQuestion(
+        id="question:route", story_id=story_id, owner="Owner",
+        prompt="Which route?",
+        options=[
+            OwnerQuestionOption("one", "One", "Lower coupling."),
+            OwnerQuestionOption("two", "Two", "Faster delivery."),
+        ],
+        recommendation=OwnerQuestionRecommendation("one", "Keeps one authority."),
+        falsifier="The shared path cannot meet the contract.",
+        evidence=["spec/story.md:12"],
+    )
+
+
+def _decision(story_id="story:a"):
+    question = _owner_question(story_id)
+    return OwnerDecision(
+        question=question,
+        fingerprint=owner_question_fingerprint(question),
+        revision=1,
+        answered_at="2026-08-08T17:05:00Z",
+        answered_by="owner",
+        kind="option",
+        option_id="one",
+    )
+
+
 def test_activity_feed_keeps_valid_records_and_drops_unknown_links(tmp_path):
     """codex-sequence-2026-08-08: bad telemetry must fail visibly, not lie."""
     _write(tmp_path, [
@@ -84,6 +117,114 @@ def test_activity_feed_keeps_valid_records_and_drops_unknown_links(tmp_path):
     assert work.related_story_ids == ["story:b"]
     assert any("unknown item story:missing" in warning for warning in warnings)
     assert any("cannot link story:a to itself" in warning for warning in warnings)
+
+
+def test_activity_feed_preserves_start_and_explicit_blocker_links(tmp_path):
+    _write(tmp_path, [{
+        "storyId": "story:a", "agent": "Agent", "task": "Await prerequisite",
+        "state": "blocked", "checkpoints": {"completed": 1, "total": 2},
+        "startedAt": "2026-08-08T09:00:00-07:00",
+        "updatedAt": "2026-08-08T17:00:00Z",
+        "blockedBy": ["story:b", "story:missing", "story:a", "story:b"],
+    }])
+    graph = _graph()
+
+    warnings = load_active_work(graph, _cfg(), tmp_path)
+
+    assert graph.active_work[0].started_at == "2026-08-08T16:00:00Z"
+    assert graph.active_work[0].blocked_by == ["story:b"]
+    assert any("blockedBy references unknown item story:missing" in value for value in warnings)
+    assert any("cannot block story:a on itself" in value for value in warnings)
+
+
+def test_activity_feed_rejects_start_after_update(tmp_path):
+    _write(tmp_path, [{
+        "storyId": "story:a", "agent": "Agent", "task": "Time travel",
+        "state": "active", "checkpoints": {"completed": 0, "total": 1},
+        "startedAt": "2026-08-08T18:00:00Z",
+        "updatedAt": "2026-08-08T17:00:00Z",
+    }])
+    graph = _graph()
+
+    warnings = load_active_work(graph, _cfg(), tmp_path)
+
+    assert graph.active_work == []
+    assert any("startedAt must be <= updatedAt" in value for value in warnings)
+
+
+def test_blocker_gate_requires_a_live_question_or_unfinished_dependency(tmp_path):
+    graph = _graph()
+    graph.items[1].status = "ready"
+    _write(tmp_path, [{
+        "storyId": "story:a", "agent": "Agent", "task": "Blocked",
+        "state": "blocked", "checkpoints": {"completed": 0, "total": 1},
+        "updatedAt": "2026-08-08T17:00:00Z",
+    }])
+    load_active_work(graph, _cfg(), tmp_path)
+
+    violation = unresolved_blocker_records(graph, done_statuses={"done"})[0]
+    assert violation.reasons == ("unlinked",)
+    assert "add an owner question" in violation.remedy
+
+    graph.active_work[0].blocked_by = ["story:b"]
+    assert unresolved_blocker_records(graph, done_statuses={"done"}) == []
+    graph.items[1].status = "done"
+    assert unresolved_blocker_records(graph, done_statuses={"done"})[0].reasons == (
+        "unlinked",
+    )
+
+
+def test_blocker_gate_detects_expired_and_uncheckable_leases():
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:a", agent="Agent", task="Await owner", state="blocked",
+        completed=0, total=1, updated_at="2026-08-08T17:00:00Z",
+        stale_at="2026-08-08T17:30:00Z",
+    )]
+    graph.owner_questions = [_owner_question()]
+
+    assert unresolved_blocker_records(graph, done_statuses={"done"})[0].reasons == (
+        "unknown-lease",
+    )
+    graph.activity = {"as_of": "2026-08-08T18:00:00Z"}
+    assert unresolved_blocker_records(graph, done_statuses={"done"})[0].reasons == (
+        "expired-lease",
+    )
+
+
+def test_answered_owner_decision_requires_blocked_record_to_advance():
+    graph = _graph()
+    graph.active_work = [ActiveWork(
+        story_id="story:a", agent="Agent", task="Await owner", state="blocked",
+        completed=0, total=1, updated_at="2026-08-08T17:00:00Z",
+        stale_at="2026-08-08T17:30:00Z",
+    )]
+    graph.owner_decisions = [_decision()]
+
+    records = answered_blocker_records(graph)
+    assert records[0][0].story_id == "story:a"
+    assert records[0][1][0].question.id == "question:route"
+
+    graph.owner_questions = [_owner_question()]
+    assert answered_blocker_records(graph) == []
+
+
+def test_grandfathered_blocker_is_pinned_to_exact_record_revision(tmp_path):
+    path = tmp_path / "vizzer/blocked-gate-grandfathered.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps({
+        "schema": 1,
+        "records": [{
+            "storyId": "story:a", "agent": "Agent", "task": "Legacy block",
+            "updatedAt": "2026-08-08T17:00:00Z",
+        }],
+    }), encoding="utf-8")
+
+    keys, warnings = load_grandfathered_blockers(tmp_path)
+
+    assert warnings == []
+    assert ("story:a", "Agent", "Legacy block", "2026-08-08T17:00:00Z") in keys
+    assert ("story:a", "Agent", "Legacy block", "2026-08-08T17:01:00Z") not in keys
 
 
 def test_activity_feed_loads_explicit_questions_independently_of_work_state(tmp_path):

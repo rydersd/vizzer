@@ -9,14 +9,167 @@ percentage or mutating the source stories.
 from __future__ import annotations
 
 import json
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import Config
-from .model import ActiveWork, Graph, owner_question_from_dict
+from .model import ActiveWork, Graph, OwnerDecision, owner_question_from_dict
 
 
 _STATES = {"active", "blocked", "paused", "complete"}
+GRANDFATHER_RELPATH = "vizzer/blocked-gate-grandfathered.json"
+
+
+@dataclass(frozen=True)
+class BlockerViolation:
+    """One blocked activity record with no actionable or live handoff."""
+
+    work: ActiveWork
+    reasons: tuple[str, ...]
+    grandfathered: bool = False
+
+    @property
+    def remedy(self) -> str:
+        parts = []
+        if "unlinked" in self.reasons:
+            parts.append(
+                f"add an owner question whose storyId is {self.work.story_id}, "
+                "or name unfinished tracked work in this record's blockedBy"
+            )
+        if "expired-lease" in self.reasons:
+            parts.append(
+                "the lease expired; resolve the blocker or re-raise it with a "
+                "current updatedAt and a live owner"
+            )
+        if "unknown-lease" in self.reasons:
+            parts.append(
+                "the feed has no as_of snapshot; repair the activity feed rather "
+                "than treating an uncheckable lease as live"
+            )
+        return f"{self.work.story_id} ({self.work.agent}): " + "; ".join(parts)
+
+
+def grandfather_key(entry: Mapping[str, object]) -> tuple[str, str, str, str]:
+    """Pin an allowed legacy violation to the exact record revision."""
+    return (
+        str(entry.get("storyId", "")),
+        str(entry.get("agent", "")),
+        str(entry.get("task", "")),
+        str(entry.get("updatedAt", "")),
+    )
+
+
+def _work_key(work: ActiveWork) -> tuple[str, str, str, str]:
+    return (work.story_id, work.agent, work.task, work.updated_at)
+
+
+def blocker_is_cleared(graph: Graph, story_id: str) -> bool:
+    """All linked owner questions were answered and no current question remains."""
+    has_decision = any(
+        decision.question.story_id == story_id for decision in graph.owner_decisions
+    )
+    has_open = any(
+        question.story_id == story_id for question in graph.owner_questions
+    )
+    return has_decision and not has_open
+
+
+def answered_blocker_records(
+    graph: Graph,
+) -> list[tuple[ActiveWork, tuple[OwnerDecision, ...]]]:
+    """Return activity records contradicted by fully answered owner questions."""
+    decisions_by_story: dict[str, list[OwnerDecision]] = {}
+    for decision in graph.owner_decisions:
+        decisions_by_story.setdefault(decision.question.story_id, []).append(decision)
+    open_stories = {question.story_id for question in graph.owner_questions}
+    return [
+        (
+            work,
+            tuple(sorted(
+                decisions_by_story[work.story_id],
+                key=lambda decision: decision.question.id,
+            )),
+        )
+        for work in graph.active_work
+        if work.state == "blocked"
+        and work.story_id in decisions_by_story
+        and work.story_id not in open_stories
+    ]
+
+
+def unresolved_blocker_records(
+    graph: Graph,
+    *,
+    done_statuses: Collection[str],
+    grandfathered: Collection[tuple[str, str, str, str]] = (),
+) -> list[BlockerViolation]:
+    """Find blocked records with no live question/dependency or expired lease."""
+    done = set(done_statuses)
+    by_id = graph.item_map()
+    linked_stories = {question.story_id for question in graph.owner_questions}
+    linked_stories.update(
+        decision.question.story_id for decision in graph.owner_decisions
+    )
+    as_of = graph.activity.get("as_of")
+    as_of = as_of if isinstance(as_of, str) and as_of else None
+    allowlist = set(grandfathered)
+    violations = []
+    for work in graph.active_work:
+        if work.state != "blocked":
+            continue
+        reasons = []
+        linked = work.story_id in linked_stories or any(
+            dependency in by_id and by_id[dependency].status not in done
+            for dependency in work.blocked_by
+        )
+        if not linked:
+            reasons.append("unlinked")
+        if as_of is None:
+            reasons.append("unknown-lease")
+        elif work.stale_at < as_of:
+            reasons.append("expired-lease")
+        if reasons:
+            violations.append(BlockerViolation(
+                work=work,
+                reasons=tuple(reasons),
+                grandfathered=_work_key(work) in allowlist,
+            ))
+    return violations
+
+
+def load_grandfathered_blockers(root: Path) -> tuple[set, list[str]]:
+    """Load the exact-revision allowlist; absence grandfathers nothing."""
+    path = root / GRANDFATHER_RELPATH
+    if not path.exists():
+        return set(), []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return set(), [f"{GRANDFATHER_RELPATH} is unreadable or malformed"]
+    if not isinstance(payload, dict) or payload.get("schema") != 1:
+        return set(), [f"{GRANDFATHER_RELPATH} must be a schema-1 JSON object"]
+    entries = payload.get("records")
+    if not isinstance(entries, list):
+        return set(), [f"{GRANDFATHER_RELPATH} records must be an array"]
+    keys = set()
+    warnings = []
+    for index, entry in enumerate(entries, 1):
+        if not isinstance(entry, dict):
+            warnings.append(
+                f"{GRANDFATHER_RELPATH} record #{index} must be an object"
+            )
+            continue
+        key = grandfather_key(entry)
+        if not all(key):
+            warnings.append(
+                f"{GRANDFATHER_RELPATH} record #{index} needs storyId, agent, "
+                "task, and updatedAt"
+            )
+            continue
+        keys.add(key)
+    return keys, warnings
 
 
 class _DuplicateJSONKey(ValueError):
@@ -129,6 +282,20 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
         if updated_at is None or updated is None:
             warnings.append(f"{label} updatedAt must be an offset-aware ISO timestamp (record dropped)")
             continue
+        started_at = None
+        if "startedAt" in raw:
+            started_at, started = _utc_timestamp(raw.get("startedAt"))
+            if started_at is None or started is None:
+                warnings.append(
+                    f"{label} startedAt must be an offset-aware ISO timestamp "
+                    "(record dropped)"
+                )
+                continue
+            if started > updated:
+                warnings.append(
+                    f"{label} startedAt must be <= updatedAt (record dropped)"
+                )
+                continue
 
         checkpoints = raw.get("checkpoints")
         if not isinstance(checkpoints, dict):
@@ -168,6 +335,28 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
             else:
                 kept_related.append(related_id)
 
+        blocked_by = raw.get("blockedBy", [])
+        if not isinstance(blocked_by, list) or not all(
+            isinstance(value, str) and value.strip() for value in blocked_by
+        ):
+            warnings.append(
+                f"{label} blockedBy must be an array of ids (record dropped)"
+            )
+            continue
+        kept_blocked_by = []
+        for dependency_id in dict.fromkeys(blocked_by):
+            if dependency_id == story_id:
+                warnings.append(
+                    f"{label} cannot block {story_id} on itself (link dropped)"
+                )
+            elif dependency_id not in item_ids:
+                warnings.append(
+                    f"{label} blockedBy references unknown item {dependency_id} "
+                    "(link dropped)"
+                )
+            else:
+                kept_blocked_by.append(dependency_id)
+
         key = (story_id, agent, task)
         if key in seen:
             warnings.append(
@@ -187,8 +376,10 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
             total=total,
             updated_at=updated_at,
             stale_at=stale_at,
+            started_at=started_at,
             checkpoint=checkpoint.strip() if checkpoint is not None else None,
             related_story_ids=sorted(kept_related),
+            blocked_by=sorted(kept_blocked_by),
         ))
 
     graph.active_work = sorted(

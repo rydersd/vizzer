@@ -59,6 +59,11 @@ def main() -> int:
         staging = Path(tmp) / "app"
         _stage_tree(ROOT / "src" / "vizzer", staging / "vizzer")
         _stage_tree(ROOT / "docs" / "context", staging / "vizzer" / "context")
+        sys.path.insert(0, str(ROOT / "src"))
+        from vizzer import render_id
+        (staging / "vizzer" / "RENDER_ID").write_text(
+            f"{render_id(ROOT)}\n", encoding="utf-8"
+        )
         (staging / "__main__.py").write_text(
             "from vizzer.cli import main\nraise SystemExit(main())\n")
         epoch = int(os.environ.get("SOURCE_DATE_EPOCH",

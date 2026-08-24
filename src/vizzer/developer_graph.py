@@ -100,7 +100,9 @@ def from_work_graph(
                 "task": _text(work.task, limit=500),
                 "state": _text(work.state, limit=120),
                 "checkpoint": _text(work.checkpoint, limit=1_000),
+                "startedAt": _text(work.started_at, limit=80),
                 "updatedAt": _text(work.updated_at, limit=80),
+                "blockedBy": [_text(value, limit=500) for value in work.blocked_by[:64]],
             }
         detail = provide_detail(item)
         validate_object_detail(detail)

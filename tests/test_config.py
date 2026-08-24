@@ -102,6 +102,16 @@ def test_developer_flow_configuration_is_validated(tmp_path, body, message):
         Config.load(tmp_path)
 
 
+def test_conflict_ledger_path_cannot_escape_project(tmp_path):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        '[sources.conflicts]\nenabled = true\npath = "../conflicts.json"\n'
+    )
+
+    with pytest.raises(ConfigError, match="sources.conflicts.path"):
+        Config.load(tmp_path)
+
+
 def test_config_load_merges_and_overrides_vocab(tmp_path):
     (tmp_path / "vizzer").mkdir()
     (tmp_path / "vizzer" / "vizzer.toml").write_text(SAMPLE)

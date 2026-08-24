@@ -61,7 +61,7 @@ async function loadReviewContext(){
     const response=await fetch('/api/reviews',{cache:'no-store'}),body=await response.json();
     if(response.status===404){reviewError='Reviews are disabled for this project.';reviewContext=null;}
     else if(!response.ok)throw new Error(body.error||'reviews unavailable');
-    else if(body.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${body.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve.`);
+    else if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve.`);
     else{reviewContext=body;reviewError='';}
   }catch(error){reviewError=error.message||String(error);reviewContext=null;}
   if(currentView==='reviews')renderCurrentView();

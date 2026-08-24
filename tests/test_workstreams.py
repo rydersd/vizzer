@@ -82,6 +82,7 @@ def test_versioned_workstreams_and_leased_sessions_load_into_graph(tmp_path):
 
     warnings = load_workstream_overlay(
         graph, cfg, tmp_path, now="2026-08-10T20:02:00Z",
+        include_runtime=True,
     )
 
     assert warnings == []
@@ -91,7 +92,10 @@ def test_versioned_workstreams_and_leased_sessions_load_into_graph(tmp_path):
     assert any(collision["kind"] == "shared-path" for collision in graph.workstreams["collisions"])
 
     first_snapshot = json.loads(json.dumps(graph.workstreams))
-    load_workstream_overlay(graph, cfg, tmp_path, now="2026-08-10T20:03:00Z")
+    load_workstream_overlay(
+        graph, cfg, tmp_path, now="2026-08-10T20:03:00Z",
+        include_runtime=True,
+    )
     assert graph.workstreams == first_snapshot
     assert graph.workstreams["asOf"] == applied["updatedAt"]
 
@@ -124,10 +128,41 @@ def test_expired_session_remains_auditable_but_is_not_fresh_or_colliding(tmp_pat
                   worktree="/repo/tokens", expected_revision=0,
                   now="2026-08-10T18:00:00Z")
 
-    load_workstream_overlay(graph, cfg, tmp_path, now="2026-08-10T20:00:00Z")
+    load_workstream_overlay(
+        graph, cfg, tmp_path, now="2026-08-10T20:00:00Z",
+        include_runtime=True,
+    )
 
     assert graph.workstreams["sessions"][0]["fresh"] is False
     assert graph.workstreams["collisions"] == []
+
+
+def test_durable_overlay_excludes_machine_local_runtime_by_default(tmp_path):
+    cfg, graph = _cfg(tmp_path), _graph()
+    applied = apply_workstreams(
+        cfg, tmp_path, graph, _state(), expected_revision=0,
+        actor="Ryder", rationale="Initial split",
+    )
+    runtime = start_session(
+        cfg, tmp_path, graph, session_id="local", actor="Agent", model="Model",
+        role="lead", workstream_id="tokens", branch="agent/tokens",
+        worktree="/repo/tokens", expected_revision=0,
+        now="2026-08-10T20:00:00Z",
+    )
+
+    assert load_workstream_overlay(graph, cfg, tmp_path) == []
+    first = json.loads(json.dumps(graph.workstreams))
+    assert first["runtimeIncluded"] is False
+    assert first["runtimeRevision"] is None
+    assert first["sessions"] == []
+    assert first["asOf"] == applied["updatedAt"]
+
+    heartbeat_session(
+        cfg, tmp_path, graph, session_id="local",
+        expected_revision=runtime["revision"], now="2026-08-10T20:10:00Z",
+    )
+    assert load_workstream_overlay(graph, cfg, tmp_path) == []
+    assert graph.workstreams == first
 
 
 def test_peer_decision_is_limited_to_reversible_implementation_scope(tmp_path):

@@ -19,10 +19,18 @@
   documented safety ceiling, not a boast that arbitrary Salesforce metadata is magically readable.
   A Salesforce adapter should map and aggregate metadata into capability/group slices rather than
   spray the entire org onto one canvas.
+- An adversarial 100,000-object/100-group run also returned a bounded 600-of-1,000 group slice in
+  617,362 bytes, but cold normalization/indexing took 21.765 seconds and peaked near 1.0 GB RSS.
+  The query boundary is sound; the startup/memory profile is not yet an enterprise-performance
+  claim. Persisted or incremental indexing is required before using that language.
 
 ## Browser receipts
 
 ![Neutral story functional neighborhood and shared detail](upstream-neutral-story-neighborhood.png)
+
+![IllTool capability overview at full browser width](illtool-capability-overview-full-width-2026-08-23.png)
+
+![Drawing story with the shared detail panel at full browser width](illtool-drawing-story-detail-full-width-2026-08-23.png)
 
 The browser saved and restored a named “Commerce component map”, copied a URL-encoded story view,
 and exported [`upstream-neutral-commerce-component.svg`](upstream-neutral-commerce-component.svg).
@@ -39,3 +47,10 @@ browser storage.
 - Complete combined upstream suite: **453 passed, 2 skipped in 89.94s** on Python 3.9.
 - `npm run build`: passed.
 - `npm audit --omit=dev`: 0 vulnerabilities.
+
+The final publication audit supersedes these intermediate counts; this record retains them as the
+evidence for the original Developer Flow slice.
+
+Final combined publication audit: **488 passed, 2 skipped in 99.08s** on Python 3.9. The optional
+frontend rebuilt successfully; its production dependency audit reported zero vulnerabilities; the
+wheel, source distribution, and deterministic zipapp built and validated.

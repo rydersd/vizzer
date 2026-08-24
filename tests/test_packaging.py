@@ -16,6 +16,7 @@ FRONTEND_RESOURCES = {
     "vizzer/render/constellation/boot.js",
     "vizzer/render/constellation/state.js",
     "vizzer/render/constellation/view_query.js",
+    "vizzer/render/constellation/chrome_layout.js",
     "vizzer/render/constellation/filters.js",
     "vizzer/render/constellation/views.js",
     "vizzer/render/constellation/dossier.js",

@@ -3,6 +3,20 @@ function storySidebarSectionBody(content,missing){
   return content?`<div class="storymd">${renderStoryMarkdown(content)}</div>`
     :`<p class="storysectionmissing">${esc(missing)}</p>`;
 }
+function storyDeepLink(id){
+  const raw=location.hash.replace(/^#/,'');
+  const view=ROUTE_VIEWS.has(raw.split('?')[0])?raw.split('?')[0]:currentView;
+  const query=(raw.includes('?')?raw.slice(raw.indexOf('?')+1):'').split('&')
+    .filter(pair=>pair&&decodeURIComponent(pair.split('=',1)[0])!=='story');
+  query.push(`story=${encodeURIComponent(id)}`);
+  const base=String(location.href||location.pathname||'constellation.html').split('#',1)[0];
+  return `${base}#${view}?${query.join('&')}`;
+}
+function storyDeepLinkMarkup(n){
+  if(!n.id)return '';
+  const link=storyDeepLink(n.id);
+  return `<div class="deeplink"><label>Share this object<input type="text" readonly value="${esc(link)}"></label><button type="button" data-copy-story-link>Copy link</button></div>`;
+}
 function storyFullBodyMarkup(n){
   if(!SERVED||!n.id)return '';
   return `<section class="storyaccordion"><button type="button" data-story-accordion="full-story" aria-expanded="false">Full story</button>`
@@ -22,6 +36,12 @@ function storySidebarSectionsMarkup(n){
     +storyFullBodyMarkup(n);
 }
 function bindStorySidebar(container){
+  container.querySelector('[data-copy-story-link]')?.addEventListener('click',async event=>{
+    const button=event.currentTarget,input=button.parentElement?.querySelector('input');
+    if(!input)return;
+    try{await navigator.clipboard.writeText(input.value);button.textContent='Copied';}
+    catch(_){input.select();button.textContent='Select and copy';}
+  });
   container.querySelectorAll('[data-story-accordion]').forEach(button=>{
     const key=button.dataset.storyAccordion;
     const panel=container.querySelector(`[data-story-accordion-panel="${key}"]`);
@@ -182,6 +202,7 @@ function openNode(i,{inPlace=false}={}){
     ${ownerQuestionCards}
     ${ownerDecisionCards}
     ${planSection(n)}
+    ${storyDeepLinkMarkup(n)}
     ${storySidebarSectionsMarkup(n)}
     ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ${icon('arrow-up-right')}</a>`:''}
     ${n.id&&SERVED?`<button class="story" type="button" data-open-item="${esc(n.id)}">read story</button>`:''}

@@ -15,19 +15,19 @@ capabilities by contract, with upstream source as authority and IllTool read-onl
 | Story sidebar (steps, AC, DoD) | Core `vizzer-object-detail/v1` capability shared by Constellation and Developer Flow | Implemented and tested |
 | Neutral story-path identity | The new review contract uses source item id + repo-relative path rather than inferring identity from one directory grammar; CI extraction still needs a neutral seam | Review need superseded; CI follow-up pending |
 | Review console and screenshot viewer | Optional served review surface, off by default; opaque evidence URLs | Implemented and tested |
-| Acceptance bundle archival and rollback | Optional review service; retain copy/hash/restore safety | Pending port and attack tests |
+| Acceptance bundle archival and rollback | Fork behavior moves host-owned fixtures; upstream preserves review plans, append-only runs, and content-addressed evidence without taking fixture ownership | Excluded from core; a future artifact-store adapter may add archival |
 | Browser/local execution | Named adapter operations validated against a trusted declaration; host harness performs execution | Registry plus real neutral web/local host fixtures exercised |
-| Fixture launch/staging/liveness/annotation | Host adapter interfaces only | Pending; IllTool implementations excluded |
-| Renderer/config/HTTP extension seams | Renderer registry plus served-extension registry; review and developer-flow config are opt-in | Review/query seams implemented; broader check plugins pending |
-| `renderId` content identity | Core, but rebase on installed package layout rather than parent counts | Pending high-risk isolated port |
-| Graph blocked records, conflicts, completion provenance | Core project-agnostic semantics | Pending port |
-| Decision-journal replay/dedup migration | Core one-way migration with legacy reader | Pending isolated port |
-| CI overlay, notices, restart, autocommit | Optional served features; neutral providers, restart command unset, autocommit false | Pending decontamination |
-| Analytics, lanes, awaiting-owner perspectives | Optional renderers, off by default; remove personal/name/path heuristics | Pending port |
+| Fixture launch/staging/liveness/annotation | Host adapter interfaces only | Generic trusted-operation registry implemented; IllTool executors intentionally excluded |
+| Renderer/config/HTTP extension seams | Renderer registry plus served-extension registry; review and developer-flow config are opt-in | Implemented and tested |
+| `renderId` content identity | Core, rebased on logical package paths shared by source and installed layouts | Implemented, mutation-tested, and installed-engine guarded |
+| Graph blocked records, conflicts, completion provenance | Core project-agnostic semantics | Implemented and tested against configured lifecycle roles |
+| Decision-journal replay/dedup migration | Core one-way migration with legacy reader | Implemented; torn events and non-equivalent same-fingerprint history attacked |
+| CI overlay, notices, restart, autocommit | Fork code binds GitHub CLI, launchd, a fixed service label, and hook-bypassing commit policy | Excluded; provider-neutral CI/restart/autocommit need separate opt-in adapters and threat models |
+| Analytics, lanes, awaiting-owner perspectives | Optional renderers, off by default; remove personal/name/path heuristics | Implemented and tested as project-neutral optional perspectives |
 | Shared reading controls and left-rail resizing | Title-bar 14/18/22 control, fixed chips, shared dossier/rail type, persisted rail geometry | Implemented and tested |
-| Constellation interaction/features | Port remaining generic depth/chrome/tables/deep-links/focus/drafts/filters/alerts fixes | Pending; symbols licensing unresolved |
+| Constellation interaction/features | Shared typography/rail geometry, measured top chrome, Roadmap filters, and stable object deep links are core; Developer Flow owns dense 2D grouping/focus | Implemented core subset; Apple-exported symbols and IllTool answer/CI chrome excluded |
 | Optional 2D developer graph | Neutral graph/detail/query contracts plus precompiled React Flow/ELK renderer | Implemented and tested at 25,000 objects |
-| Fork test corpus | Re-home by capability with non-IllTool fixtures and leak guards | Review/developer-flow families complete; other families pending with their ports |
+| Fork test corpus | Re-home by capability with non-IllTool fixtures and leak guards | Selected portable families re-homed; project-policy tests excluded with their features |
 
 ## Collision exclusions
 
@@ -47,3 +47,11 @@ the IllTool work items, fixtures, screenshots, verdicts, and lifecycle states re
    observation, never proof by itself.
 5. Every side effect is an adapter operation from trusted configuration, not executable text from a
    review artifact.
+
+## Scale falsifier
+
+The bounded-query architecture survives a 100,000-object synthetic corpus and returns 600 of 1,000
+matching objects in a 617,362-byte response. The cold normalization/index build took 21.765 seconds
+and peaked near 1.0 GB RSS on the test Mac. That is a supported safety ceiling, not evidence of a
+pleasant Salesforce-scale startup. Persisted/incremental indexing is a named follow-up before the
+UI may claim enterprise-scale operational performance.

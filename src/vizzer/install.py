@@ -400,6 +400,11 @@ enabled = {str(bool(todos)).lower()}
 # Repository-relative TODO file patterns.
 globs = {_string_array(todos)}
 
+[sources.conflicts]
+# Optional decisions between incompatible work objects.
+enabled = false
+path = "vizzer/conflicts.json"
+
 [render]
 # Directory where generated views are written.
 output_dir = "vizzer/views"
@@ -422,7 +427,7 @@ direction = "RIGHT"
 
 [reconcile]
 # Source priority used when multiple adapters describe the same item.
-precedence = ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"]
+precedence = ["spec_tree", "dag_import", "ledgers", "todos", "conflicts", "loose_docs"]
 # Optional field-specific dependency winner during a staged authority migration.
 # codex-sequence-2026-08-08
 dependency_authority = ""
@@ -468,6 +473,12 @@ verification_globs = ["tests/**/*", "test/**/*", "tests-ui/**/*"]
 enabled = false
 overlay_path = "vizzer/planning-overlay.json"
 
+[questions]
+answers_path = "vizzer/question-answers.json"
+# Open questions older than this warn during check; hard-fail is opt-in.
+age_budget_hours = 72
+age_budget_hard_fail = false
+
 # Provider-specific Story queues for future question-discussion sessions.
 [discussions]
 queue_path = "vizzer/discussion-queue.json"
@@ -485,6 +496,25 @@ enabled = false
 definitions_path = "vizzer/workstreams.json"
 runtime_path = ".vizzer/runtime/sessions.json"
 lease_minutes = 30
+
+[reviews]
+# Generic agent-to-owner review plans, append-only runs, and evidence.
+enabled = false
+plans_dir = "vizzer/reviews/plans"
+runs_dir = "vizzer/reviews/runs"
+evidence_dir = "vizzer/reviews/evidence"
+adapters_path = "vizzer/reviews/adapters.json"
+
+[perspectives]
+# Read-only lane, risk, capability, decision-aging, and awaiting-owner views.
+enabled = false
+# Optional repository-relative register; blank means workstreams only.
+register_path = ""
+
+[agent_ops]
+# Optional append-only model/lane telemetry. Disabled until a ledger exists.
+enabled = false
+ledger_path = "vizzer/agent-lanes.jsonl"
 
 # Optional lifecycle metadata. `next` permits configured transitions; omitting it
 # keeps the status unconstrained for backwards compatibility.  # codex-sequence-2026-08-08
@@ -578,6 +608,7 @@ def _write_version(target: Path) -> None:
     (target / "vizzer" / "VERSION").write_text(
         f"{vizzer.__version__}\n", encoding="utf-8"
     )
+    vizzer.write_marker(target, vizzer.render_id(target))
 
 
 def _ensure_archive_ignored(target: Path) -> None:

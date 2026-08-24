@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import tempfile
 
 from .model import Graph, OwnerDecision
@@ -20,18 +21,77 @@ class DecisionJournalError(ValueError):
 
 
 def decision_marker(decision: OwnerDecision) -> str:
-    """Stable marker for one exact answer revision and question fingerprint."""
-    return (
-        f"<!-- vizzer:evolution-answer:{decision.fingerprint}:"
-        f"r{decision.revision}:begin -->"
-    )
+    """Stable marker for one immutable accepted-question snapshot."""
+    return f"<!-- vizzer:evolution-answer:{decision.fingerprint}:begin -->"
 
 
 def _end_marker(decision: OwnerDecision) -> str:
-    return (
-        f"<!-- vizzer:evolution-answer:{decision.fingerprint}:"
-        f"r{decision.revision}:end -->"
+    return f"<!-- vizzer:evolution-answer:{decision.fingerprint}:end -->"
+
+
+_EVOLUTION_BEGIN = re.compile(
+    r"<!-- vizzer:evolution-answer:([0-9a-f]{64})(?::r([1-9][0-9]*))?:begin -->"
+)
+_ANSWER_REVISION_LINE = re.compile(
+    r"^- \*\*Answer ledger revision:\*\* `[1-9][0-9]*`$", re.MULTILINE,
+)
+
+
+def _evolution_end_marker(fingerprint: str, revision: str | None) -> str:
+    legacy = "" if revision is None else f":r{revision}"
+    return f"<!-- vizzer:evolution-answer:{fingerprint}{legacy}:end -->"
+
+
+def _evolution_events(text: str) -> list[tuple[str, str, tuple[int, int]]]:
+    """Return complete canonical or revision-bearing legacy evolution events."""
+    events = []
+    position = 0
+    while match := _EVOLUTION_BEGIN.search(text, position):
+        fingerprint, revision = match.groups()
+        end_marker = _evolution_end_marker(fingerprint, revision)
+        end = text.find(end_marker, match.end())
+        if end < 0:
+            position = match.end()
+            continue
+        stop = end + len(end_marker)
+        events.append((fingerprint, text[match.start():stop], (match.start(), stop)))
+        position = stop
+    return events
+
+
+def _replay_comparison_key(event: str) -> str:
+    """Ignore mutable ledger position while comparing complete projections."""
+    stable = _EVOLUTION_BEGIN.sub(
+        r"<!-- vizzer:evolution-answer:\1:begin -->", event,
     )
+    stable = re.sub(
+        r"<!-- vizzer:evolution-answer:([0-9a-f]{64})(?::r[1-9][0-9]*)?:end -->",
+        r"<!-- vizzer:evolution-answer:\1:end -->",
+        stable,
+    )
+    return _ANSWER_REVISION_LINE.sub(
+        "- **Answer ledger revision:** `<ledger revision>`", stable,
+    )
+
+
+def _remove_replayed_events(text: str, fingerprints: set[str]) -> str:
+    """Drop later byte-equivalent projections while preserving the first."""
+    seen: dict[str, set[str]] = {}
+    removals: list[tuple[int, int]] = []
+    for fingerprint, event, span in _evolution_events(text):
+        if fingerprint not in fingerprints:
+            continue
+        key = _replay_comparison_key(event)
+        prior = seen.setdefault(fingerprint, set())
+        if key in prior:
+            removals.append(span)
+        else:
+            prior.add(key)
+    for start, end in reversed(removals):
+        text = text[:start] + text[end:]
+    if removals:
+        text = text.rstrip("\n") + "\n"
+    return text
 
 
 def decision_application_marker(
@@ -219,7 +279,10 @@ def decision_is_journaled(
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeError, DecisionJournalError):
         return False
-    return decision_marker(decision) in text and _end_marker(decision) in text
+    return any(
+        fingerprint == decision.fingerprint
+        for fingerprint, _event, _span in _evolution_events(text)
+    )
 
 
 def decision_application_is_recorded(
@@ -276,20 +339,38 @@ def append_evolution_events(
 ) -> list[Path]:
     """Append missing events transactionally and return changed story paths."""
     snapshots = story_snapshots(graph, root, decisions)
+    fingerprints_by_path: dict[Path, set[str]] = {}
+    for decision in decisions:
+        path = _story_path(graph, root, decision)
+        fingerprints_by_path.setdefault(path, set()).add(decision.fingerprint)
+    working = {
+        path: _remove_replayed_events(
+            snapshot.decode("utf-8"), fingerprints_by_path.get(path, set()),
+        )
+        for path, snapshot in snapshots.items()
+    }
     additions: dict[Path, list[str]] = {}
     for decision in decisions:
         path = _story_path(graph, root, decision)
-        text = snapshots[path].decode("utf-8")
-        marker = decision_marker(decision)
-        if marker in text or any(marker in value for value in additions.get(path, [])):
+        already_journaled = any(
+            fingerprint == decision.fingerprint
+            for fingerprint, _event, _span in _evolution_events(working[path])
+        )
+        if already_journaled or any(
+            decision.fingerprint in value for value in additions.get(path, [])
+        ):
             continue
         additions.setdefault(path, []).append(render_evolution_event(decision))
 
     changed = []
     try:
         for path, events in additions.items():
-            original = snapshots[path].decode("utf-8")
-            body = original.rstrip("\n") + "\n\n" + "\n\n".join(events) + "\n"
+            working[path] = (
+                working[path].rstrip("\n") + "\n\n" + "\n\n".join(events) + "\n"
+            )
+        for path, body in working.items():
+            if body == snapshots[path].decode("utf-8"):
+                continue
             _atomic_write(path, body.encode("utf-8"))
             changed.append(path)
     except BaseException:

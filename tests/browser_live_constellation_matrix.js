@@ -43,7 +43,7 @@ try{
   await send('Runtime.enable');await send('Page.enable');
   await waitFor(()=>evaluate(`document.readyState==='complete'&&typeof switchView==='function'&&
     document.getElementById('boot').hidden`),'Vizzer boot');
-  await waitFor(()=>evaluate(`questionContext&&questionContext.engineVersion===ENGINE_VERSION`),
+  await waitFor(()=>evaluate(`questionContext&&questionContext.renderId===RENDER_ID`),
     'question authority');
 
   const structure=await evaluate(`(()=>{
@@ -102,7 +102,7 @@ try{
     {name:'compact-question',width:360,height:320,rx:-.48,ry:.38,zoom:.78,size:'time',filter:'question'},
     {name:'compact-question-close',width:360,height:320,rx:.7,ry:1.25,zoom:1.5,size:'delivery',filter:'question'},
   ];
-  const audit={engineVersion:await evaluate('ENGINE_VERSION'),structure,poses:[],centerCases:0,
+  const audit={renderId:await evaluate('RENDER_ID'),structure,poses:[],centerCases:0,
     advertisedTargetCases:0,decorativeRingStoryCases:0,failures:[]};
   for(const pose of poses){
     await send('Emulation.setDeviceMetricsOverride',{width:pose.width,height:pose.height,

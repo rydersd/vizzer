@@ -61,6 +61,7 @@ acceptance loop:
 - [Capability migration matrix, 2026-08-23](materials/upstream-review-evidence-workflow/capability-migration-matrix-2026-08-23.md)
 - [Adversarial review of the first upstream slice, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-2026-08-23.md)
 - [Adversarial review of the service and owner UI, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-service-ui-2026-08-23.md)
+- [Final reusable-fork adversarial review, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-final-migration-2026-08-23.md)
 - [Service, fixture, and browser verification, 2026-08-23](materials/upstream-review-evidence-workflow/verification-2026-08-23.md)
 - [Project-agnostic review workflow contract](../../docs/review-workflows.md)
 
@@ -99,3 +100,11 @@ acceptance loop:
   actual-size link. Added latest-agent lineage to owner verdicts, descriptor-relative evidence/source
   reads, loopback Host rejection, and authored-DoD-section verification. Combined suite: 453 passed,
   2 skipped on Python 3.9.
+- 2026-08-23 — Ported deterministic render identity, explicit blocker/completion/conflict semantics,
+  safe decision replay, durable/static workstream separation, and opt-in generic perspectives.
+  Added measured Constellation chrome and stable story deep links. A 100,000-object attack preserved
+  bounded query responses but exposed a 21.765-second/~1.0 GB cold-start boundary; this remains an
+  explicit performance follow-up rather than an “enterprise ready” claim.
+- 2026-08-23 — Final combined suite: 488 passed, 2 skipped. Frontend build and production audit,
+  Python wheel/sdist, deterministic zipapp, compile, archive-integrity, diff, and project-identity
+  leakage checks passed before publication.

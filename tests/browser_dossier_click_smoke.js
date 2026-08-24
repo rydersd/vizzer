@@ -164,7 +164,7 @@ try{
     globalThis.__staleBefore={selected:sel,scroll:dbody.scrollTop,route:currentView,
       drafts:DATA.questions.map(q=>questionDrafts.get(q.id))};
     globalThis.fetch=async(url,options)=>{
-      if(url==='/api/questions')return new Response(JSON.stringify({engineVersion:'0.0.0',
+      if(url==='/api/questions')return new Response(JSON.stringify({renderId:'0000000000000000',
         schema:1,revision:0,csrfToken:'stale',questions:DATA.questions,decisions:[]}),
         {status:200,headers:{'Content-Type':'application/json'}});
       if(url==='/api/questions/answers')globalThis.__stalePostCalls++;
@@ -189,7 +189,7 @@ try{
       drafts:DATA.questions.map(q=>questionDrafts.get(q.id))};
     globalThis.__answerFetchCalls=0;
     globalThis.fetch=async(url,options)=>{
-      if(url==='/api/questions')return new Response(JSON.stringify({engineVersion:ENGINE_VERSION,
+      if(url==='/api/questions')return new Response(JSON.stringify({renderId:RENDER_ID,
         schema:1,revision:0,csrfToken:'restart-token',questions:DATA.questions,decisions:[]}),
         {status:200,headers:{'Content-Type':'application/json'}});
       globalThis.__answerFetchCalls++;
@@ -218,7 +218,7 @@ try{
   }})()`);
   const retryRect=await evaluate(`(()=>{
     globalThis.fetch=async(url,options)=>{
-      if(url==='/api/questions')return new Response(JSON.stringify({engineVersion:ENGINE_VERSION,
+      if(url==='/api/questions')return new Response(JSON.stringify({renderId:RENDER_ID,
         schema:1,revision:0,csrfToken:'retry-token',questions:DATA.questions,decisions:[]}),
         {status:200,headers:{'Content-Type':'application/json'}});
       globalThis.__answerFetchCalls++;globalThis.__submittedAnswers=JSON.parse(options.body);
@@ -244,13 +244,13 @@ try{
   const chatRect=await evaluate(`(()=>{
     const workIndex=DATA.work.push({agent:'Claude',updatedAt:'2026-08-11T21:00:00Z'})-1;
     DATA.nodes[sel].aw=[workIndex];
-    discussionContext={engineVersion:ENGINE_VERSION,csrfToken:'discussion-token',queue:{revision:0,queues:{codex:[],claude:[]}}};
+    discussionContext={renderId:RENDER_ID,csrfToken:'discussion-token',queue:{revision:0,queues:{codex:[],claude:[]}}};
     discussionError='';globalThis.__discussionCalls=[];
     globalThis.fetch=async(url,options)=>{
-      if(url==='/api/questions')return new Response(JSON.stringify({engineVersion:ENGINE_VERSION,
+      if(url==='/api/questions')return new Response(JSON.stringify({renderId:RENDER_ID,
         schema:1,revision:2,csrfToken:'question-token',questions:[],decisions:questionContext.decisions}),
         {status:200,headers:{'Content-Type':'application/json'}});
-      if(url==='/api/discussions')return new Response(JSON.stringify({engineVersion:ENGINE_VERSION,
+      if(url==='/api/discussions')return new Response(JSON.stringify({renderId:RENDER_ID,
         schema:1,csrfToken:'discussion-token',queue:discussionContext.queue}),
         {status:200,headers:{'Content-Type':'application/json'}});
       const payload=JSON.parse(options.body);globalThis.__discussionCalls.push(payload);

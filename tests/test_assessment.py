@@ -13,8 +13,10 @@ from vizzer.assessment import (
     normalize_appetite,
 )
 from vizzer.config import Config, DEFAULTS, deep_merge
-from vizzer.model import Graph, Item
-from vizzer.model import ActiveWork
+from vizzer.model import (
+    ActiveWork, Graph, Item, OwnerDecision, OwnerQuestion, OwnerQuestionOption,
+    OwnerQuestionRecommendation, owner_question_fingerprint,
+)
 
 
 def _item(name, deps=(), *, appetite=None, status="specced"):
@@ -582,6 +584,50 @@ def test_stale_blocked_work_remains_nondispatchable_until_resolved(tmp_path):
     assert blocked.id in portfolio["stale_work"]
     assert blocked.id not in portfolio["occupied"]
     assert blocked.id not in portfolio["small"]
+
+
+def test_answered_blocker_stops_blocking_dispatch_but_stays_stale_context(tmp_path):
+    blocked = _item("blocked", appetite="small")
+    target = _item("target", ["blocked"], status="shipped")
+    question = OwnerQuestion(
+        id="question:route", story_id=blocked.id, owner="Owner",
+        prompt="Which route?",
+        options=[
+            OwnerQuestionOption("one", "One", "Lower coupling."),
+            OwnerQuestionOption("two", "Two", "Faster delivery."),
+        ],
+        recommendation=OwnerQuestionRecommendation("one", "One authority."),
+        falsifier="The route cannot meet the contract.",
+        evidence=["spec/story.md:12"],
+    )
+    decision = OwnerDecision(
+        question=question, fingerprint=owner_question_fingerprint(question),
+        revision=1, answered_at="2026-08-10T14:00:00Z", answered_by="owner",
+        kind="option", option_id="one",
+    )
+    graph = Graph(
+        items=[blocked, target],
+        priority={"targets": [{"item": target.id, "sources": ["configured-item"]}]},
+        activity={"as_of": "2026-08-10T15:00:00Z"},
+        active_work=[ActiveWork(
+            story_id=blocked.id, agent="Old agent", task="Owner ruling required",
+            state="blocked", completed=1, total=2,
+            updated_at="2026-08-10T10:00:00Z", stale_at="2026-08-10T12:00:00Z",
+        )],
+        owner_decisions=[decision],
+    )
+    cfg = Config(data=deep_merge(DEFAULTS, {"assessment": {"enabled": True}}))
+
+    _apply_with_known_burden(graph, cfg, tmp_path)
+
+    portfolio = graph.assessment["portfolio"]
+    assert blocked.id not in portfolio["blocked"]
+    assert blocked.id in portfolio["stale_work"]
+    assert blocked.id in portfolio["small"]
+
+    graph.owner_questions = [question]
+    _apply_with_known_burden(graph, cfg, tmp_path)
+    assert blocked.id in graph.assessment["portfolio"]["blocked"]
 
 
 def test_latest_activity_record_resolves_an_older_blocked_record(tmp_path):

@@ -3,7 +3,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
 const REPO = DATA.repo || '';
-const ENGINE_VERSION=DATA.engineVersion||'';
+const RENDER_ID=DATA.renderId||'';
 // codex-sequence-2026-08-08: the local app opener exists only behind loopback HTTP.
 const SERVED = location.protocol === 'http:';
 const ACCEPTED_PLAN=DATA.planning||{};

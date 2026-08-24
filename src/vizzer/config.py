@@ -15,7 +15,9 @@ from .model import ITEM_ROLES
 
 
 SOURCE_AREA_ROLES = {"delivery", "knowledge", "planning", "evidence", "operations"}
-SOURCE_AREA_ADAPTERS = {"spec_tree", "loose_docs", "ledgers", "todos", "none"}
+SOURCE_AREA_ADAPTERS = {
+    "spec_tree", "loose_docs", "ledgers", "todos", "conflicts", "none",
+}
 
 
 class ConfigError(Exception):
@@ -50,6 +52,7 @@ DEFAULTS = {
         "ledgers": {"enabled": False, "glob": "thoughts/ledgers/CONTINUITY_*.md"},
         "loose_docs": {"enabled": False, "globs": [], "item_role": "reference"},
         "todos": {"enabled": False, "globs": ["TODO.md"]},
+        "conflicts": {"enabled": False, "path": "vizzer/conflicts.json"},
     },
     "render": {"output_dir": "vizzer/views",
                "releases": ["R0", "R1", "R2", "R3"],
@@ -60,7 +63,10 @@ DEFAULTS = {
         "materialization_cap": 1_200,
         "direction": "RIGHT",
     },
-    "reconcile": {"precedence": ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"],
+    "reconcile": {"precedence": [
+                      "spec_tree", "dag_import", "ledgers", "todos", "conflicts",
+                      "loose_docs",
+                  ],
                   # codex-sequence-2026-08-08: optional field-specific migration seam.
                   "dependency_authority": "", "group_parent_authority": "",
                   "retire_empty_groups": [],
@@ -94,7 +100,11 @@ DEFAULTS = {
     "planning": {"enabled": False,
                  "overlay_path": "vizzer/planning-overlay.json"},
     # Accepted owner answers are source input in a separate audited ledger.
-    "questions": {"answers_path": "vizzer/question-answers.json"},
+    "questions": {
+        "answers_path": "vizzer/question-answers.json",
+        "age_budget_hours": 72,
+        "age_budget_hard_fail": False,
+    },
     # Provider lanes select which future agent session should discuss a Story.
     "discussions": {"queue_path": "vizzer/discussion-queue.json"},
     # codex-sequence-2026-08-08: optional live-work lens, isolated from priority.
@@ -114,6 +124,14 @@ DEFAULTS = {
         "runs_dir": "vizzer/reviews/runs",
         "evidence_dir": "vizzer/reviews/evidence",
         "adapters_path": "vizzer/reviews/adapters.json",
+    },
+    "perspectives": {
+        "enabled": False,
+        "register_path": "",
+    },
+    "agent_ops": {
+        "enabled": False,
+        "ledger_path": "vizzer/agent-lanes.jsonl",
     },
     # Semantic project map. Folder names are user data, not Vizzer conventions.
     "source_area": [],
@@ -308,6 +326,12 @@ class Config:
         answers_path = self.get("questions.answers_path")
         if not isinstance(answers_path, str) or not answers_path:
             raise ConfigError("questions.answers_path must be a non-empty string")
+        age_budget = self.get("questions.age_budget_hours")
+        if (isinstance(age_budget, bool) or not isinstance(age_budget, int)
+                or age_budget <= 0):
+            raise ConfigError("questions.age_budget_hours must be a positive integer")
+        if not isinstance(self.get("questions.age_budget_hard_fail"), bool):
+            raise ConfigError("questions.age_budget_hard_fail must be true or false")
         discussion_path = self.get("discussions.queue_path")
         if not isinstance(discussion_path, str) or not discussion_path.strip():
             raise ConfigError("discussions.queue_path must be a non-empty string")
@@ -333,6 +357,12 @@ class Config:
             isinstance(value, str) and value for value in product_tags
         ):
             raise ConfigError("sources.spec_tree.product_tags must be non-empty strings")
+        conflict_path = self.get("sources.conflicts.path")
+        if not isinstance(conflict_path, str) or not conflict_path.strip():
+            raise ConfigError("sources.conflicts.path must be a non-empty string")
+        conflict_relative = Path(conflict_path)
+        if conflict_relative.is_absolute() or ".." in conflict_relative.parts:
+            raise ConfigError("sources.conflicts.path must stay inside the project")
         seen_areas = set()
         for index, area in enumerate(self.data.get("area", []), 1):
             if not isinstance(area, dict):
@@ -460,6 +490,20 @@ class Config:
             if (relative == Path(".") or relative.is_absolute()
                     or ".." in relative.parts):
                 raise ConfigError("reviews.adapters_path must stay inside the project")
+        if not isinstance(self.get("perspectives.enabled"), bool):
+            raise ConfigError("perspectives.enabled must be true or false")
+        for section, field in (
+            ("perspectives", "register_path"), ("agent_ops", "ledger_path"),
+        ):
+            value = self.get(f"{section}.{field}")
+            if not isinstance(value, str):
+                raise ConfigError(f"{section}.{field} must be a string")
+            if value:
+                relative = Path(value)
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise ConfigError(f"{section}.{field} must stay inside the project")
+        if not isinstance(self.get("agent_ops.enabled"), bool):
+            raise ConfigError("agent_ops.enabled must be true or false")
 
     def status_meta(self, name: str) -> dict:
         for s in self.vocab["statuses"]:
@@ -488,6 +532,14 @@ class Config:
                 return "hold"
             return "active"
         return "unknown"
+
+    def status_for_role(self, role: str, fallback: str = "unknown") -> str:
+        """Pick the first configured lifecycle label for a semantic role."""
+        for status in self.vocab["statuses"]:
+            name = status.get("name")
+            if isinstance(name, str) and self.status_role(name) == role:
+                return name
+        return fallback
 
     def transition_allowed(self, current: str, proposed: str) -> bool:
         """Whether configured lifecycle metadata permits a status change.

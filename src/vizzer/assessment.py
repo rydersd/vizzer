@@ -20,6 +20,7 @@ from pathlib import Path
 import re
 from typing import Mapping, Sequence
 
+from .activity import blocker_is_cleared
 from .model import Graph, Item
 
 
@@ -880,6 +881,7 @@ def _portfolio(
         work.story_id for work in latest_work.values()
         if work.state == "blocked"
         and work.story_id not in occupied_stories
+        and not blocker_is_cleared(graph, work.story_id)
     }
     stale_work_stories = {
         work.story_id for work in latest_work.values()

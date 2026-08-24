@@ -19,6 +19,7 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
     assert (frontend / "canvas.js").is_file()
     assert not (repo / "vizzer" / "engine" / "vizzer" / ".DS_Store").exists()
     assert (repo / "vizzer" / "VERSION").read_text().strip() == vizzer.__version__
+    assert (repo / "vizzer" / "RENDER_ID").read_text().strip() == vizzer.render_id(repo)
     toml = (repo / "vizzer" / "vizzer.toml").read_text()
     assert "spec_tree" in toml and "enabled = true" in toml
     assert 'dependency_authority = ""' in toml  # codex-sequence-2026-08-08

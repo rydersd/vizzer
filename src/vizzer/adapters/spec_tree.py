@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+from datetime import date
 from pathlib import Path, PurePosixPath
 
 from ..model import Group, Item, Milestone, MilestonePhase, Relation
@@ -138,6 +140,35 @@ def _authored_list(front: dict, body: str, front_key: str, label: str) -> list[s
         re.IGNORECASE | re.MULTILINE,
     )
     return _string_list(match.group(1)) if match else []
+
+
+def _completion_date(front: dict, body: str) -> tuple[dict, str | None]:
+    """Read only explicit completion evidence; never substitute edit time."""
+    raw = None
+    for key in ("completed_on", "completion_date"):
+        if key in front:
+            raw = front[key]
+            break
+    if raw is None:
+        patterns = (
+            r"^>\s*(?:Completed|Completion date):\s*(\d{4}-\d{2}-\d{2})\s*$",
+            r"^>\s*Ship evidence\s*\((\d{4}-\d{2}-\d{2})\)",
+            r"^>?\s*\*\*This Story shipped\s*\((\d{4}-\d{2}-\d{2})\)\.?\*\*",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, body, re.IGNORECASE | re.MULTILINE)
+            if match:
+                raw = match.group(1)
+                break
+    if raw is None:
+        return {}, None
+    if not isinstance(raw, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+        return {}, "completion date must be YYYY-MM-DD"
+    try:
+        date.fromisoformat(raw)
+    except ValueError:
+        return {}, "completion date must be a real calendar date"
+    return {"date": raw, "provenance": "authored"}, None
 
 
 def _match_value(pattern: str, text: str) -> str | None:
@@ -457,6 +488,9 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
         products + [tag for tag in tags if tag in product_tags]
     ))
     flags = ["debt"] if re.search(r"^>\s*Debt:", body, re.MULTILINE) else []
+    completion, completion_error = _completion_date(front, body)
+    if completion_error:
+        warnings.append(f"{relpath}: {completion_error} (completion ignored)")
 
     source = {"adapter": "spec_tree", "path": relpath}
     if deps_declared:
@@ -483,6 +517,7 @@ def _scan_file(path: Path, root: Path, pattern: str, levels: list[str],
         },
         flags=flags,
         source=source,
+        completion=completion,
     )
 
 
@@ -727,6 +762,79 @@ def _dag_items(root: Path, dag_relpath: str, item_kind: str,
             sorted(foundation_groups, key=lambda group: group.id))
 
 
+def _diff_status(line: str) -> str | None:
+    """Extract a lifecycle value from a +/- Markdown or front-matter line."""
+    body = line[1:].lstrip()
+    if body.startswith(">"):  # blockquoted story header
+        body = body[1:].lstrip()
+    match = re.match(r"(?i)^status:\s*([A-Za-z0-9_-]+)", body)
+    return match.group(1) if match else None
+
+
+def _parse_status_flips(stream: str, done_statuses: set[str]) -> dict[str, str]:
+    """Map files to their latest evidenced transition into a configured done state."""
+    dates: dict[str, str] = {}
+    stamp = ""
+    current = ""
+    done_added = False
+    incomplete_removed = False
+
+    def flush() -> None:
+        # git log is newest-first, so keep the latest real transition per file.
+        if current and stamp and done_added and incomplete_removed:
+            dates.setdefault(current, stamp)
+
+    for line in stream.splitlines():
+        if line.startswith("\x00COMMIT "):
+            flush()
+            stamp = line.split("COMMIT ", 1)[-1].strip()[:10]
+            current = ""
+            done_added = incomplete_removed = False
+        elif line.startswith("diff --git "):
+            flush()
+            current = ""
+            done_added = incomplete_removed = False
+            parts = line.split(" b/", 1)
+            if len(parts) == 2:
+                current = parts[1].strip()
+        elif current and stamp and line.startswith("+") \
+                and not line.startswith("+++"):
+            value = _diff_status(line)
+            if value in done_statuses:
+                done_added = True
+        elif current and stamp and line.startswith("-") \
+                and not line.startswith("---"):
+            value = _diff_status(line)
+            if value is not None and value not in done_statuses:
+                incomplete_removed = True
+    flush()
+    return dates
+
+
+def _git_status_flip_dates(
+    root: Path, glob: str, done_statuses: set[str],
+) -> dict[str, str]:
+    """Read completion from one history pass, only for actual done transitions."""
+    if not glob or not done_statuses:
+        return {}
+    try:
+        result = subprocess.run(
+            [
+                "git", "-C", str(root), "log", "--format=%x00COMMIT %cI", "-p",
+                "-G", "Status:|status:", "--", glob,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if result.returncode != 0:
+        return {}
+    return _parse_status_flips(result.stdout, done_statuses)
+
+
 def scan(cfg, root: Path) -> ScanResult:
     """Scan configured spec-tree files and an optional legacy DAG."""
     root = Path(root)
@@ -774,6 +882,33 @@ def scan(cfg, root: Path) -> ScanResult:
                     )
             else:
                 groups[group.id] = group
+
+    done_statuses = cfg.done_statuses()
+    for item in items:
+        if item.completion and item.status not in done_statuses:
+            warnings.append(
+                f"{item.source.get('path', item.id)}: completion evidence is present "
+                f"but status {item.status!r} is not configured done (completion ignored)"
+            )
+            item.completion = {}
+
+    # One history pass, and only when an item still needs evidence. A creation
+    # commit or unrelated edit is not completion; the parser requires an
+    # incomplete -> configured-done transition in the same file and commit.
+    pending = any(
+        item.status in done_statuses and not item.completion
+        and item.source.get("adapter") == "spec_tree" and item.source.get("path")
+        for item in items
+    )
+    if pending:
+        flips = _git_status_flip_dates(root, pattern, done_statuses)
+        for item in items:
+            relpath = item.source.get("path")
+            if (
+                item.status in done_statuses and not item.completion
+                and item.source.get("adapter") == "spec_tree" and relpath in flips
+            ):
+                item.completion = {"date": flips[relpath], "provenance": "git"}
 
     return ScanResult(
         groups=list(groups.values()),

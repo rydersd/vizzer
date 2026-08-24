@@ -81,6 +81,65 @@ def test_append_evolution_event_touches_story_once_and_is_idempotent(tmp_path):
     assert story.read_text(encoding="utf-8") == changed
 
 
+def _legacy_event(decision):
+    event = render_evolution_event(decision)
+    fingerprint = decision.fingerprint
+    return event.replace(
+        f"{fingerprint}:begin", f"{fingerprint}:r{decision.revision}:begin"
+    ).replace(
+        f"{fingerprint}:end", f"{fingerprint}:r{decision.revision}:end"
+    )
+
+
+def test_replay_identity_is_question_fingerprint_not_mutable_ledger_position(tmp_path):
+    graph, story = _repo(tmp_path)
+    first = _decision(revision=1)
+    replay = _decision(revision=2)
+    story.write_text(
+        "# Canvas core\n\n" + _legacy_event(first) + "\n\n"
+        + _legacy_event(replay) + "\n",
+        encoding="utf-8",
+    )
+
+    assert append_evolution_events(graph, tmp_path, [replay]) == [story.resolve()]
+    repaired = story.read_bytes()
+    assert repaired.decode().count(f"evolution-answer:{first.fingerprint}") == 2
+    assert not repaired.endswith(b"\n\n")
+
+    assert append_evolution_events(graph, tmp_path, [replay]) == []
+    assert story.read_bytes() == repaired
+
+
+def test_incomplete_evolution_marker_never_counts_as_journaled(tmp_path):
+    graph, story = _repo(tmp_path)
+    decision = _decision()
+    story.write_text(
+        "# Canvas core\n\n" + decision_marker(decision) + "\ntruncated\n",
+        encoding="utf-8",
+    )
+
+    assert not decision_is_journaled(graph, tmp_path, decision)
+    assert append_evolution_events(graph, tmp_path, [decision]) == [story.resolve()]
+    assert decision_is_journaled(graph, tmp_path, decision)
+
+
+def test_replay_cleanup_preserves_non_equivalent_events_with_same_question(tmp_path):
+    graph, story = _repo(tmp_path)
+    first = _decision(revision=1)
+    second = _decision(revision=2)
+    changed = _legacy_event(second).replace(
+        "This event records why the task evolved.",
+        "This event records a materially different owner answer.",
+    )
+    story.write_text(
+        "# Canvas core\n\n" + _legacy_event(first) + "\n\n" + changed + "\n",
+        encoding="utf-8",
+    )
+
+    assert append_evolution_events(graph, tmp_path, [second]) == []
+    assert "materially different owner answer" in story.read_text(encoding="utf-8")
+
+
 def test_application_event_is_explicit_idempotent_and_separate_from_acceptance(tmp_path):
     graph, story = _repo(tmp_path)
     decision = _decision()

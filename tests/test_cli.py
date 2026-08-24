@@ -531,6 +531,89 @@ def test_structural_check_ignores_activity_only_changes(tmp_path, make_repo):
         "structural check failed on activity-only drift"
 
 
+def test_check_rejects_unlinked_blocker_unless_exact_revision_is_grandfathered(
+    tmp_path, make_repo, capsys,
+):
+    repo = make_repo(tmp_path, "mixed_proj")
+    config = repo / "vizzer/vizzer.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + '\n[activity]\npath = "vizzer/active-work.json"\n'
+        + "stale_after_minutes = 30\n",
+        encoding="utf-8",
+    )
+    record = {
+        "storyId": "story:canvas-core", "agent": "Agent",
+        "task": "Legacy block", "state": "blocked",
+        "checkpoints": {"completed": 0, "total": 1},
+        "updatedAt": "2026-08-08T17:00:00Z",
+    }
+    (repo / "vizzer/active-work.json").write_text(json.dumps({
+        "schema": 1, "work": [record],
+    }), encoding="utf-8")
+    assert main(["sync", "--root", str(repo)]) == 0
+    assert main(["render", "--root", str(repo)]) == 0
+    capsys.readouterr()
+
+    assert main(["check", "--root", str(repo)]) == 1
+    output = capsys.readouterr().out
+    assert "unresolved blocker [unlinked]" in output
+    assert "add an owner question" in output
+
+    (repo / "vizzer/blocked-gate-grandfathered.json").write_text(json.dumps({
+        "schema": 1,
+        "records": [{
+            "storyId": record["storyId"], "agent": record["agent"],
+            "task": record["task"], "updatedAt": record["updatedAt"],
+        }],
+    }), encoding="utf-8")
+    assert main(["check", "--root", str(repo)]) == 0
+    assert "1 grandfathered blocked-record" in capsys.readouterr().out
+
+
+def test_question_age_budget_warns_and_optionally_fails_check(
+    tmp_path, make_repo, capsys,
+):
+    repo = make_repo(tmp_path, "mixed_proj")
+    config = repo / "vizzer/vizzer.toml"
+    config.write_text(
+        config.read_text(encoding="utf-8")
+        + '\n[activity]\npath = "vizzer/active-work.json"\n'
+        + '\n[questions]\nanswers_path = "vizzer/question-answers.json"\n'
+        + "age_budget_hours = 1\nage_budget_hard_fail = true\n",
+        encoding="utf-8",
+    )
+    question = {
+        "id": "question:old-route", "storyId": "story:canvas-core",
+        "owner": "Owner", "prompt": "Which route?",
+        "raisedAt": "2026-08-01T00:00:00Z",
+        "options": [
+            {"id": "one", "label": "One", "tradeoff": "Lower coupling."},
+            {"id": "two", "label": "Two", "tradeoff": "Faster delivery."},
+        ],
+        "recommendation": {"optionId": "one", "rationale": "One authority."},
+        "falsifier": "The route cannot meet the contract.",
+        "evidence": ["spec/story.md:12"],
+    }
+    (repo / "vizzer/active-work.json").write_text(json.dumps({
+        "schema": 1, "work": [], "questions": [question],
+    }), encoding="utf-8")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    capsys.readouterr()
+
+    assert main(["check", "--root", str(repo)]) == 1
+    assert "WARNING overdue owner question question:old-route" in capsys.readouterr().out
+
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "age_budget_hard_fail = true", "age_budget_hard_fail = false"
+        ),
+        encoding="utf-8",
+    )
+    assert main(["check", "--root", str(repo)]) == 0
+    assert "WARNING overdue owner question" in capsys.readouterr().out
+
+
 def test_source_links_resolve_from_a_deeper_output_dir(tmp_path, make_repo):
     """Link depth must follow output_dir, not a hardcoded two levels."""
     repo = make_repo(tmp_path, "mixed_proj")

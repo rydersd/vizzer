@@ -45,7 +45,7 @@ try{
   await send('Runtime.enable');await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
   await waitFor(()=>evaluate(`document.readyState==='complete'&&typeof switchView==='function'&&document.getElementById('boot').hidden`),'Vizzer boot');
-  await waitFor(()=>evaluate(`questionContext&&questionContext.engineVersion===ENGINE_VERSION`),'live question authority');
+  await waitFor(()=>evaluate(`questionContext&&questionContext.renderId===RENDER_ID`),'live question authority');
 
   const activeHoldPoint=await rectCenter(`lifecycleButtons.active`);
   await send('Input.dispatchMouseEvent',{type:'mouseMoved',...activeHoldPoint});
@@ -76,7 +76,7 @@ try{
   await clickPoint(card);
   const wide=await evaluate(`({viewport:[innerWidth,innerHeight],route:currentView,
     dossierOpen:dossier.classList.contains('open'),selected:sel,title:dossierIdentity.querySelector('h2')?.textContent,
-    expected:${card.index},expectedTitle:${JSON.stringify(card.title)},version:ENGINE_VERSION,
+    expected:${card.index},expectedTitle:${JSON.stringify(card.title)},renderId:RENDER_ID,
     headerVersion:document.querySelector('#title small').textContent})`);
   const liveResizeStart=await evaluate(`(()=>{const handle=dossierResize.getBoundingClientRect(),drawer=dossier.getBoundingClientRect();
     return{x:handle.left+handle.width/2,y:handle.top+handle.height/2,width:drawer.width};})()`);
@@ -142,7 +142,7 @@ try{
 
   await send('Page.reload',{ignoreCache:true});
   await waitFor(()=>evaluate(`document.readyState==='complete'&&typeof switchView==='function'&&document.getElementById('boot').hidden`),'compact live reload');
-  await waitFor(()=>evaluate(`questionContext&&questionContext.engineVersion===ENGINE_VERSION`),'reloaded live authority');
+  await waitFor(()=>evaluate(`questionContext&&questionContext.renderId===RENDER_ID`),'reloaded live authority');
   drawerResize.reloadedCompact=true;
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
   await waitFor(()=>evaluate(`innerWidth===1280&&innerHeight===800`),'wide Constellation viewport');
@@ -333,7 +333,7 @@ try{
       button:queue?.querySelector('button')?.textContent||null,disabled:queue?.querySelector('button')?.disabled??null,
       busy:queue?.getAttribute('aria-busy')||null,preflightCalls:globalThis.__livePreflightCalls,
       answerCalls:globalThis.__liveAnswerCalls,payload:Boolean(globalThis.__livePayload),
-      contextVersion:questionContext?.engineVersion||null,contextRevision:questionContext?.revision??null,
+      contextRenderId:questionContext?.renderId||null,contextRevision:questionContext?.revision??null,
       submissionError:questionSubmissionError,sameQueue:queue===globalThis.__observedQueue,
       forms:[...document.querySelectorAll('form[data-question-id]')].map(form=>form.dataset.questionId),
       events:globalThis.__queueEvents};})()`);

@@ -44,26 +44,34 @@ project vocabulary, while preserving the larger generic agent-to-owner review go
   1280×720 source, saved/shared views, and a well-formed routed SVG.
 - A 25,000-object scale fixture returns a bounded 600-of-2,500 slice within its budget. Complete
   Python 3.9 suite: 453 passed, 2 skipped.
+- Ported the remaining reusable Python-core families: content-based render identity, explicit
+  blocker records, durable/static workstream separation, conflict sources, completion provenance,
+  legacy-safe decision replay, question aging, and opt-in project-neutral perspectives.
+- Added live-measured Constellation top chrome and stable object deep links. Stored two new
+  full-width 1280×720 IllTool Developer Flow receipts: capability overview and Drawing story detail.
+- Adversarially exercised 100,000 objects. The bounded response stayed correct (600 rows,
+  617,362 bytes), but cold normalization/indexing took 21.765 seconds and about 1.0 GB RSS.
+- Final combined Python audit is 488 passed, 2 skipped in 99.08s. Frontend build/audit, wheel,
+  sdist, zipapp, compile, archive-integrity, diff, and project-identity leakage gates are green.
 
 ## Now
 
-Reconcile the original “all reusable functionality” migration promise with the still-pending
-portable families in the divergence map. G-001 must remain active until each family is either
-ported, explicitly excluded as non-reusable, or moved to a named follow-up with owner agreement.
+Finish the publication gate. The migration matrix now classifies every audited family as ported or
+deliberately excluded; the remaining material risk is Developer Flow cold-start/memory at the
+100,000-object safety ceiling.
 
 ## Next
 
-1. Audit/resolve the remaining migration-matrix rows (render identity, blocked records, decision
-   replay, workstream runtime exclusion, conflicts/completion, perspectives, remaining generic
-   Constellation interaction families).
-2. Run final package/leakage/dirty-worktree audit and update the capability matrix.
-3. Commit and push the review branch once its declared scope and residuals match reality.
+1. Regenerate the Constellation golden after the final source hash settles.
+2. Run the complete suite, package/build/audit/leakage gates, and inspect the final diff.
+3. Commit and push the review branch. Keep the 100k persisted/incremental-index work as a named
+   performance follow-up rather than smuggling it into a completion claim.
 
 ## Open questions
 
-- Whether the broad portable-fork families belong in this one publication or explicitly named
-  follow-up releases remains a scope decision; silently calling the current subset “all” is not an
-  option.
+- What startup/RSS budget should gate a future “enterprise ready” claim at 100,000 objects. The
+  current measured result is correct but expensive; the answer likely determines whether the next
+  architecture is a persisted index, adapter aggregation, or both.
 - Remote multi-user owner identity is not implemented. V1 authority is local loopback possession;
   remote collaboration needs an authentication adapter and a separate threat model.
 

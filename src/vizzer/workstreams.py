@@ -593,7 +593,15 @@ def _collisions(streams: list[dict], sessions: list[dict]) -> list[dict]:
     return collisions
 
 
-def load_workstream_overlay(graph: Graph, cfg, root: Path, *, now: str | None = None) -> list[str]:
+def load_workstream_overlay(
+    graph: Graph,
+    cfg,
+    root: Path,
+    *,
+    now: str | None = None,
+    include_runtime: bool = False,
+) -> list[str]:
+    """Attach durable intent and opt into machine-local sessions only for live APIs."""
     if not cfg.get("workstreams.enabled", False):
         graph.workstreams = {}
         return []
@@ -601,10 +609,12 @@ def load_workstream_overlay(graph: Graph, cfg, root: Path, *, now: str | None = 
     if overlay is None:
         graph.workstreams = {}
         return warnings
-    runtime, runtime_warnings = read_runtime(cfg, root, graph, strict=False)
-    warnings.extend(runtime_warnings)
-    if runtime is None:
-        runtime = empty_runtime()
+    runtime = empty_runtime()
+    if include_runtime:
+        runtime, runtime_warnings = read_runtime(cfg, root, graph, strict=False)
+        warnings.extend(runtime_warnings)
+        if runtime is None:
+            runtime = empty_runtime()
     _, parsed = _now(now)
     sessions = []
     for session in runtime["sessions"]:
@@ -625,12 +635,15 @@ def load_workstream_overlay(graph: Graph, cfg, root: Path, *, now: str | None = 
     # its actual boundary; the observation label comes only from persisted
     # definition/session events.
     persisted_times = [overlay.get("updatedAt")]
-    persisted_times.extend(session.get("heartbeatAt") for session in runtime["sessions"])
-    persisted_times.extend(session.get("stoppedAt") for session in runtime["sessions"])
+    if include_runtime:
+        persisted_times.extend(session.get("heartbeatAt") for session in runtime["sessions"])
+        persisted_times.extend(session.get("stoppedAt") for session in runtime["sessions"])
     as_of = max((value for value in persisted_times if value), default=None)
     graph.workstreams = {
         "schema": SCHEMA, "revision": overlay["revision"],
-        "runtimeRevision": runtime["revision"], "asOf": as_of,
+        "runtimeIncluded": include_runtime,
+        "runtimeRevision": runtime["revision"] if include_runtime else None,
+        "asOf": as_of,
         "definitionsPath": cfg.get("workstreams.definitions_path"),
         "workstreams": streams,
         "discussions": overlay["state"]["discussions"],
