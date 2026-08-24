@@ -138,6 +138,13 @@ def test_neighborhood_includes_prerequisites_consumers_and_typed_relations():
     assert 'className="relation-label"' in source
 
 
+def test_relation_labels_own_an_opaque_layer_above_dependency_routes():
+    css = (TOOLS / "src" / "app.css").read_text(encoding="utf-8")
+    assert ".react-flow__edgelabel-renderer { z-index:6" in css
+    assert "background:var(--panel)" in css
+    assert "box-shadow:0 0 0 4px var(--panel)" in css
+
+
 def test_group_status_keeps_failure_active_ready_and_shipped_separate():
     data = from_work_graph(fixture(), config())
     roles = {obj["id"]: obj["statusRole"] for obj in data["objects"]}
@@ -242,7 +249,7 @@ console.log(JSON.stringify({key:savedViewsStorageKey('Project','/developer-flow.
 
 
 def test_svg_export_is_real_vector_markup_for_current_routed_scope():
-    svg = _node_module_probe(r"""
+    result = _node_module_probe(r"""
 import {developerFlowSvg} from './src/export_svg.mjs';
 const nodes=[
   {id:'g',type:'groupFrame',position:{x:10,y:10},style:{width:500,height:260},data:{title:'Commerce <core>',count:2,statusCounts:{active:1,shipped:1}}},
@@ -251,17 +258,24 @@ const nodes=[
 ];
 const edges=[{id:'e',label:'depends-on',data:{kind:'depends-on',points:[{x:220,y:140},{x:290,y:140}]}}];
 const svg=developerFlowSvg({title:'Export test\u0000',nodes,edges,lod:'summary',exportedAt:'2026-08-24T00:00:00Z'});
-console.log(JSON.stringify({svg}));
-""")["svg"]
+const longSvg=developerFlowSvg({nodes:[],edges:[{label:'relationship-label-that-is-deliberately-wide',data:{points:[{x:0,y:0},{x:10,y:0}]}}]});
+const viewBox=longSvg.match(/viewBox="([^"]+)"/)[1].split(' ').map(Number);
+const labelRect=longSvg.match(/edge-label-bg" x="([^"]+)"[^>]+width="([^"]+)"/).slice(1).map(Number);
+console.log(JSON.stringify({svg,longLabelContained:labelRect[0]>=viewBox[0]&&labelRect[0]+labelRect[1]<=viewBox[0]+viewBox[2]}));
+""")
+    svg = result["svg"]
     assert svg.startswith('<?xml version="1.0"')
     assert '<svg xmlns="http://www.w3.org/2000/svg"' in svg
     assert '<foreignObject' not in svg
     assert '<path d="M 220 140 L 290 140"' in svg
+    assert '<rect class="edge-label-bg" x="213" y="123" width="84" height="18" rx="9"/>' in svg
     assert '<text x="255" y="134">depends-on</text>' in svg
+    assert ".edge-label-bg{fill:#fff" in svg
     assert "depends-on" in svg and "Orders" in svg and "probe &lt;failed&gt;" in svg
     assert "Commerce &lt;core&gt;" in svg
     assert "vizzer-developer-flow-svg/v1" in svg
     assert "\u0000" not in svg
+    assert result["longLabelContained"] is True
 
 
 def test_svg_download_uses_a_mounted_link_safe_name_and_delayed_revoke():

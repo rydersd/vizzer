@@ -15,6 +15,10 @@
   zoom and verified unclipped after the fix.
 - Orthogonal bends use a 10-unit quadratic corner radius. ELK reserves 18 units between parallel
   routes; the fan-out regression fixture produces three adjacent lanes at x=204, 222, and 240.
+- Relationship labels render in an explicit layer above routes with a fully opaque panel-colored
+  mask and four-unit halo, so cables stop visually before the text. SVG export emits the same
+  contract as a rounded background rect before each centered label, and includes even deliberately
+  wide label bounds in the export viewport rather than clipping them.
 - Roadmap filters include release column, capability/product facet, last-modified order, and
   dependency order.
 - A synthetic 25,000-object/10-group graph normalized, indexed, and returned a bounded 600-of-2,500
@@ -40,6 +44,8 @@
 ![Component capability frame with its full wrapped title](illtool-capability-frame-unclipped-2026-08-23.png)
 
 ![Rounded dependency routes at full browser width](illtool-rounded-equidistant-routes-2026-08-23.png)
+
+![Opaque relationship labels above dependency routes](illtool-edge-label-occlusion-2026-08-23.png)
 
 The browser saved and restored a named “Commerce component map”, copied a URL-encoded story view,
 and exported [`upstream-neutral-commerce-component.svg`](upstream-neutral-commerce-component.svg).
@@ -69,3 +75,9 @@ Post-review geometry audit: **126 focused tests passed in 44.17s**. The first co
 changed; the golden was regenerated from the tested renderer and the CLI/golden slice then passed
 **43/43**. The final complete rerun against the settled source identity passed **488 tests with 2
 skipped in 83.04s**.
+
+Post-label-occlusion audit: the focused Developer Flow contract passed **14/14** before the golden
+identity refresh; the settled complete rerun passed **489 tests with 2 skipped in 67.20s**. The
+frontend rebuilt successfully and its production dependency audit again reported zero
+vulnerabilities. A live IllTool browser review exercised 12 labeled routes in the nine-story Smart
+Corners cluster at readable zoom.

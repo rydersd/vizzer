@@ -23,6 +23,11 @@ function wrap(value,limit=38,lines=3){
 function pointsPath(points){
   return roundedOrthogonalPath(points.map(point=>({x:number(point.x),y:number(point.y)})),10);
 }
+function edgeLabelLayout(edge,points){
+  const middle=pathMidpoint(points),label=String(edge.label||edge.data?.kind||'relation');
+  const width=Math.max(36,label.length*7+14);
+  return {middle,label,width,x:number(middle.x)-width/2,y:number(middle.y)-17};
+}
 
 export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],lod='summary',exportedAt=''}){
   const byId=new Map(nodes.map(node=>[node.id,node])),positions=new Map();
@@ -38,7 +43,14 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],lod='
     const origin=absolute(node),width=size(node,'width',320),height=size(node,'height',140);
     bounds.push(origin.x,origin.y,origin.x+width,origin.y+height);
   }
-  for(const edge of edges)for(const point of edge.data?.points||[])bounds.push(number(point.x),number(point.y));
+  for(const edge of edges){
+    const points=edge.data?.points||[];
+    for(const point of points)bounds.push(number(point.x),number(point.y));
+    if(points.length){
+      const label=edgeLabelLayout(edge,points);
+      bounds.push(label.x,label.y,label.x+label.width,label.y+18);
+    }
+  }
   const xs=bounds.filter((_value,index)=>index%2===0),ys=bounds.filter((_value,index)=>index%2===1);
   const padding=48,minX=(xs.length?Math.min(...xs):0)-padding,minY=(ys.length?Math.min(...ys):0)-padding;
   const maxX=(xs.length?Math.max(...xs):800)+padding,maxY=(ys.length?Math.max(...ys):600)+padding;
@@ -46,8 +58,8 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],lod='
   const edgeMarkup=edges.map(edge=>{
     const points=edge.data?.points||[];
     const path=pointsPath(points);if(!path)return '';
-    const middle=pathMidpoint(points);
-    return `<g class="edge"><path d="${path}" marker-end="url(#arrow)"/><text x="${number(middle.x)}" y="${number(middle.y)-6}">${esc(edge.label||edge.data?.kind||'relation')}</text></g>`;
+    const label=edgeLabelLayout(edge,points);
+    return `<g class="edge"><path d="${path}" marker-end="url(#arrow)"/><rect class="edge-label-bg" x="${label.x}" y="${label.y}" width="${label.width}" height="18" rx="9"/><text x="${number(label.middle.x)}" y="${number(label.middle.y)-6}">${esc(label.label)}</text></g>`;
   }).join('');
   const ordered=[...nodes].sort((a,b)=>(a.type==='groupFrame'?0:1)-(b.type==='groupFrame'?0:1));
   const nodeMarkup=ordered.map(node=>{
@@ -60,7 +72,7 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],lod='
     return `<g class="object status-${esc(data.statusRole||'ready')}"><rect x="${origin.x}" y="${origin.y}" width="${width}" height="${height}" rx="10"/><text class="kind" x="${origin.x+16}" y="${origin.y+24}">${esc(data.kind||'object')} · ${esc(data.status||'unknown')}</text><text class="title" x="${origin.x+16}" y="${origin.y+48}">${esc(data.title||node.id)}</text>${lines.map((line,index)=>`<text class="summary" x="${origin.x+16}" y="${origin.y+72+index*18}">${esc(line)}</text>`).join('')}${data.failure?`<text class="failure" x="${origin.x+16}" y="${origin.y+height-16}">⚠ ${esc(data.failure.message)}</text>`:''}</g>`;
   }).join('');
   const metadata=esc(JSON.stringify({schema:'vizzer-developer-flow-svg/v1',lod,exportedAt}));
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><metadata>${metadata}</metadata><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#64748b"/></marker><style>.edge path{fill:none;stroke:#64748b;stroke-width:2}.edge text,.meta,.kind,.summary{font:12px system-ui,sans-serif;fill:#64748b}.group rect{fill:#f8fafc;stroke:#94a3b8;stroke-width:2}.group-title,.title{font:700 15px system-ui,sans-serif;fill:#0f172a}.object rect{fill:#fff;stroke:#64748b;stroke-width:2}.status-blocked rect{stroke:#dc2626}.status-active rect{stroke:#2563eb}.status-shipped rect{stroke:#16a34a}.kind{font-size:11px;text-transform:uppercase}.failure{font:700 12px system-ui,sans-serif;fill:#dc2626}</style></defs>${edgeMarkup}${nodeMarkup}</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><metadata>${metadata}</metadata><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#64748b"/></marker><style>.edge path{fill:none;stroke:#64748b;stroke-width:2}.edge-label-bg{fill:#fff;stroke:#cbd5e1;stroke-width:1}.edge text,.meta,.kind,.summary{font:12px system-ui,sans-serif;fill:#64748b}.edge text{text-anchor:middle}.group rect{fill:#f8fafc;stroke:#94a3b8;stroke-width:2}.group-title,.title{font:700 15px system-ui,sans-serif;fill:#0f172a}.object rect{fill:#fff;stroke:#64748b;stroke-width:2}.status-blocked rect{stroke:#dc2626}.status-active rect{stroke:#2563eb}.status-shipped rect{stroke:#16a34a}.kind{font-size:11px;text-transform:uppercase}.failure{font:700 12px system-ui,sans-serif;fill:#dc2626}</style></defs>${edgeMarkup}${nodeMarkup}</svg>`;
 }
 
 export function svgFilename(title='developer-flow',scope='overview'){
