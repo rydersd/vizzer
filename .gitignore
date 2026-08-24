@@ -3,5 +3,6 @@ __pycache__/
 *.egg-info/
 .DS_Store
 .claude/tsc-cache/
+node_modules/
 dist/*
 !dist/README.md

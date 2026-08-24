@@ -417,7 +417,7 @@ def test_constellation_preserves_group_hierarchy_for_structure_navigation(tmp_pa
     assert "let capFocus = null, groupFocus = null" in html
     assert "function renderCapabilityAccordions()" in html
     assert "nodeBelongsToGroup" in html
-    assert "grid-template-rows:28px 28px 28px" in html
+    assert "grid-template-rows:32px 28px 28px" in html
     assert "#meter{grid-column:1 / -1;grid-row:2" in html
     assert "#chips{grid-column:1 / -1;grid-row:3" in html
 
@@ -568,6 +568,44 @@ def test_constellation_composes_frontend_sources_into_one_dependency_free_artifa
     assert not re.search(r"__VIZZER_[A-Z_]+__", html)
     assert "const DATA=" in html
     assert "function workNavigationIndexes(lane)" in html
+
+
+def test_title_bar_controls_sidebar_reading_size_and_left_rail_width(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    title = html.index('<div id="title">')
+    type_control = html.index('<div id="sidebartype"')
+    view_menu = html.index('<details id="viewmenu">')
+    assert title < type_control < view_menu
+    assert [f'data-sidebar-size="{size}"' in html for size in (14, 18, 22)] == [
+        True, True, True,
+    ]
+    assert "--sidebar-type-size',`${size}pt`" in html
+    assert ".chip,.pill,#top button:not([data-sidebar-size]){font-size:11px}" in html
+    assert '<button id="railresize" type="button" role="separator"' in html
+    assert "--rail-width',`${railWidth}px`" in html
+    assert "['ArrowLeft','ArrowRight','Home']" in html
+    assert "left:var(--rail-width)" in html
+
+
+def test_review_view_exposes_agent_evidence_and_independent_owner_form(tmp_path):
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
+                      only={"constellation"})["constellation.html"]
+
+    assert 'href="#reviews" data-view="reviews">Reviews</a>' in html
+    assert "currentView==='reviews'?renderReviews()" in html
+    assert "Agent pass is evidence, not approval." in html
+    assert "Your independent validation" in html
+    assert "expectedRevision:plan.revision" in html
+    assert "actor:{kind:'owner',id:'project-owner'}" in html
+    assert "basedOnAgentEventId:row.latest.agent.eventId" in html
+    assert "Evidence needs reviewable reading width" in html
+    assert ".reviewruns{grid-template-columns:1fr}" in html
+    assert ".reviewevidence img{width:auto;max-width:100%;height:auto" in html
+    assert "#hint[hidden]{display:none}" in html
+    assert "Owner validation opens after an agent records this row." in html
+    assert "owner.revision>agent.revision" in html
 
 
 def test_search_clear_icon_is_centered_in_its_circle(tmp_path):
@@ -801,6 +839,19 @@ def test_constellation_exposes_interactive_views_and_separate_markdown_exports(t
     assert "function renderCompletion(entries)" in html
     assert "function renderLedgers(entries)" in html
     assert "addEventListener('hashchange',()=>switchView(requestedView(),true))" in html
+    assert "developer-flow.html" not in html
+
+
+def test_constellation_links_the_optional_developer_flow_only_when_enabled(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "developer_flow": {"enabled": True},
+    }))
+    html = render_all(_graph(), cfg, tmp_path, only={"constellation"})[
+        "constellation.html"
+    ]
+
+    assert '<a href="developer-flow.html">Developer Flow</a>' in html
+    assert "__VIZZER_DEVELOPER_FLOW_LINK__" not in html
 
 
 def test_titles_cannot_inject_html_or_break_out_of_the_script_block(tmp_path):
@@ -1780,11 +1831,11 @@ def test_constellation_dossier_pins_identity_and_compact_summary_above_scroll_bo
     assert data["nodes"][0]["summary"] == graph.items[0].one_liner
     assert '<header id="dossierhead"><div id="dossieridentity"></div>' in html
     assert '<div id="dbody"></div>' in html
-    assert "#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip" in html
+    assert "#dossier{position:fixed;right:0;top:110px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - var(--rail-width) - 24px);display:flex;flex-direction:column;overflow:hidden;overflow:clip" in html
     assert 'id="dossierresize"' in html
     assert "dossier.getBoundingClientRect().left" in html
     assert "#dossierhead{position:relative;z-index:3;flex:none" in html
-    assert ".kv{font-size:12px;line-height:1.35" in html
+    assert ".kv{font-size:inherit;line-height:1.35" in html
     assert "grid-template-columns:70px 1fr;gap:7px 10px" in html
     assert "#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto" in html
     assert "transform:translateX(105%);transition:none" in html

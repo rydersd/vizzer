@@ -1,0 +1,5 @@
+{
+  "service": "sample-worker",
+  "state": "ready",
+  "checks": ["configuration", "storage", "queue"]
+}

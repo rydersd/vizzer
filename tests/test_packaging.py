@@ -15,6 +15,7 @@ FRONTEND_RESOURCES = {
     "vizzer/render/constellation/views.css",
     "vizzer/render/constellation/boot.js",
     "vizzer/render/constellation/state.js",
+    "vizzer/render/constellation/view_query.js",
     "vizzer/render/constellation/filters.js",
     "vizzer/render/constellation/views.js",
     "vizzer/render/constellation/dossier.js",
@@ -22,6 +23,16 @@ FRONTEND_RESOURCES = {
     "vizzer/render/constellation/planning.js",
     "vizzer/render/constellation/canvas.js",
     "vizzer/render/constellation/bootstrap.js",
+}
+DEVELOPER_FLOW_RESOURCES = {
+    "vizzer/render/developer_flow_assets/shell.html",
+    "vizzer/render/developer_flow_assets/app.css",
+    "vizzer/render/developer_flow_assets/app.js",
+    "vizzer/render/developer_flow_assets/THIRD_PARTY_NOTICES.md",
+    "vizzer/render/developer_flow_assets/third-party/REACT_FLOW_LICENSE.txt",
+    "vizzer/render/developer_flow_assets/third-party/REACT_LICENSE.txt",
+    "vizzer/render/developer_flow_assets/third-party/REACT_DOM_LICENSE.txt",
+    "vizzer/render/developer_flow_assets/third-party/ELKJS_LICENSE.md",
 }
 
 
@@ -45,6 +56,7 @@ def test_build_pyz(tmp_path):
     assert "vizzer/context/story-sizing-and-portfolio-selection.md" in names
     assert "vizzer/context/prds-and-living-product-specs.md" in names
     assert FRONTEND_RESOURCES <= set(names)
+    assert DEVELOPER_FLOW_RESOURCES <= set(names)
     assert not any(
         name.endswith((".DS_Store", ".pyc", ".pyo")) or ".egg-info/" in name
         for name in names
@@ -73,6 +85,13 @@ def test_install_from_pyz(tmp_path):
     installed_frontend = project / "vizzer" / "engine" / "vizzer" / "render" / "constellation"
     for relative in FRONTEND_RESOURCES:
         assert (installed_frontend / Path(relative).name).is_file()
+    installed_developer_flow = (
+        project / "vizzer" / "engine" / "vizzer" / "render" / "developer_flow_assets"
+    )
+    for relative in DEVELOPER_FLOW_RESOURCES:
+        parts = Path(relative).parts
+        suffix = Path(*parts[parts.index("developer_flow_assets") + 1:])
+        assert (installed_developer_flow / suffix).is_file()
     assert (project / "vizzer" / "views" / "dashboard.md").exists()
     assert (project / "vizzer" / "views" / "discussion-queue.md").exists()
     assert (project / "vizzer" / "docs" /
@@ -82,6 +101,8 @@ def test_install_from_pyz(tmp_path):
     config = (project / "vizzer" / "vizzer.toml").read_text()
     assert "[assessment]" in config and "enabled = true" in config
     assert "[discussions]" in config and 'queue_path = "vizzer/discussion-queue.json"' in config
+    assert "[developer_flow]" in config
+    assert "enabled = false" in config
     graph = json.loads((project / "vizzer" / "vizzer-graph.json").read_text())
     assert graph["assessment"]["method"] == "deterministic-delivery-assessment-v1"
 

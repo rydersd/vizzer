@@ -33,6 +33,7 @@
 
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
+:root{--rail-width:236px;--sidebar-type-size:14pt}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
 #bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}
 #bgcv{pointer-events:none}
@@ -41,7 +42,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #cv.drag{cursor:grabbing}
 #cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
-#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;grid-template-rows:28px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
+#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
@@ -90,11 +91,12 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .seg button:last-child{border-right:none}
 .seg button.on{color:var(--ink);background:var(--bg2)}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.typeseg{height:32px;border-radius:7px;align-items:stretch}.typeseg button{display:grid;place-items:center;width:34px;padding:0;letter-spacing:0;line-height:1}.typeseg button[data-sidebar-size="14"]{font-size:14pt}.typeseg button[data-sidebar-size="18"]{font-size:18pt}.typeseg button[data-sidebar-size="22"]{font-size:22pt}
 .clearx{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1;width:22px;height:22px;padding:0;
   border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;align-self:center}
 .clearx:hover{color:var(--ink);border-color:var(--mut)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-#search{position:fixed;left:12px;top:112px;width:218px;height:34px;z-index:5;display:grid;
+#search{position:fixed;left:12px;top:116px;width:calc(var(--rail-width) - 18px);height:34px;z-index:5;display:grid;
   grid-template-columns:1fr 24px;grid-template-rows:24px 10px;column-gap:4px;align-items:center}
 #searchinput{min-width:0;height:24px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);
   padding:2px 8px;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;outline:none}
@@ -113,16 +115,17 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .symbol-defs{position:absolute;width:0;height:0;overflow:hidden}
 #searchcount{grid-column:1 / -1;grid-row:2;color:var(--mut);font:9px/1 ui-monospace,"SF Mono",Menlo,monospace;
   font-variant-numeric:tabular-nums;padding-left:2px}
-#rail{position:fixed;left:0;top:154px;bottom:0;width:236px;padding:8px 12px 20px;overflow-y:auto;z-index:4;
+#rail{position:fixed;left:0;top:158px;bottom:0;width:var(--rail-width);padding:8px 12px 20px;overflow-y:auto;z-index:4;
   background:linear-gradient(to right,var(--bg) 55%,transparent)}
+#railresize{position:fixed;z-index:5;left:calc(var(--rail-width) - 5px);top:158px;bottom:0;width:10px;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}#railresize::after{content:'';position:absolute;left:4px;top:50%;width:2px;height:44px;border-radius:2px;background:var(--line);transform:translateY(-50%)}#railresize:hover::after,#railresize:focus-visible::after,#railresize.dragging::after{background:var(--accent)}#railresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}
-.caphead{font-size:12px;font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.caphead{font-size:var(--sidebar-type-size);font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;line-height:1.25}
 .caplabel{min-width:0;display:grid;gap:1px;color:var(--ink)}
 .caplabel>span{overflow-wrap:anywhere}
-.caplabel small{color:var(--mut);font:8px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
-.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
+.caplabel small{color:var(--mut);font:10px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:var(--sidebar-type-size);font-variant-numeric:tabular-nums}
 .capbar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
 .capbar i{height:100%;background:var(--shipped)}
 .capbar b{height:100%;background:var(--buggap)}
@@ -141,7 +144,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
 @media (prefers-reduced-motion:reduce){.railcapability>summary::before{transition:none}}
 :root{--dossier-width:clamp(360px,36vw,560px)}
-#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
+#dossier{position:fixed;right:0;top:110px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - var(--rail-width) - 24px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
   transform:translateX(105%);transition:none}
 #dossier.open{transform:none}
@@ -158,18 +161,19 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
 .dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
 .dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
-#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
+#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable;font-size:var(--sidebar-type-size)}
 #dossierfooter{flex:none;min-width:0}
 #dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}
+#dossier #dbody :where(p,li,dd,button:not(.chip):not(.pill),label,textarea,select){font-size:inherit}.chip,.pill,#top button:not([data-sidebar-size]){font-size:11px}
 .pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 10px;border-radius:20px;color:var(--bg);font-weight:600}
-.kv{font-size:12px;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
+.kv{font-size:inherit;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
 .kv span,.kv b{min-width:0;overflow-wrap:anywhere}.kv b{color:var(--ink);font-weight:500}
 #dossier .story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
   border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0;background:transparent;cursor:pointer}
 #dossier .story:hover{background:var(--accent);color:var(--bg)}
 #dossier .story:disabled{opacity:.6;cursor:progress}
-.workcard{border-left:2px solid var(--active);padding:4px 0 4px 9px;margin:8px 0;font-size:12px}
+.workcard{border-left:2px solid var(--active);padding:4px 0 4px 9px;margin:8px 0;font-size:inherit}
 .workcard.blocked{border-color:var(--buggap)}
 .workcard.stale{border-color:var(--mut);color:var(--mut)}
 .workcard b,.workcard small{display:block}.workcard small{color:var(--mut)}
@@ -214,27 +218,43 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #viewempty{position:fixed;left:50%;top:50%;z-index:3;display:none;transform:translate(-50%,-50%);max-width:320px;
   color:var(--mut);font:12px/1.45 ui-monospace,"SF Mono",Menlo,monospace;text-align:center;pointer-events:none}
 #viewempty.show{display:block}
-#viewpanel{position:fixed;left:236px;right:0;top:106px;bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
+#viewpanel{position:fixed;left:var(--rail-width);right:0;top:110px;bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
 #viewpanel[hidden]{display:none;pointer-events:none}
 .viewhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.viewhead h1{font:700 22px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}.viewhead p{max-width:620px;color:var(--mut);font-size:12px}
 .viewgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.viewsection{margin:0 0 24px}.viewsection h2{font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0 0 9px}.viewsection h2 span{color:var(--ink)}
 .viewcard{position:relative;display:block;width:100%;min-height:76px;text-align:left;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--panel);color:var(--ink);cursor:pointer}.viewcard:hover,.viewcard:focus-visible{border-color:var(--accent);outline:none;transform:translateY(-1px)}.viewcard.blocked{border-color:var(--owner-override);padding-right:34px;box-shadow:inset 3px 0 var(--owner-override)}.viewcard.blocked::after{content:'\00d7';position:absolute;right:11px;top:8px;color:var(--owner-override);font:800 18px/1 ui-monospace,"SF Mono",Menlo,monospace}.viewcard b{display:block;font-size:13px;line-height:1.3}.viewcard small{display:block;color:var(--mut);font:10px/1.35 ui-monospace,"SF Mono",Menlo,monospace;margin-top:5px}.viewcard .viewflag{color:var(--owner-override);font-weight:800;text-transform:uppercase;letter-spacing:.06em}
 .structuregroup{margin:0 0 10px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--panel) 72%,transparent);overflow:hidden}.structuregroup>.structuregroup{margin-left:12px}.structuregroup>summary{list-style:none;cursor:pointer;padding:10px 12px;color:var(--ink)}.structuregroup>summary::-webkit-details-marker{display:none}.structuregroup>summary::before{content:'\25b8';display:inline-block;width:16px;color:var(--mut);font-size:11px;transition:transform .12s ease}.structuregroup[open]>summary::before{transform:rotate(90deg)}.structuregroup>summary>span{display:inline-flex;align-items:baseline;gap:8px}.structuregroup>summary b{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structuregroup>summary small{color:var(--mut);font:10px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.structurebody{padding:0 10px 10px 12px}.structurecontract{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 8px 12px;padding:8px 10px;border-left:2px solid color-mix(in srgb,var(--accent) 42%,var(--line));background:color-mix(in srgb,var(--panel2) 84%,transparent)}.structurecontract p{max-width:70ch;margin:0;color:var(--mut);font:11px/1.45 var(--sans)}.structurecontract a,.structurecontract button{flex:0 0 auto;border:0;background:none;color:var(--accent);font:700 10px/1.4 ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer;text-decoration:none}.structurecontract button:disabled{cursor:default;opacity:.65}.structureitems{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin:0 0 4px 12px}.structuregroup.depth-0{margin-bottom:16px;border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}.structuregroup.depth-0>summary{padding:12px}.structuregroup.depth-0>summary b{font-size:14px}@media (prefers-reduced-motion:reduce){.structuregroup>summary::before{transition:none}}
 .viewcolumns{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;align-items:start}.viewcolumn{border:1px solid var(--line);border-radius:10px;padding:10px;background:color-mix(in srgb,var(--panel) 70%,transparent)}.viewcolumn h2{font:700 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace;margin-bottom:9px}.viewcolumn .viewcard+.viewcard{margin-top:7px}
+.roadmapcontrols{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:0 0 14px;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.roadmapcontrols label{display:grid;gap:4px;color:var(--mut);font:10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.05em}
+.roadmapcontrols select,.roadmapcontrols button{min-height:32px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);color:var(--ink);padding:0 9px;font:12px/1.3 var(--sans)}
+.roadmapcontrols button{color:var(--accent);cursor:pointer}
 .metricgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.metric{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel);cursor:pointer;color:var(--ink);text-align:left}.metric:hover,.metric:focus-visible{border-color:var(--accent);outline:none}.metric strong{display:block;font:700 28px/1 ui-monospace,"SF Mono",Menlo,monospace}.metric span{display:block;color:var(--mut);font-size:11px;margin-top:5px}
 .viewtable{width:100%;border-collapse:collapse;font-size:12px}.viewtable th{position:sticky;top:0;background:var(--bg2);color:var(--mut);font:700 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.07em;text-align:left;padding:8px;border-bottom:1px solid var(--line)}.viewtable td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}.viewtable button{border:0;background:none;color:var(--ink);text-align:left;cursor:pointer;padding:0;font:inherit}.viewtable button:hover{text-decoration:underline}.viewemptycopy{padding:32px;border:1px dashed var(--line);border-radius:10px;color:var(--mut);text-align:center}
 .viewsubmeta{margin:0 0 14px;color:var(--mut);font-size:12px}.workstreamalerts{margin:0 0 16px;padding:14px;border:1px solid color-mix(in srgb,var(--buggap) 55%,transparent);border-radius:10px;background:color-mix(in srgb,var(--buggap) 8%,var(--panel))}.workstreamalert{display:grid;grid-template-columns:110px minmax(140px,1fr) minmax(160px,2fr);gap:10px;padding:7px 0;border-top:1px solid var(--line)}.workstreamalert:first-of-type{border-top:0}.workstreamalert small{color:var(--mut)}
 .workstreamgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}.workstreamcard{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.workstreamcard>header{display:flex;justify-content:space-between;gap:14px}.workstreamcard h2{margin:4px 0;font-size:18px}.workstreamcard p{margin:4px 0;color:var(--mut)}.workstatus{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--active)}.workprogress{height:5px;margin:12px 0;border-radius:999px;background:var(--line);overflow:hidden}.workprogress i{display:block;height:100%;background:var(--active)}
 .workstreamcard dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.workstreamcard dl div{min-width:0}.workstreamcard dt{font-size:10px;text-transform:uppercase;color:var(--mut)}.workstreamcard dd{margin:2px 0;overflow-wrap:anywhere}.workstories{display:grid;gap:6px;margin:10px 0}.workstreamcard details{border-top:1px solid var(--line);padding:9px 0}.workstreamcard summary{cursor:pointer}.workstreamcard ul{list-style:none;padding:0;margin:8px 0 0}.worksession,.workdiscussion{display:grid;gap:2px;padding:7px 0}.worksession span,.workdiscussion span{overflow-wrap:anywhere}.worksession small,.workdiscussion small{color:var(--mut)}.worksession.stale{opacity:.58}.worksession.fresh b{color:var(--active)}.workdiscussion.escalation b{color:var(--owner-override)}
 @media(max-width:720px){.workstreamgrid{grid-template-columns:1fr}.workstreamalert{grid-template-columns:1fr}.workstreamcard dl{grid-template-columns:1fr}}
+.reviewplan{margin:0 0 20px;padding:16px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 82%,transparent)}.reviewplan>header{display:flex;justify-content:space-between;gap:18px;margin-bottom:12px}.reviewplan>header h2{font-size:20px}.reviewplan>header p{margin:3px 0;color:var(--mut)}.reviewplan>header small{color:var(--mut);font:10px/1.4 ui-monospace,"SF Mono",Menlo,monospace;white-space:nowrap}.reviewrow{border-top:1px solid var(--line);padding:0}.reviewrow>summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 2px;cursor:pointer}.reviewrow>summary>span:first-child{display:grid}.reviewrow>summary small{color:var(--mut)}.reviewverdict{padding:3px 8px;border:1px solid var(--line);border-radius:999px;font:700 9px/1.3 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;white-space:nowrap}.reviewverdict.pass{color:var(--shipped);border-color:var(--shipped)}.reviewverdict.fail,.reviewverdict.blocked{color:var(--buggap);border-color:var(--buggap)}.reviewdod,.reviewinstructions{margin:10px 0;padding:12px;border-radius:9px;background:var(--bg2)}.reviewdod h4,.reviewinstructions h4,.reviewrun h4,.reviewowner h4{margin-bottom:7px;font-size:12px}.reviewdod ul,.reviewinstructions ol,.reviewrun ol{padding-left:20px}.reviewinstructions li{position:relative;padding:4px 64px 4px 0}.reviewinstructions small,.reviewstep small{display:block;color:var(--mut)}.reviewinstructions em{position:absolute;right:0;top:5px;color:var(--mut);font:9px/1.4 ui-monospace,"SF Mono",Menlo,monospace}.reviewruns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}.reviewrun{min-width:0;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}.reviewrun.pass{border-color:color-mix(in srgb,var(--shipped) 50%,var(--line))}.reviewrun.fail,.reviewrun.blocked{border-color:color-mix(in srgb,var(--buggap) 60%,var(--line))}.reviewrun h4{display:flex;justify-content:space-between;gap:8px}.reviewrun h4 span{color:var(--mut);font:9px/1.4 ui-monospace,"SF Mono",Menlo,monospace}.reviewevidence{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:10px}.reviewevidence img{display:block;width:100%;max-height:260px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:var(--bg)}.reviewevidence figcaption{color:var(--mut);font-size:10px;margin-top:3px}.reviewempty,.reviewnote{margin-top:8px;color:var(--mut);font-size:11px}.reviewowner{margin:12px 0 4px;padding:14px;border:1px solid color-mix(in srgb,var(--owner-override) 45%,var(--line));border-radius:9px;background:color-mix(in srgb,var(--owner-override) 5%,var(--panel))}.reviewowner>p{color:var(--mut);font-size:11px}.reviewsteps{display:grid;gap:7px;margin:10px 0}.reviewstep{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:12px;align-items:center;padding:8px;border-top:1px solid var(--line)}.reviewstep select,.reviewnotefield textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:6px;font:inherit}.reviewnotefield{display:grid;gap:4px;color:var(--mut);font-size:11px}.reviewactions{display:flex;align-items:center;gap:10px;margin-top:10px}.reviewactions button{border:1px solid var(--owner-override);border-radius:6px;background:var(--owner-override);color:var(--bg);padding:7px 11px;cursor:pointer;font-weight:700}.reviewactions output,.reviewerror{color:var(--buggap);font-size:11px}.reviewerror{padding:16px;border:1px solid var(--buggap);border-radius:9px}.reviewowner select:focus-visible,.reviewowner textarea:focus-visible,.reviewactions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:720px){.reviewruns{grid-template-columns:1fr}.reviewstep{grid-template-columns:1fr}.reviewplan>header{display:block}.reviewplan>header small{display:block;margin-top:5px}}
+.reviewawaiting{margin:10px 0;padding:10px;border:1px dashed var(--line);border-radius:7px;color:var(--mut);font-size:11px}.reviewmissing{padding:10px;border:1px solid var(--buggap);border-radius:6px;color:var(--buggap);background:color-mix(in srgb,var(--buggap) 7%,var(--panel));font-size:11px}
 #hint{position:fixed;bottom:12px;right:16px;z-index:4;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;letter-spacing:.06em;display:flex;align-items:center;gap:8px;pointer-events:none}
+.reviewsteps,.storyaccordion{border-top:1px solid var(--line);padding:12px 0 0;margin-top:12px}.reviewsteps h3,.storyaccordion button{font:700 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}.storyaccordion button{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;padding:0;text-align:left;cursor:pointer}.storyaccordion button::after{content:'▸';color:var(--accent);transition:transform .12s ease}.storyaccordion button[aria-expanded="true"]::after{transform:rotate(90deg)}.storyaccordion button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}.storysectionmissing{margin:8px 0 0;color:var(--mut);font:italic var(--sidebar-font-size)/1.45 var(--sans)}.storyaccordion [hidden]{display:none!important}
+.storymd{margin:8px 0 0;font:var(--sidebar-font-size)/1.55 var(--sans);color:var(--ink)}.storymd .mdp{margin:0 0 8px}.storymd .mdh{font-weight:700;line-height:1.3;color:var(--ink);margin:12px 0 6px}.storymd .mdh1,.storymd .mdh2{text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}.storymd code{font:.88em/1.4 ui-monospace,"SF Mono",Menlo,monospace;background:var(--bg2);padding:1px 4px;border-radius:3px}.storymd .mdcode{font:.84em/1.5 ui-monospace,"SF Mono",Menlo,monospace;color:var(--ink);background:var(--bg2);padding:8px;overflow-x:auto;border-radius:6px}.storymd .mdquote{margin:0 0 8px;padding:4px 10px;border-left:3px solid var(--line);color:var(--mut)}.storymd .mdquote .mdp{margin:2px 0}.storymd .mdlist{margin:0 0 8px;padding-left:18px}.storymd .mdlist .mdlist{margin:4px 0 0}.storymd .mdlist li{margin:0 0 4px}.storymd .mdtablewrap{overflow-x:auto;margin:0 0 8px;max-width:100%}.storymd .mdtable{border-collapse:collapse;font-size:.88em}.storymd .mdtable th,.storymd .mdtable td{border:1px solid var(--line);padding:4px 8px;text-align:left}.storymd .mdtable th{background:var(--bg2);color:var(--mut)}.storymd .mdhr{border:0;border-top:1px solid var(--line);margin:10px 0}.storymd .mdinternal{border-bottom:1px dotted var(--mut);cursor:help}.storymd a{color:var(--accent)}.mdscenario{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:5px;padding:8px;margin:0 0 8px;background:var(--bg2)}.mdscenario .ghscenario{color:var(--ink);margin-bottom:4px}.mdscenario .ghscenario .ghkw{color:var(--accent);font-weight:700}.mdscenario .ghstep{padding-left:8px;white-space:pre-wrap}.mdscenario .ghstep .ghkw{display:inline-block;min-width:42px;font-weight:700;color:var(--accent)}.mdscenario .ghline{color:var(--mut);padding-left:8px}.mdscenario .ghblank{height:6px}.storyaccordion.acceptance [data-story-accordion-panel]{border-left:3px solid var(--accent);padding-left:10px;margin-top:8px}
+#hint[hidden]{display:none}
 #hint>span+span{border-left:1px solid var(--line);padding-left:8px}
 #hint kbd{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:3px;padding:0 3px}
 #boot{position:fixed;inset:50% auto auto 50%;z-index:20;max-width:min(560px,calc(100vw - 32px));transform:translate(-50%,-50%);
   padding:12px 16px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--mut);
   font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;white-space:pre-wrap}
 #boot.error{border-color:var(--buggap);color:var(--ink)}
-@media (max-width:760px){#rail{display:none}#dossier{width:100%;min-width:0;max-width:none;border-left:0}#dossierresize{display:none}html.dossier-open #viewpanel{right:0}#viewpanel{left:0;right:0;padding:14px}}
+@media (max-width:760px){#rail,#railresize{display:none}#dossier{width:100%;min-width:0;max-width:none;border-left:0}#dossierresize{display:none}html.dossier-open #viewpanel{right:0}#viewpanel{left:0;right:0;padding:14px}}
+@media (prefers-reduced-motion:reduce){.storyaccordion button::after{transition:none}}
+
+/* Evidence needs reviewable reading width, not ornamental thumbnails. */
+.reviewruns{grid-template-columns:1fr}
+.reviewevidence{grid-template-columns:1fr;gap:12px}
+.reviewevidencelink{display:block}
+.reviewevidence img{width:auto;max-width:100%;height:auto;max-height:min(72vh,900px);margin-inline:auto}
 
 </style>
 <svg class="symbol-defs" aria-hidden="true">
@@ -246,6 +266,11 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
   <div id="title"><b>project — constellation</b><small>v0.8.36</small></div>
+  <div id="sidebartype" class="seg typeseg" role="group" aria-label="Sidebar text size">
+    <button type="button" data-sidebar-size="14" aria-label="14 point sidebar text">A</button>
+    <button type="button" data-sidebar-size="18" aria-label="18 point sidebar text">A</button>
+    <button type="button" data-sidebar-size="22" aria-label="22 point sidebar text">A</button>
+  </div>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -254,7 +279,9 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
     <a href="#features" data-view="features">Features</a>
     <a href="#completion" data-view="completion">Completion</a>
     <a href="#workstreams" data-view="workstreams">Workstreams</a>
+    <a href="#reviews" data-view="reviews">Reviews</a>
     <a href="#ledgers" data-view="ledgers">Ledgers</a>
+
   </div></details>
   <details id="exportmenu"><summary>Export</summary><div>
     <a href="dashboard.md" download>Dashboard Markdown</a>
@@ -277,6 +304,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
   <output id="searchcount" for="searchinput" aria-live="polite"></output>
 </form>
 <div id="rail"></div>
+<button id="railresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize left sidebar" aria-valuemin="180" aria-valuemax="420" aria-valuenow="236"></button>
 <main id="viewpanel" tabindex="-1" hidden></main>
 <div id="dossier" aria-hidden="true">
   <button id="dossierresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize Story drawer" aria-valuemin="320" aria-valuemax="720" aria-valuenow="360"></button>
@@ -309,7 +337,43 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 
 </script>
 <script>
-const DATA={"engineVersion":"0.8.36","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+// Stable view-query algorithms over normalized ids and graph evidence.
+globalThis.VizzerViewQuery=Object.freeze({
+  rootGroupId(groupId,groups){
+    const byId=groups instanceof Map?groups:new Map((groups||[]).map(group=>[group.id,group]));
+    let current=groupId||'',last='',guard=0;
+    while(current&&byId.has(current)&&guard++<100){
+      last=current;current=byId.get(current).parent||byId.get(current).parentId||'';
+    }
+    return last;
+  },
+  dependencyOrder(indexes,nodes,edges){
+    const visible=new Set(indexes),outgoing=new Map(),indegree=new Map(indexes.map(index=>[index,0]));
+    for(const [prerequisite,dependent] of edges||[]){
+      if(!visible.has(prerequisite)||!visible.has(dependent))continue;
+      if(!outgoing.has(prerequisite))outgoing.set(prerequisite,[]);
+      outgoing.get(prerequisite).push(dependent);
+      indegree.set(dependent,(indegree.get(dependent)||0)+1);
+    }
+    const byId=(a,b)=>String(nodes[a]?.id||a).localeCompare(String(nodes[b]?.id||b));
+    const ready=indexes.filter(index=>indegree.get(index)===0).sort(byId),ordered=[];
+    while(ready.length){
+      const index=ready.shift();ordered.push(index);
+      for(const dependent of (outgoing.get(index)||[]).sort(byId)){
+        indegree.set(dependent,indegree.get(dependent)-1);
+        if(indegree.get(dependent)===0){ready.push(dependent);ready.sort(byId);}
+      }
+    }
+    const emitted=new Set(ordered);
+    return ordered.concat(indexes.filter(index=>!emitted.has(index)).sort(byId));
+  },
+  compareModified(a,b){
+    return (b.node.ts||0)-(a.node.ts||0)
+      ||String(a.node.id).localeCompare(String(b.node.id));
+  },
+});
+
+const DATA={"engineVersion":"0.8.36","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -398,8 +462,23 @@ let areaFocus=null;
 let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
-const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
-const requestedView=()=>{const candidate=location.hash.replace(/^#/,'');return ROUTE_VIEWS.has(candidate)?candidate:'constellation';};
+const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','reviews','ledgers']);
+const requestedView=()=>{
+  const candidate=location.hash.replace(/^#/,'').split('?')[0];
+  return ROUTE_VIEWS.has(candidate)?candidate:'constellation';
+};
+const requestedViewParams=()=>{
+  const raw=location.hash.replace(/^#/,'');
+  const query=raw.includes('?')?raw.slice(raw.indexOf('?')+1):'';
+  const values={};
+  for(const pair of query.split('&')){
+    if(!pair)continue;
+    const [key,value='']=pair.split('=',2);
+    try{values[decodeURIComponent(key)]=decodeURIComponent(value.replace(/\+/g,' '));}
+    catch(_){/* malformed route values do not abort page boot */}
+  }
+  return {get:key=>values[key]||null};
+};
 let currentView=requestedView();
 // codex-sequence-2026-08-08: every whitespace-delimited query token must occur
 // in the same renderer-built item index. Search dims; it never changes layout.
@@ -528,6 +607,167 @@ const progressText = n => {
   return [trail,stuck].filter(Boolean).join(' | ');
 };
 
+// ---- title-bar reading preferences and left-sidebar geometry ----
+const sidebarTypeControl=document.getElementById('sidebartype');
+const sidebarTypeSizes=[14,18,22];
+const sidebarTypeStorageKey=`vizzer:sidebar-type:${document.title}`;
+function applySidebarTypeSize(value,{persist=false}={}){
+  const parsed=Number(value),size=sidebarTypeSizes.includes(parsed)?parsed:14;
+  document.documentElement.style.setProperty('--sidebar-type-size',`${size}pt`);
+  sidebarTypeControl?.querySelectorAll('[data-sidebar-size]').forEach(button=>{
+    const active=Number(button.dataset.sidebarSize)===size;
+    button.classList.toggle('on',active);button.setAttribute('aria-pressed',String(active));
+  });
+  if(persist){try{sessionStorage.setItem(sidebarTypeStorageKey,String(size));}catch(_){}}
+}
+let storedSidebarType=null;try{storedSidebarType=sessionStorage.getItem(sidebarTypeStorageKey);}catch(_){}
+applySidebarTypeSize(storedSidebarType);
+sidebarTypeControl?.querySelectorAll('[data-sidebar-size]').forEach(button=>button.onclick=()=>applySidebarTypeSize(button.dataset.sidebarSize,{persist:true}));
+
+const railResize=document.getElementById('railresize'),railElement=document.getElementById('rail');
+const RAIL_MIN=180,RAIL_MAX=420,RAIL_COMPACT=760;
+const railStorageKey=`vizzer:rail-width:${document.title}`;
+let railWidth=236,railResizeState=null;
+function railWidthBounds(){return{min:RAIL_MIN,max:Math.max(RAIL_MIN,Math.min(RAIL_MAX,innerWidth-340))};}
+function applyRailWidth(value,{persist=false}={}){
+  const bounds=railWidthBounds(),parsed=Number(value);
+  railWidth=Math.round(Math.max(bounds.min,Math.min(bounds.max,Number.isFinite(parsed)?parsed:236)));
+  document.documentElement.style.setProperty('--rail-width',`${railWidth}px`);
+  railResize?.setAttribute('aria-valuemin',String(bounds.min));railResize?.setAttribute('aria-valuemax',String(bounds.max));railResize?.setAttribute('aria-valuenow',String(railWidth));
+  if(persist){try{sessionStorage.setItem(railStorageKey,String(railWidth));}catch(_){}}
+}
+let storedRailWidth=null;try{storedRailWidth=sessionStorage.getItem(railStorageKey);}catch(_){}
+applyRailWidth(storedRailWidth);
+railResize?.addEventListener('pointerdown',event=>{
+  if(innerWidth<=RAIL_COMPACT)return;
+  event.preventDefault();railResize.setPointerCapture(event.pointerId);
+  railResizeState={pointerId:event.pointerId,startX:event.clientX,startWidth:railElement.getBoundingClientRect().width};
+  railResize.classList.add('dragging');
+});
+railResize?.addEventListener('pointermove',event=>{
+  if(!railResizeState||event.pointerId!==railResizeState.pointerId)return;
+  applyRailWidth(railResizeState.startWidth+event.clientX-railResizeState.startX);
+});
+function finishRailResize(event){
+  if(!railResizeState||event.pointerId!==railResizeState.pointerId)return;
+  if(railResize.hasPointerCapture(event.pointerId))railResize.releasePointerCapture(event.pointerId);
+  railResizeState=null;railResize.classList.remove('dragging');applyRailWidth(railWidth,{persist:true});
+}
+railResize?.addEventListener('pointerup',finishRailResize);railResize?.addEventListener('pointercancel',finishRailResize);
+railResize?.addEventListener('dblclick',()=>applyRailWidth(236,{persist:true}));
+railResize?.addEventListener('keydown',event=>{
+  if(!['ArrowLeft','ArrowRight','Home'].includes(event.key)||innerWidth<=RAIL_COMPACT)return;
+  event.preventDefault();const step=event.shiftKey?48:16;
+  applyRailWidth(event.key==='Home'?236:railWidth+(event.key==='ArrowLeft'?-step:step),{persist:true});
+});
+addEventListener('resize',()=>{if(innerWidth>RAIL_COMPACT)applyRailWidth(railWidth);});
+
+// Dependency-free, XSS-safe Markdown subset for authored story content.
+function mdInlineEscaped(escaped){
+  return escaped.split(/(`[^`\n]+`)/).map(part=>{
+    if(part.length>2&&part.startsWith('`')&&part.endsWith('`'))
+      return '<code>'+part.slice(1,-1)+'</code>';
+    let t=part;
+    t=t.replace(/\[([^\]\n]+)\]\(([^()\s]+)\)/g,(_m,label,url)=>
+      /^https?:\/\//.test(url)
+        ?`<a href="${url}" target="_blank" rel="noopener">${label}</a>`
+        :`<span class="mdinternal" title="${url}">${label}</span>`);
+    t=t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
+    t=t.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');
+    t=t.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');
+    return t;
+  }).join('');
+}
+function mdInline(text){return mdInlineEscaped(esc(text));}
+
+function gherkinCardMarkup(lines){
+  const rows=lines.map(line=>{
+    const t=line.trim();
+    if(!t)return '<div class="ghblank"></div>';
+    const head=t.match(/^(Scenario(?: Outline)?|Feature|Background|Examples):\s*(.*)$/i);
+    if(head)return `<div class="ghscenario"><span class="ghkw">${esc(head[1])}:</span> <b>${esc(head[2])}</b></div>`;
+    const step=t.match(/^(Given|When|Then|And|But)\b\s*(.*)$/i);
+    if(step)return `<div class="ghstep"><span class="ghkw">${esc(step[1])}</span> <span>${esc(step[2])}</span></div>`;
+    return `<div class="ghline">${esc(t)}</div>`;
+  }).join('');
+  return `<div class="mdscenario">${rows}</div>`;
+}
+function gherkinBlocksMarkup(code){
+  const groups=[[]];
+  for(const line of code.replace(/\s+$/,'').split('\n')){
+    if(/^\s*Scenario(?: Outline)?:/i.test(line)&&groups[groups.length-1].some(l=>l.trim()))groups.push([]);
+    groups[groups.length-1].push(line);
+  }
+  return groups.filter(g=>g.some(l=>l.trim())).map(gherkinCardMarkup).join('');
+}
+function mdListMarkup(items){
+  if(!items.length)return '';
+  const base=items[0].indent,tag=items[0].ordered?'ol':'ul';
+  let html=`<${tag} class="mdlist">`,i=0;
+  while(i<items.length){
+    const item=items[i],children=[];i++;
+    while(i<items.length&&items[i].indent>base){children.push(items[i]);i++;}
+    html+=`<li>${mdInline(item.text)}${mdListMarkup(children)}</li>`;
+  }
+  return html+`</${tag}>`;
+}
+function mdTableCells(line){
+  return line.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(cell=>cell.trim());
+}
+function renderStoryMarkdown(text){
+  if(!text)return '';
+  const lines=String(text).replace(/\r\n?/g,'\n').split('\n'),out=[];
+  const isTableRow=l=>/^\s*\|.*\|\s*$/.test(l);
+  const isTableSep=l=>/^\s*\|?[\s:|-]+\|?\s*$/.test(l)&&l.includes('-')&&l.includes('|');
+  const listItemRe=/^(\s*)(?:[-*+]|\d+[.)])\s+\S/;
+  let i=0;
+  while(i<lines.length){
+    const line=lines[i];
+    if(!line.trim()){i++;continue;}
+    const fence=line.match(/^\s*```([\w-]*)\s*$/);
+    if(fence){
+      const lang=fence[1].toLowerCase(),buffer=[];i++;
+      while(i<lines.length&&!/^\s*```\s*$/.test(lines[i])){buffer.push(lines[i]);i++;}
+      if(i<lines.length)i++;
+      const code=buffer.join('\n');
+      out.push(lang==='gherkin'?gherkinBlocksMarkup(code)
+        :`<pre class="mdcode"${lang?` data-lang="${esc(lang)}"`:''}>${esc(code)}</pre>`);
+      continue;
+    }
+    const heading=line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+    if(heading){const level=Math.min(6,heading[1].length);out.push(`<div class="mdh mdh${level}">${mdInline(heading[2])}</div>`);i++;continue;}
+    if(/^\s*(-{3,}|\*{3,})\s*$/.test(line)){out.push('<hr class="mdhr">');i++;continue;}
+    if(/^\s*>/.test(line)){
+      const buffer=[];
+      while(i<lines.length&&/^\s*>/.test(lines[i])){buffer.push(lines[i].replace(/^\s*>\s?/,''));i++;}
+      out.push(`<blockquote class="mdquote">${renderStoryMarkdown(buffer.join('\n'))}</blockquote>`);continue;
+    }
+    if(isTableRow(line)&&i+1<lines.length&&isTableSep(lines[i+1])){
+      const header=mdTableCells(line);i+=2;const body=[];
+      while(i<lines.length&&isTableRow(lines[i])){body.push(mdTableCells(lines[i]));i++;}
+      out.push('<div class="mdtablewrap"><table class="mdtable"><thead><tr>'
+        +header.map(cell=>`<th>${mdInline(cell)}</th>`).join('')+'</tr></thead><tbody>'
+        +body.map(row=>'<tr>'+row.map(cell=>`<td>${mdInline(cell)}</td>`).join('')+'</tr>').join('')
+        +'</tbody></table></div>');continue;
+    }
+    if(listItemRe.test(line)){
+      const items=[];
+      while(i<lines.length){
+        const item=lines[i].match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+        if(item){items.push({indent:item[1].length,ordered:/\d/.test(item[2][0]),text:item[3]});i++;}
+        else if(lines[i].trim()&&/^\s{2,}/.test(lines[i])&&items.length){items[items.length-1].text+=' '+lines[i].trim();i++;}
+        else break;
+      }
+      out.push(mdListMarkup(items));continue;
+    }
+    const buffer=[];
+    while(i<lines.length&&lines[i].trim()&&!/^\s*(#{1,6}\s|>|```)/.test(lines[i])
+        &&!listItemRe.test(lines[i])&&!isTableRow(lines[i])){buffer.push(lines[i].trim());i++;}
+    out.push(`<p class="mdp">${mdInline(buffer.join(' '))}</p>`);
+  }
+  return out.join('');
+}
+
 // ---- routed interactive views ----
 // Every panel below reads the exact DATA object and shared filter state used by
 // the constellation. Markdown is a deliberate export, never a second UI truth.
@@ -566,13 +806,51 @@ function renderDashboard(entries){
   return panelHead('Dashboard','Impact-ranked delivery candidates, blockers, defects, and active ownership under the current filters.')+
     (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'));
 }
+const roadmapParams=requestedViewParams();
+const roadmapQuery={
+  release:roadmapParams.get('column')||'',
+  capability:roadmapParams.get('capability')||'',
+  order:['default','dependency','modified'].includes(roadmapParams.get('order'))
+    ?roadmapParams.get('order'):'default',
+};
+function roadmapCapabilityId(node){
+  return globalThis.VizzerViewQuery.rootGroupId(node.group,structureGroups);
+}
+function dependencyOrderedIndexes(indexes){
+  return globalThis.VizzerViewQuery.dependencyOrder(indexes,DATA.nodes,DATA.edges);
+}
+function updateRoadmapRoute(){
+  const pairs=[];
+  if(roadmapQuery.release)pairs.push(`column=${encodeURIComponent(roadmapQuery.release)}`);
+  if(roadmapQuery.capability)pairs.push(`capability=${encodeURIComponent(roadmapQuery.capability)}`);
+  if(roadmapQuery.order!=='default')pairs.push(`order=${encodeURIComponent(roadmapQuery.order)}`);
+  const suffix=pairs.length?`?${pairs.join('&')}`:'';
+  if(typeof history!=='undefined'&&typeof history.replaceState==='function')history.replaceState(null,'',`#roadmap${suffix}`);
+}
 function renderRoadmap(entries){
-  const columns=RELS.map(release=>{
-    const rows=entries.filter(({node})=>relKey(node)===release)
-      .sort((a,b)=>(a.node.pr??999999)-(b.node.pr??999999)||a.node.t.localeCompare(b.node.t));
-    return `<section class="viewcolumn"><h2>${esc(release.replace('R','v'))} · ${rows.length}</h2>${rows.length?rows.map(({index})=>viewCard(index)).join(''):emptyPanel('No matching items')}</section>`;
+  const capabilityGroups=(DATA.groups||[]).filter(group=>group.kind==='capability'&&!group.parent)
+    .sort((a,b)=>a.title.localeCompare(b.title));
+  if(roadmapQuery.release&&!RELS.includes(roadmapQuery.release))roadmapQuery.release='';
+  if(roadmapQuery.capability&&!capabilityGroups.some(group=>group.id===roadmapQuery.capability))roadmapQuery.capability='';
+  const scoped=entries.filter(({node})=>!roadmapQuery.capability||roadmapCapabilityId(node)===roadmapQuery.capability);
+  const dependencyOrder=new Map(dependencyOrderedIndexes(scoped.map(({index})=>index)).map((index,rank)=>[index,rank]));
+  const sorter=(a,b)=>roadmapQuery.order==='dependency'
+    ?(dependencyOrder.get(a.index)??999999)-(dependencyOrder.get(b.index)??999999)
+    :roadmapQuery.order==='modified'
+      ?globalThis.VizzerViewQuery.compareModified(a,b)
+      :(a.node.pr??999999)-(b.node.pr??999999)||a.node.t.localeCompare(b.node.t);
+  const releases=roadmapQuery.release?[roadmapQuery.release]:RELS;
+  const columns=releases.map(release=>{
+    const rows=scoped.filter(({node})=>relKey(node)===release).sort(sorter);
+    const detail=({node})=>roadmapQuery.order==='modified'
+      ?`modified ${node.ts?new Date(node.ts*1000).toISOString().slice(0,10):'unknown'} · ${viewMeta(node)}`
+      :viewMeta(node);
+    return `<section class="viewcolumn" data-roadmap-column="${esc(release)}"><h2>${esc(release.replace('R','v'))} · ${rows.length}</h2>${rows.length?rows.map(({index,node})=>viewCard(index,detail({node}))).join(''):emptyPanel('No matching items')}</section>`;
   }).join('');
-  return panelHead('Roadmap','Release lanes remain dependency-aware; every item opens the same dossier used by the constellation.')+`<div class="viewcolumns">${columns}</div>`;
+  const activeCapability=capabilityGroups.find(group=>group.id===roadmapQuery.capability)?.title||'All capabilities';
+  const controls=`<form class="roadmapcontrols" aria-label="Roadmap filters"><label>Column <select data-roadmap-filter="release"><option value="">All columns</option>${RELS.map(release=>`<option value="${esc(release)}"${roadmapQuery.release===release?' selected':''}>${esc(release.replace('R','v'))}</option>`).join('')}</select></label><label>Capability <select data-roadmap-filter="capability"><option value="">All capabilities</option>${capabilityGroups.map(group=>`<option value="${esc(group.id)}"${roadmapQuery.capability===group.id?' selected':''}>${esc(group.title)}</option>`).join('')}</select></label><label>Order <select data-roadmap-filter="order"><option value="default"${roadmapQuery.order==='default'?' selected':''}>Default</option><option value="dependency"${roadmapQuery.order==='dependency'?' selected':''}>Dependency</option><option value="modified"${roadmapQuery.order==='modified'?' selected':''}>Last modified</option></select></label><button type="button" data-roadmap-clear>Clear</button></form>`;
+  const empty=!scoped.length?emptyPanel(`No Roadmap items match ${roadmapQuery.release||'all columns'} and ${activeCapability}.`):'';
+  return panelHead('Roadmap','Scope release lanes and capabilities, then choose dependency or evidence-backed recency order. Every item opens the shared dossier.')+controls+empty+`<div class="viewcolumns">${columns}</div>`;
 }
 const structureGroups=new Map((DATA.groups||[]).map(group=>[group.id,group]));
 const structureChildren=new Map();
@@ -690,6 +968,12 @@ function renderLedgers(entries){
   return panelHead('Ledgers','Sortable-by-source ownership, progress, blockers, and staleness; story rows open the shared dossier.')+`<table class="viewtable"><thead><tr><th>Story</th><th>Owner</th><th>State</th><th>Progress</th><th>Checkpoint</th><th>Updated</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 function bindInteractiveView(){
+  viewPanel.querySelectorAll('[data-roadmap-filter]').forEach(control=>control.addEventListener('change',()=>{
+    roadmapQuery[control.dataset.roadmapFilter]=control.value;updateRoadmapRoute();renderCurrentView();
+  }));
+  viewPanel.querySelector('[data-roadmap-clear]')?.addEventListener('click',()=>{
+    roadmapQuery.release='';roadmapQuery.capability='';roadmapQuery.order='default';updateRoadmapRoute();renderCurrentView();
+  });
   viewPanel.querySelectorAll('[data-view-node]').forEach(button=>button.addEventListener('click',()=>{
     const index=Number(button.dataset.viewNode);
     if(Number.isInteger(index)&&index>=0&&index<DATA.nodes.length)openNode(index);
@@ -719,8 +1003,10 @@ function renderCurrentView(){
     :currentView==='features'?renderFeatures(entries)
     :currentView==='completion'?renderCompletion(entries)
     :currentView==='workstreams'?renderWorkstreams(entries)
+    :currentView==='reviews'?renderReviews()
     :renderLedgers(entries);
   bindInteractiveView();
+  if(currentView==='reviews')bindReviewView();
 }
 function switchView(view,focus=false){
   currentView=ROUTE_VIEWS.has(view)?view:'constellation';
@@ -737,6 +1023,109 @@ function switchView(view,focus=false){
   if(focus)(currentView==='constellation'?viewCanvas:viewPanel).focus();
 }
 addEventListener('hashchange',()=>switchView(requestedView(),true));
+
+// ---- repeatable agent-to-owner acceptance ----
+let reviewContext=null,reviewError='';
+const reviewDrafts=new Map();
+const reviewKey=(planId,rowId)=>`${planId}/${rowId}`;
+const reviewStatus=event=>event?`${event.verdict} · ${event.actor.kind} · ${event.recordedAt}`:'not run';
+function reviewEvidence(event){
+  if(!event?.evidence?.length)return '<p class="reviewempty">No evidence attached.</p>';
+  return `<div class="reviewevidence">${event.evidence.map(item=>!item.available
+    ?`<div class="reviewmissing">${esc(item.error||'Evidence is unavailable.')}</div>`:item.kind==='screenshot'
+    ?`<figure><a class="reviewevidencelink" href="${esc(item.url)}" target="_blank" rel="noopener" title="Open evidence at actual size"><img src="${esc(item.url)}" alt="${esc(item.caption||'Captured done state')}"></a><figcaption>${esc(item.caption||item.requirementId)}${item.width&&item.height?` · ${item.width}×${item.height}`:''} · open for actual size${item.available===null?' · check on open':''}</figcaption></figure>`
+    :`<a href="${esc(item.url)}" target="_blank" rel="noopener">${esc(item.caption||item.requirementId)} · ${esc(item.kind)}</a>`).join('')}</div>`;
+}
+function reviewRun(event,label){
+  if(!event)return `<section class="reviewrun empty"><h4>${esc(label)}</h4><p>Not recorded.</p></section>`;
+  return `<section class="reviewrun ${esc(event.verdict)}"><h4>${esc(label)} <span>${esc(reviewStatus(event))}</span></h4>
+    <ol>${event.stepResults.map(result=>`<li><b>${esc(result.outcome)}</b>${result.observation?` · ${esc(result.observation)}`:''}</li>`).join('')}</ol>
+    ${reviewEvidence(event)}${event.note?`<p class="reviewnote">${esc(event.note)}</p>`:''}</section>`;
+}
+function reviewOutcomeSelect(plan,row,step,index){
+  const draft=reviewDrafts.get(reviewKey(plan.id,row.id))||{};
+  const selected=draft.outcomes?.[step.id]||'';
+  return `<label class="reviewstep"><span><b>${index+1}. ${esc(step.instruction)}</b><small>Expected · ${esc(step.expected)}</small></span>
+    <select data-review-step="${esc(step.id)}" aria-label="Outcome for step ${index+1}">
+      <option value="">Choose outcome</option>${['pass','fail','blocked','skipped'].map(value=>`<option value="${value}"${selected===value?' selected':''}>${value}</option>`).join('')}
+    </select></label>`;
+}
+function reviewOwnerForm(plan,row){
+  const draft=reviewDrafts.get(reviewKey(plan.id,row.id))||{};
+  return `<form class="reviewowner" data-review-plan="${esc(plan.id)}" data-review-row="${esc(row.id)}">
+    <h4>Your independent validation</h4>
+    <p>Repeat the authored steps. This records a separate owner event; it does not edit or replace the agent run.</p>
+    <div class="reviewsteps">${row.steps.map((step,index)=>reviewOutcomeSelect(plan,row,step,index)).join('')}</div>
+    <label class="reviewnotefield"><span>Review note (optional)</span><textarea maxlength="2000" rows="2" placeholder="What differed, failed, or convinced you?">${esc(draft.note||'')}</textarea></label>
+    <div class="reviewactions"><button type="submit">Record owner validation</button><output aria-live="polite"></output></div>
+  </form>`;
+}
+function reviewRow(plan,row){
+  const agent=row.latest?.agent,owner=row.latest?.owner;
+  const ownerCurrent=owner&&(!agent||owner.revision>agent.revision);
+  const summary=ownerCurrent?'owner '+owner.verdict:agent?'awaiting owner · agent '+agent.verdict:'awaiting agent';
+  const summaryVerdict=ownerCurrent?owner.verdict:agent?.verdict||'pending';
+  return `<details class="reviewrow" open><summary><span><b>${esc(row.title)}</b><small>${esc(row.source.itemId)} · ${row.runCount} recorded run${row.runCount===1?'':'s'}</small></span><span class="reviewverdict ${esc(summaryVerdict)}">${esc(summary)}</span></summary>
+    ${row.description?`<p>${esc(row.description)}</p>`:''}${row.setup?`<p><b>Setup ·</b> ${esc(row.setup)}</p>`:''}
+    <section class="reviewdod"><h4>Definition of Done</h4><ul>${row.definitionOfDone.map(value=>`<li>${esc(value)}</li>`).join('')}</ul></section>
+    <section class="reviewinstructions"><h4>Repeatable steps</h4><ol>${row.steps.map(step=>`<li><b>${esc(step.instruction)}</b><small>Expected · ${esc(step.expected)}</small><em>${esc(step.mode)}</em></li>`).join('')}</ol></section>
+    <div class="reviewruns">${reviewRun(agent,'Agent run')}${reviewRun(owner,'Latest owner run')}</div>
+    ${SERVED?(agent?reviewOwnerForm(plan,row):'<p class="reviewawaiting">Owner validation opens after an agent records this row.</p>'):''}
+  </details>`;
+}
+function renderReviews(){
+  const intro=panelHead('Reviews','Agents show their work; owners repeat the same Definition-of-Done-derived steps and record an independent verdict. Agent pass is evidence, not approval.');
+  if(!SERVED)return intro+emptyPanel('Review validation is read-only from file. Run vizzer serve to load plans and record owner results.');
+  if(reviewError)return intro+`<div class="reviewerror">${esc(reviewError)}</div>`;
+  if(!reviewContext)return intro+emptyPanel('Loading review authority…');
+  const warnings=(reviewContext.warnings||[]).length?`<div class="reviewerror"><b>Some review plans are unavailable.</b>${reviewContext.warnings.map(warning=>`<div>${esc(warning.file)} · ${esc(warning.error)}</div>`).join('')}</div>`:'';
+  if(!reviewContext.plans?.length)return intro+warnings+emptyPanel('No valid review plans are configured yet.');
+  return intro+warnings+reviewContext.plans.map(plan=>`<section class="reviewplan"><header><div><h2>${esc(plan.title)}</h2>${plan.description?`<p>${esc(plan.description)}</p>`:''}</div><small>r${plan.revision} · ${esc(plan.id)}</small></header>${plan.rows.map(row=>reviewRow(plan,row)).join('')}</section>`).join('');
+}
+async function loadReviewContext(){
+  try{
+    const response=await fetch('/api/reviews',{cache:'no-store'}),body=await response.json();
+    if(response.status===404){reviewError='Reviews are disabled for this project.';reviewContext=null;}
+    else if(!response.ok)throw new Error(body.error||'reviews unavailable');
+    else if(body.engineVersion!==ENGINE_VERSION)throw new Error(`Vizzer server is out of date (${body.engineVersion||'unknown'} vs ${ENGINE_VERSION}). Restart vizzer serve.`);
+    else{reviewContext=body;reviewError='';}
+  }catch(error){reviewError=error.message||String(error);reviewContext=null;}
+  if(currentView==='reviews')renderCurrentView();
+}
+function reviewVerdict(outcomes){
+  if(outcomes.includes('fail'))return 'fail';
+  if(outcomes.includes('blocked'))return 'blocked';
+  if(outcomes.includes('skipped'))return 'skipped';
+  return 'pass';
+}
+function bindReviewView(){
+  viewPanel.querySelectorAll('.reviewowner').forEach(form=>{
+    const plan=reviewContext?.plans?.find(item=>item.id===form.dataset.reviewPlan);
+    const row=plan?.rows?.find(item=>item.id===form.dataset.reviewRow);
+    if(!plan||!row)return;
+    const key=reviewKey(plan.id,row.id),draft=reviewDrafts.get(key)||{outcomes:{},note:''};
+    reviewDrafts.set(key,draft);
+    form.querySelectorAll('[data-review-step]').forEach(select=>select.onchange=()=>{draft.outcomes[select.dataset.reviewStep]=select.value;});
+    form.querySelector('textarea').oninput=event=>{draft.note=event.target.value;};
+    form.onsubmit=async event=>{
+      event.preventDefault();
+      const output=form.querySelector('output');
+      const outcomes=row.steps.map(step=>draft.outcomes[step.id]||'');
+      if(outcomes.some(value=>!value)){output.textContent='Choose an outcome for every step.';return;}
+      const now=new Date(),eventId=`owner-${now.getTime().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+      const reviewEvent={eventId,recordedAt:now.toISOString(),actor:{kind:'owner',id:'project-owner'},planId:plan.id,rowId:row.id,planFingerprint:plan.fingerprint,basedOnAgentEventId:row.latest.agent.eventId,
+        stepResults:row.steps.map((step,index)=>({stepId:step.id,outcome:outcomes[index]})),evidence:[],verdict:reviewVerdict(outcomes)};
+      if(draft.note.trim())reviewEvent.note=draft.note.trim();
+      output.textContent='Recording…';
+      try{
+        const response=await fetch('/api/reviews/runs',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':reviewContext.csrfToken},body:JSON.stringify({expectedRevision:plan.revision,event:reviewEvent})});
+        const body=await response.json();
+        if(!response.ok)throw new Error(body.error||'owner validation failed');
+        reviewDrafts.delete(key);await loadReviewContext();
+      }catch(error){output.textContent=error.message||String(error);}
+    };
+  });
+}
 
 // ---- top bar ----
 const itemNodes = DATA.nodes.filter(n=>!n.foundation);
@@ -1369,6 +1758,49 @@ function bindPlanControls(n){
 }
 
 // ---- dossier ----
+function storySidebarSectionBody(content,missing){
+  return content?`<div class="storymd">${renderStoryMarkdown(content)}</div>`
+    :`<p class="storysectionmissing">${esc(missing)}</p>`;
+}
+function storyFullBodyMarkup(n){
+  if(!SERVED||!n.id)return '';
+  return `<section class="storyaccordion"><button type="button" data-story-accordion="full-story" aria-expanded="false">Full story</button>`
+    +`<div data-story-accordion-panel="full-story" hidden>`
+    +`<p class="storysectionmissing" data-story-body="${esc(n.id)}">Loading story…</p></div></section>`;
+}
+function storySidebarSectionsMarkup(n){
+  if(n.foundation)return '';
+  return `<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
+    +storySidebarSectionBody(n.rs,'No review steps written yet for this item.')+`</section>`
+    +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="acceptance" aria-expanded="true">Acceptance criteria</button>`
+    +`<div data-story-accordion-panel="acceptance">`
+    +storySidebarSectionBody(n.acx,'No acceptance criteria written yet for this item.')+`</div></section>`
+    +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="definition-of-done" aria-expanded="false">Definition of done</button>`
+    +`<div data-story-accordion-panel="definition-of-done" hidden>`
+    +storySidebarSectionBody(n.dod,'No definition of done written yet for this item.')+`</div></section>`
+    +storyFullBodyMarkup(n);
+}
+function bindStorySidebar(container){
+  container.querySelectorAll('[data-story-accordion]').forEach(button=>{
+    const key=button.dataset.storyAccordion;
+    const panel=container.querySelector(`[data-story-accordion-panel="${key}"]`);
+    if(!panel)return;
+    button.addEventListener('click',async()=>{
+      const expanded=button.getAttribute('aria-expanded')!=='true';
+      button.setAttribute('aria-expanded',String(expanded));panel.hidden=!expanded;
+      const host=expanded&&key==='full-story'?panel.querySelector('[data-story-body]'):null;
+      if(!host||host.dataset.loading==='true')return;
+      host.dataset.loading='true';
+      try{
+        const response=await fetch('/api/story/'+encodeURIComponent(host.dataset.storyBody)+'/body');
+        if(!response.ok)throw new Error('story body fetch failed');
+        const rendered=document.createElement('div');
+        rendered.className='storymd storyfull';rendered.innerHTML=renderStoryMarkdown(await response.text());
+        host.replaceWith(rendered);
+      }catch(_){host.textContent='Could not load the story body.';host.dataset.loading='false';}
+    });
+  });
+}
 const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierFooter = document.getElementById('dossierfooter'), dossierIdentity = document.getElementById('dossieridentity'), dossierResize = document.getElementById('dossierresize');
 const DOSSIER_MIN=320,DOSSIER_MAX=720,DOSSIER_CANVAS_MIN=260,DOSSIER_COMPACT=760;
 const dossierStorageKey=`vizzer:dossier-width:${document.title}`;
@@ -1509,6 +1941,7 @@ function openNode(i,{inPlace=false}={}){
     ${ownerQuestionCards}
     ${ownerDecisionCards}
     ${planSection(n)}
+    ${storySidebarSectionsMarkup(n)}
     ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ${icon('arrow-up-right')}</a>`:''}
     ${n.id&&SERVED?`<button class="story" type="button" data-open-item="${esc(n.id)}">read story</button>`:''}
     ${DATA.root&&n.p?`<a class="story" href="obsidian://open?path=${esc(encodeURIComponent(DATA.root+'/'+n.p))}">obsidian</a>`:''}
@@ -1529,6 +1962,7 @@ function openNode(i,{inPlace=false}={}){
   });
   bindQuestionControls(n);
   bindPlanControls(n);
+  bindStorySidebar(dbody);
   // Reconciliation can replace long question forms with compact answer cards.
   // Preserve the old scrollable extent until an explicit close/reopen, or the
   // browser clamps the requested scrollTop to zero and makes the drawer jump.
@@ -2155,6 +2589,7 @@ if(SERVED){
     if(currentView==='workstreams')renderCurrentView();
     return body;
   }).catch(error=>{console.warn('Vizzer workstreams:',error.message||String(error));});
+  loadReviewContext();
 }
 frame();
 window.__vizzerBoot.ready();

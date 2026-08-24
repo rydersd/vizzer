@@ -1,6 +1,6 @@
 # G-002 — Developer-experience object graph
 
-> Status: queued
+> Status: implementation complete on review branch; publication pending
 > Ambition: ambitious
 > Created: 2026-08-23
 > Updated: 2026-08-23
@@ -13,6 +13,14 @@
 > constellation laid out in a 2d space.”
 
 > “and it's ok to bundle react flow, can be an optional add on.”
+
+> “we need to support levels of detail. we should show capabilities at hte highest level, and then
+> drill in to show the drawing capability and dependencies when you go lower, when you drill into a
+> specific story, it shows the related stories which make the story functional.”
+
+> “as well as the status of the sub components.”
+
+> “each object has the detail view that it shares with the constellation view.”
 
 ## Objective
 
@@ -31,6 +39,12 @@ filtering, and detail concepts.
 - Direct navigation from an object to its source, tests, owning work, review evidence, and related
   objects when those capabilities exist.
 - Layout is deterministic enough to compare, preserve orientation, and produce review evidence.
+- Semantic drill-down has authored meaning: capabilities → immediate functional clusters/epics →
+  stories → the focused story's prerequisites, consumers, and typed related-story neighborhood.
+- Aggregate frames report blocked/failed, active, ready, and shipped descendant counts; one rolled-up
+  color may not hide a failed subcomponent.
+- Object selection consumes the same normalized detail payload as Constellation, including review
+  steps, acceptance criteria, definition of done, provenance, failure, and relationships.
 
 ## Architecture constraints
 
@@ -45,15 +59,19 @@ filtering, and detail concepts.
 - Read-only understanding comes first. Any future graph editing or refactoring controls require a
   separate authority and safety contract.
 
-## Questions to resolve when promoted
+## Resolved v1 choices
 
-1. Which object classes form the portable floor: files/modules, types, functions, endpoints,
-   components, data entities, tests, runtime services, or an adapter-declared subset?
-2. Which relationships are source-observed versus inferred, and how is confidence displayed?
-3. Is functional grouping authored, directory-derived, graph-clustered, or composed from all three?
-4. Which layout engine provides deterministic grouped placement at useful scale?
-5. What is the minimum non-React fallback: generated SVG/HTML, existing canvas, or no developer view?
-6. How do very large codebases aggregate without producing a beautiful hairball with 40,000 nodes?
+1. Object classes are adapter-declared; the core accepts safe arbitrary kinds instead of pretending
+   that one language's type system is universal.
+2. Relations carry kind, direction, confidence, and provenance. V1 renders adapter-supplied truth;
+   future inference belongs in an adapter and must disclose its confidence.
+3. Groups carry authored/derived provenance and support nested capability/cluster frames.
+4. Pinned ELK Layered supplies compound, orthogonal, deterministic routing; React Flow renders it.
+5. The add-on is disabled by default. Core retains Constellation and Markdown; the normalized graph
+   and current routed scope can be exported as real SVG.
+6. Overview queries aggregate groups. Group and object-neighborhood queries return bounded slices,
+   cross-scope boundary objects, exact omission counts, snapshot-bound cursors, and a 4 MiB response
+   ceiling. The UI does not pretend that rendering 40,000 rich cards is a feature.
 
 ## Candidate completion evidence
 
@@ -69,3 +87,7 @@ filtering, and detail concepts.
 ## Materials
 
 - [React Flow optional-bundle evaluation](materials/developer-experience-object-graph/react-flow-evaluation-2026-08-23.md)
+- [IllTool prototype findings and browser receipts](materials/developer-experience-object-graph/illtool-prototype-findings-2026-08-23.md)
+- [Upstream project-neutral verification](materials/developer-experience-object-graph/upstream-verification-2026-08-23.md)
+- [Readable story-neighborhood screenshot](materials/developer-experience-object-graph/upstream-neutral-story-neighborhood.png)
+- [Exported routed SVG](materials/developer-experience-object-graph/upstream-neutral-commerce-component.svg)

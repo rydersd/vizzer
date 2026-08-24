@@ -87,8 +87,23 @@ let areaFocus=null;
 let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
 const lensButtons = {};
 const lifecycleButtons = {};
-const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','ledgers']);
-const requestedView=()=>{const candidate=location.hash.replace(/^#/,'');return ROUTE_VIEWS.has(candidate)?candidate:'constellation';};
+const ROUTE_VIEWS=new Set(['constellation','dashboard','roadmap','structure','features','completion','workstreams','reviews','ledgers']);
+const requestedView=()=>{
+  const candidate=location.hash.replace(/^#/,'').split('?')[0];
+  return ROUTE_VIEWS.has(candidate)?candidate:'constellation';
+};
+const requestedViewParams=()=>{
+  const raw=location.hash.replace(/^#/,'');
+  const query=raw.includes('?')?raw.slice(raw.indexOf('?')+1):'';
+  const values={};
+  for(const pair of query.split('&')){
+    if(!pair)continue;
+    const [key,value='']=pair.split('=',2);
+    try{values[decodeURIComponent(key)]=decodeURIComponent(value.replace(/\+/g,' '));}
+    catch(_){/* malformed route values do not abort page boot */}
+  }
+  return {get:key=>values[key]||null};
+};
 let currentView=requestedView();
 // codex-sequence-2026-08-08: every whitespace-delimited query token must occur
 // in the same renderer-built item index. Search dims; it never changes layout.

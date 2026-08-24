@@ -65,6 +65,8 @@ def test_config_load_defaults_when_missing(tmp_path):
     assert cfg.get("render.output_dir") == "vizzer/views"
     assert cfg.get("server.port") == 0
     assert cfg.get("nope.nope", 7) == 7
+    assert cfg.get("developer_flow.enabled") is False
+    assert cfg.get("developer_flow.materialization_cap") == 1200
     assert {s["name"] for s in cfg.vocab["statuses"]} == {s["name"] for s in DEFAULT_STATUSES}
     assert cfg.done_statuses() == {"shipped", "verified"}
     assert cfg.status_meta("nonexistent") == {"name": "nonexistent", "emoji": "❔", "done": False}
@@ -83,6 +85,21 @@ def test_server_port_configuration_is_validated(tmp_path, value):
         "[server]\nport = 8477\n"
     )
     assert Config.load(tmp_path).get("server.port") == 8477
+
+
+@pytest.mark.parametrize(("body", "message"), [
+    ('enabled = "yes"\n', "developer_flow.enabled"),
+    ("enabled = true\nmaterialization_cap = 99\n", "materialization_cap"),
+    ("enabled = true\nmaterialization_cap = 5001\n", "materialization_cap"),
+    ('enabled = true\ndirection = "DIAGONAL"\n', "direction"),
+])
+def test_developer_flow_configuration_is_validated(tmp_path, body, message):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer" / "vizzer.toml").write_text(
+        "[developer_flow]\n" + body
+    )
+    with pytest.raises(ConfigError, match=message):
+        Config.load(tmp_path)
 
 
 def test_config_load_merges_and_overrides_vocab(tmp_path):
@@ -231,4 +248,17 @@ def test_named_area_group_rejects_empty_values(tmp_path):
     )
 
     with pytest.raises(ConfigError, match="values must be non-empty strings"):
+        Config.load(tmp_path)
+
+
+@pytest.mark.parametrize("body", [
+    'plans_dir = "."\nruns_dir = "vizzer/reviews/runs"\nevidence_dir = "vizzer/reviews/evidence"\n',
+    'plans_dir = "vizzer/reviews"\nruns_dir = "vizzer/reviews/runs"\nevidence_dir = "vizzer/evidence"\n',
+])
+def test_review_storage_directories_must_be_contained_and_non_overlapping(
+    tmp_path, body
+):
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer/vizzer.toml").write_text("[reviews]\n" + body)
+    with pytest.raises(ConfigError, match="stay inside|must not overlap"):
         Config.load(tmp_path)

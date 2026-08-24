@@ -20,6 +20,7 @@ RENDERERS = {
     "completion_sheet": "completion_sheet",
     "ledger_table": "ledger_table",
     "manifest": "manifest",
+    "developer_flow": "developer_flow",
     "constellation": "constellation",
 }
 

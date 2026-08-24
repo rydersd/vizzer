@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
@@ -69,7 +71,7 @@ def run_event(*, actor_kind: str = "agent", verdict: str = "pass",
               evidence: list[dict] | None = None,
               review_plan: dict | None = None) -> dict:
     review_plan = parse_plan(review_plan or plan())
-    return {
+    event = {
         "eventId": f"{actor_kind}-run-1",
         "recordedAt": "2026-08-23T19:00:00Z",
         "actor": {
@@ -94,6 +96,9 @@ def run_event(*, actor_kind: str = "agent", verdict: str = "pass",
         }],
         "verdict": verdict,
     }
+    if actor_kind == "owner":
+        event["basedOnAgentEventId"] = "agent-run-1"
+    return event
 
 
 def materialized_plan(root: Path) -> dict:
@@ -101,7 +106,10 @@ def materialized_plan(root: Path) -> dict:
     row = candidate["rows"][0]
     source = root / row["source"]["path"]
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text("\n".join(row["definitionOfDone"]), encoding="utf-8")
+    source.write_text(
+        "## Definition of done\n\n" + "\n".join(row["definitionOfDone"]),
+        encoding="utf-8",
+    )
     row["source"]["fingerprint"] = hashlib.sha256(source.read_bytes()).hexdigest()
     evidence = root / "review" / "evidence" / "done.png"
     evidence.parent.mkdir(parents=True, exist_ok=True)
@@ -122,7 +130,9 @@ def test_plan_source_fingerprint_fails_when_source_changes(tmp_path: Path):
     source.parent.mkdir(parents=True)
     candidate = plan()
     source.write_text(
-        "\n".join(candidate["rows"][0]["definitionOfDone"]), encoding="utf-8"
+        "## Definition of done\n\n"
+        + "\n".join(candidate["rows"][0]["definitionOfDone"]),
+        encoding="utf-8",
     )
     candidate["rows"][0]["source"]["fingerprint"] = hashlib.sha256(
         source.read_bytes()
@@ -141,7 +151,36 @@ def test_plan_source_must_actually_contain_the_claimed_dod(tmp_path: Path):
     candidate["rows"][0]["source"]["fingerprint"] = hashlib.sha256(
         source.read_bytes()
     ).hexdigest()
-    with pytest.raises(ReviewContractError, match="not verbatim"):
+    with pytest.raises(ReviewContractError, match="no authored Definition of Done"):
+        verify_plan_sources(tmp_path, candidate)
+
+
+def test_claim_elsewhere_in_markdown_does_not_impersonate_the_dod_section(tmp_path: Path):
+    candidate = plan()
+    claimed = candidate["rows"][0]["definitionOfDone"]
+    source = tmp_path / candidate["rows"][0]["source"]["path"]
+    source.parent.mkdir(parents=True)
+    source.write_text(
+        "# Story\n\n" + "\n".join(claimed)
+        + "\n\n## Definition of done\n\n- A different contract.\n",
+        encoding="utf-8",
+    )
+    candidate["rows"][0]["source"]["fingerprint"] = hashlib.sha256(
+        source.read_bytes()
+    ).hexdigest()
+    with pytest.raises(ReviewContractError, match="authored contract section"):
+        verify_plan_sources(tmp_path, candidate)
+
+
+def test_plan_source_is_bounded_before_its_bytes_are_read(tmp_path: Path):
+    candidate = plan()
+    source = tmp_path / candidate["rows"][0]["source"]["path"]
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"x" * (4 * 1024 * 1024 + 1))
+    candidate["rows"][0]["source"]["fingerprint"] = hashlib.sha256(
+        source.read_bytes()
+    ).hexdigest()
+    with pytest.raises(ReviewContractError, match="1 to 4194304 bytes"):
         verify_plan_sources(tmp_path, candidate)
 
 
@@ -168,6 +207,22 @@ def test_passing_agent_run_requires_every_step_and_required_evidence():
         parse_run_event(missing_step, plan())
 
 
+def test_run_cannot_attach_ambiguous_duplicate_evidence():
+    event = run_event()
+    event["evidence"].append(dict(event["evidence"][0]))
+    with pytest.raises(ReviewContractError, match="at most once"):
+        parse_run_event(event, plan())
+
+
+@pytest.mark.parametrize("verdict", ["fail", "blocked", "skipped"])
+def test_nonpassing_verdict_must_name_the_step_with_that_outcome(verdict):
+    event = run_event(verdict=verdict, evidence=[])
+    with pytest.raises(ReviewContractError, match=f"at least one {verdict} step"):
+        parse_run_event(event, plan())
+    event["stepResults"][0]["outcome"] = verdict
+    assert parse_run_event(event, plan())["verdict"] == verdict
+
+
 def test_owner_run_is_independent_and_reserved_for_owner_surface():
     owner = run_event(actor_kind="owner", evidence=[])
     with pytest.raises(ReviewContractError, match="owner-facing surface"):
@@ -175,6 +230,19 @@ def test_owner_run_is_independent_and_reserved_for_owner_surface():
     parsed = parse_run_event(owner, plan(), allow_owner=True)
     assert parsed["actor"] == {"kind": "owner", "id": "project-owner"}
     assert parsed["evidence"] == []
+    assert parsed["basedOnAgentEventId"] == "agent-run-1"
+
+
+def test_owner_run_requires_and_preserves_agent_lineage():
+    owner = run_event(actor_kind="owner", evidence=[])
+    owner.pop("basedOnAgentEventId")
+    with pytest.raises(ReviewContractError, match="basedOnAgentEventId"):
+        parse_run_event(owner, plan(), allow_owner=True)
+
+    agent = run_event()
+    agent["basedOnAgentEventId"] = "fabricated"
+    with pytest.raises(ReviewContractError, match="agent runs may not"):
+        parse_run_event(agent, plan())
 
 
 def test_append_is_cas_and_preserves_agent_and_owner_runs(tmp_path: Path):
@@ -199,6 +267,46 @@ def test_append_is_cas_and_preserves_agent_and_owner_runs(tmp_path: Path):
             project_root=tmp_path, expected_revision=0,
         )
     assert json.loads(ledger_path.read_text())["revision"] == 2
+
+
+def test_owner_cannot_validate_before_or_bypass_the_latest_agent_run(tmp_path: Path):
+    review_plan = materialized_plan(tmp_path)
+    ledger_path = tmp_path / "review" / "runs.json"
+    owner = run_event(actor_kind="owner", evidence=[], review_plan=review_plan)
+    with pytest.raises(ReviewContractError, match="preceding agent run"):
+        append_run(
+            ledger_path, review_plan, owner, project_root=tmp_path,
+            expected_revision=0, allow_owner=True,
+        )
+
+    append_run(
+        ledger_path, review_plan, run_event(review_plan=review_plan),
+        project_root=tmp_path, expected_revision=0,
+    )
+    append_run(
+        ledger_path, review_plan,
+        dict(run_event(review_plan=review_plan), eventId="agent-run-2"),
+        project_root=tmp_path, expected_revision=1,
+    )
+    with pytest.raises(ReviewContractError, match="latest agent run"):
+        append_run(
+            ledger_path, review_plan, owner, project_root=tmp_path,
+            expected_revision=2, allow_owner=True,
+        )
+
+
+def test_crashed_lock_marker_is_not_mistaken_for_a_live_writer(tmp_path: Path):
+    review_plan = materialized_plan(tmp_path)
+    ledger_path = tmp_path / "review" / "runs.json"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.with_name(".runs.json.lock").write_text("orphaned marker")
+
+    ledger = append_run(
+        ledger_path, review_plan, run_event(review_plan=review_plan),
+        project_root=tmp_path, expected_revision=0,
+    )
+
+    assert ledger["revision"] == 1
 
 
 def test_append_refuses_a_malformed_existing_event(tmp_path: Path):

@@ -1,6 +1,6 @@
 # Vizzer Wiki Index
 
-> Auto-maintained knowledge base for `project_vizzer`. Last updated: 2026-08-23. Articles: 8.
+> Auto-maintained knowledge base for `project_vizzer`. Last updated: 2026-08-23. Articles: 9.
 >
 > This is the routing table — each entry carries enough context to decide whether to open the full
 > article without reading it first. Read this before researching anything; if a prior session already
@@ -15,9 +15,10 @@
   evidence, and design materials. Wiki goals are planning records; only one may be promoted into a
   Codex runtime goal at a time.
 - 2026-08-23: [Developer-experience object graph](goals/developer-experience-object-graph.md) —
-  Ambitious queued goal for a functionality-grouped 2D code-object graph with clickable cards and
-  a right-side dossier. React Flow is allowed as an optional, bundled renderer while the graph
-  contract remains renderer-agnostic.
+  Active ambitious goal for a functionality-grouped 2D code-object graph with capability→cluster→
+  story-neighborhood drill-down, descendant status composition, and the shared Constellation
+  dossier contract. React Flow remains an optional renderer over project-neutral graph data.
+- 2026-08-23: [IllTool React Flow prototype findings](goals/materials/developer-experience-object-graph/illtool-prototype-findings-2026-08-23.md) — Browser and scale receipts from the 700-object IllTool prototype: semantic levels, nested frames, routed dependencies, provenance-backed failure, `vizzer-story-detail/v1`, a 10k/19k corpus, Roadmap capability/column/recency filters, and the remaining chunked-query requirement before enterprise-scale claims. Tags: vizzer, react-flow, elk, developer-experience, roadmap, scale, evidence
 - 2026-08-23: [Upstream the generic review and evidence workflow](goals/upstream-review-evidence-workflow.md)
   — Active project goal to reconcile the evolved IllTool fork into upstream Vizzer without leaking
   host-specific paths, schemas, fixtures, or assumptions.

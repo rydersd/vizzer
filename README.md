@@ -62,6 +62,8 @@ python3 vizzer/engine plan analyze --promote story:some-id
 python3 vizzer/engine plan apply --promote story:some-id --expected-revision 0 --rationale "why"
 python3 vizzer/engine workstreams show
 python3 vizzer/engine sessions show
+python3 vizzer/engine review show
+python3 vizzer/engine review record --plan example --file agent-run.json --expected-revision 0
 ```
 
 Use `refresh` whenever a task completes, an issue is found, or a story's
@@ -81,8 +83,8 @@ managed doc block, never touches your config, graph, or views.
 ## The views (`vizzer/views/`)
 
 Open `constellation.html` and use its visible **Views** menu. Dashboard,
-Roadmap, Hierarchy, Features, Completion, Ledgers, Workstreams, and Constellation are interactive
-routes over one embedded graph and one shared filter state. Delivery, Activity,
+Roadmap, Hierarchy, Features, Completion, Ledgers, Workstreams, Reviews, and Constellation are
+interactive routes over one embedded graph and one shared filter state. Delivery, Activity,
 Structure, and Progress are composable graph lenses, not separate pages.
 
 The **Export** menu downloads the Markdown reports below. They are portable
@@ -97,10 +99,19 @@ snapshots for review, archives, and model context—not a second user interface.
 | `constellation.html#completion` / `completion-sheet.md` | Explore lifecycle, regression, and question counts; export the completion snapshot separately. |
 | `constellation.html#ledgers` / `ledger-table.md` | Inspect ownership, progress, checkpoints, and staleness; export the ledger table separately. |
 | `constellation.html#workstreams` | Inspect durable workstream intent, current Claude/Codex/human sessions, checkpoints, path scopes, collisions, and peer discussions. |
+| `constellation.html#reviews` | Compare DoD-derived repeatable steps, the latest agent run and full-width evidence, then record a separate owner verdict while served. |
+| `developer-flow.html` | Optional 2D React Flow + ELK object graph: capability aggregates, nested functional frames, story/object neighborhoods, shared dossier detail, typed routed dependencies, durable URLs/named saves, and SVG export. |
 | `decision-journal.md` | LLM-readable export of open questions and accepted decisions, including recommendation deviations and whether the source story contains the evolution event. |
 | `discussion-queue.md` | Provider-specific, top-first Story discussion lanes for future Codex and Claude sessions; queued is not answered or applied. |
 | `manifest.json` | Machine-readable index of docs represented by enabled adapters (titles, statuses, git dates). It is not a whole-repository corpus manifest unless the configured adapters cover that corpus. |
 | `constellation.html#constellation` | Interactive 3D dependency map using the same search, filters, dossier, and owner-decision queue as every other route. <!-- codex-sequence-2026-08-08 --> |
+
+Developer Flow view state is encoded in bounded query parameters, so an ordinary browser bookmark
+and **Share link** restore the semantic scope, filters, selected object, relationship filter, and
+layout direction. Named saves remain in browser-local storage, scoped to the project/path. **Export
+SVG** writes the currently visible, filtered constellation as real vector paths and text; it does
+not smuggle hidden objects or dossier prose into the file. Shared URLs contain object/group ids and
+filter text, so treat them as project metadata rather than public links.
 
 ## The graph contract
 
@@ -193,6 +204,14 @@ The one file you edit. Keys and defaults:
 | `workstreams.definitions_path` | `"vizzer/workstreams.json"` | Repo-local, reviewed workstream definitions, path scopes, discussions, and audit revisions. |
 | `workstreams.runtime_path` | `".vizzer/runtime/sessions.json"` | Machine-local live session leases; generated views never expose absolute worktree paths. |
 | `workstreams.lease_minutes` | `30` | Time without heartbeat before a session becomes stale and stops claiming work. |
+| `reviews.enabled` | `false` | Enable DoD-derived review plans, agent evidence runs, and served owner validation. |
+| `reviews.plans_dir` | `"vizzer/reviews/plans"` | Directly contains bounded schema-1 authored plan JSON files. |
+| `reviews.runs_dir` | `"vizzer/reviews/runs"` | Append-only CAS ledger per plan fingerprint; revised plans start a new epoch without rewriting history. |
+| `reviews.evidence_dir` | `"vizzer/reviews/evidence"` | Required containment root for evidence attached through the review service. |
+| `reviews.adapters_path` | `"vizzer/reviews/adapters.json"` | Optional trusted declaration of symbolic adapter modes, operations, and exact JSON input names. |
+| `developer_flow.enabled` | `false` | Generate the optional precompiled 2D developer-object graph. No Node, React, CDN, or extra Python dependency is required at runtime. |
+| `developer_flow.materialization_cap` | `1200` | Maximum rich cards returned/mounted for one focused slice (100–5000); larger graphs use bounded served queries and disclose omissions. |
+| `developer_flow.direction` | `"RIGHT"` | Initial deterministic ELK layout direction: `RIGHT` or `DOWN`. |
 
 Four table-arrays: `[[source_area]]` gives an arbitrary folder an `id`, `title`,
 semantic `role`, and adapter; `[[status]]` replaces the status vocabulary (`name`,
@@ -507,6 +526,17 @@ Run `python3 vizzer/engine serve` for the write-capable question cards. That
 loopback UI reads `GET /api/questions` and submits validated answers to
 `POST /api/questions/<encoded-id>/answer`; the repository overlay, not browser state
 or a particular LLM session, remains authoritative.
+
+The optional **Reviews** view keeps source Definition of Done, derived steps, agent execution,
+captured evidence, and owner repetition as separate claims. Agents append only agent runs through
+`vizzer review record`; served owner forms append an independent owner event and never overwrite
+the agent's pass. Visual rows require structurally valid screenshot evidence, but Vizzer does not
+pretend that a screenshot proves acceptance. See [Repeatable review workflows](docs/review-workflows.md)
+for plan, adapter-registry, evidence, CLI, and security contracts.
+
+The title bar's 14/18/22-point A control changes sidebar and dossier reading text without inflating
+chips. The left rail is pointer- and keyboard-resizable. Both settings are session-scoped so a
+glasses-on choice does not mutate project data.
 
 Constellation file mode uses portable repo-relative Markdown links. `serve` binds
 only `127.0.0.1` (an ephemeral port by default); its POST-only item-id endpoint

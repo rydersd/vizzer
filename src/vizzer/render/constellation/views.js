@@ -36,13 +36,51 @@ function renderDashboard(entries){
   return panelHead('Dashboard','Impact-ranked delivery candidates, blockers, defects, and active ownership under the current filters.')+
     (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'));
 }
+const roadmapParams=requestedViewParams();
+const roadmapQuery={
+  release:roadmapParams.get('column')||'',
+  capability:roadmapParams.get('capability')||'',
+  order:['default','dependency','modified'].includes(roadmapParams.get('order'))
+    ?roadmapParams.get('order'):'default',
+};
+function roadmapCapabilityId(node){
+  return globalThis.VizzerViewQuery.rootGroupId(node.group,structureGroups);
+}
+function dependencyOrderedIndexes(indexes){
+  return globalThis.VizzerViewQuery.dependencyOrder(indexes,DATA.nodes,DATA.edges);
+}
+function updateRoadmapRoute(){
+  const pairs=[];
+  if(roadmapQuery.release)pairs.push(`column=${encodeURIComponent(roadmapQuery.release)}`);
+  if(roadmapQuery.capability)pairs.push(`capability=${encodeURIComponent(roadmapQuery.capability)}`);
+  if(roadmapQuery.order!=='default')pairs.push(`order=${encodeURIComponent(roadmapQuery.order)}`);
+  const suffix=pairs.length?`?${pairs.join('&')}`:'';
+  if(typeof history!=='undefined'&&typeof history.replaceState==='function')history.replaceState(null,'',`#roadmap${suffix}`);
+}
 function renderRoadmap(entries){
-  const columns=RELS.map(release=>{
-    const rows=entries.filter(({node})=>relKey(node)===release)
-      .sort((a,b)=>(a.node.pr??999999)-(b.node.pr??999999)||a.node.t.localeCompare(b.node.t));
-    return `<section class="viewcolumn"><h2>${esc(release.replace('R','v'))} · ${rows.length}</h2>${rows.length?rows.map(({index})=>viewCard(index)).join(''):emptyPanel('No matching items')}</section>`;
+  const capabilityGroups=(DATA.groups||[]).filter(group=>group.kind==='capability'&&!group.parent)
+    .sort((a,b)=>a.title.localeCompare(b.title));
+  if(roadmapQuery.release&&!RELS.includes(roadmapQuery.release))roadmapQuery.release='';
+  if(roadmapQuery.capability&&!capabilityGroups.some(group=>group.id===roadmapQuery.capability))roadmapQuery.capability='';
+  const scoped=entries.filter(({node})=>!roadmapQuery.capability||roadmapCapabilityId(node)===roadmapQuery.capability);
+  const dependencyOrder=new Map(dependencyOrderedIndexes(scoped.map(({index})=>index)).map((index,rank)=>[index,rank]));
+  const sorter=(a,b)=>roadmapQuery.order==='dependency'
+    ?(dependencyOrder.get(a.index)??999999)-(dependencyOrder.get(b.index)??999999)
+    :roadmapQuery.order==='modified'
+      ?globalThis.VizzerViewQuery.compareModified(a,b)
+      :(a.node.pr??999999)-(b.node.pr??999999)||a.node.t.localeCompare(b.node.t);
+  const releases=roadmapQuery.release?[roadmapQuery.release]:RELS;
+  const columns=releases.map(release=>{
+    const rows=scoped.filter(({node})=>relKey(node)===release).sort(sorter);
+    const detail=({node})=>roadmapQuery.order==='modified'
+      ?`modified ${node.ts?new Date(node.ts*1000).toISOString().slice(0,10):'unknown'} · ${viewMeta(node)}`
+      :viewMeta(node);
+    return `<section class="viewcolumn" data-roadmap-column="${esc(release)}"><h2>${esc(release.replace('R','v'))} · ${rows.length}</h2>${rows.length?rows.map(({index,node})=>viewCard(index,detail({node}))).join(''):emptyPanel('No matching items')}</section>`;
   }).join('');
-  return panelHead('Roadmap','Release lanes remain dependency-aware; every item opens the same dossier used by the constellation.')+`<div class="viewcolumns">${columns}</div>`;
+  const activeCapability=capabilityGroups.find(group=>group.id===roadmapQuery.capability)?.title||'All capabilities';
+  const controls=`<form class="roadmapcontrols" aria-label="Roadmap filters"><label>Column <select data-roadmap-filter="release"><option value="">All columns</option>${RELS.map(release=>`<option value="${esc(release)}"${roadmapQuery.release===release?' selected':''}>${esc(release.replace('R','v'))}</option>`).join('')}</select></label><label>Capability <select data-roadmap-filter="capability"><option value="">All capabilities</option>${capabilityGroups.map(group=>`<option value="${esc(group.id)}"${roadmapQuery.capability===group.id?' selected':''}>${esc(group.title)}</option>`).join('')}</select></label><label>Order <select data-roadmap-filter="order"><option value="default"${roadmapQuery.order==='default'?' selected':''}>Default</option><option value="dependency"${roadmapQuery.order==='dependency'?' selected':''}>Dependency</option><option value="modified"${roadmapQuery.order==='modified'?' selected':''}>Last modified</option></select></label><button type="button" data-roadmap-clear>Clear</button></form>`;
+  const empty=!scoped.length?emptyPanel(`No Roadmap items match ${roadmapQuery.release||'all columns'} and ${activeCapability}.`):'';
+  return panelHead('Roadmap','Scope release lanes and capabilities, then choose dependency or evidence-backed recency order. Every item opens the shared dossier.')+controls+empty+`<div class="viewcolumns">${columns}</div>`;
 }
 const structureGroups=new Map((DATA.groups||[]).map(group=>[group.id,group]));
 const structureChildren=new Map();
@@ -160,6 +198,12 @@ function renderLedgers(entries){
   return panelHead('Ledgers','Sortable-by-source ownership, progress, blockers, and staleness; story rows open the shared dossier.')+`<table class="viewtable"><thead><tr><th>Story</th><th>Owner</th><th>State</th><th>Progress</th><th>Checkpoint</th><th>Updated</th></tr></thead><tbody>${body}</tbody></table>`;
 }
 function bindInteractiveView(){
+  viewPanel.querySelectorAll('[data-roadmap-filter]').forEach(control=>control.addEventListener('change',()=>{
+    roadmapQuery[control.dataset.roadmapFilter]=control.value;updateRoadmapRoute();renderCurrentView();
+  }));
+  viewPanel.querySelector('[data-roadmap-clear]')?.addEventListener('click',()=>{
+    roadmapQuery.release='';roadmapQuery.capability='';roadmapQuery.order='default';updateRoadmapRoute();renderCurrentView();
+  });
   viewPanel.querySelectorAll('[data-view-node]').forEach(button=>button.addEventListener('click',()=>{
     const index=Number(button.dataset.viewNode);
     if(Number.isInteger(index)&&index>=0&&index<DATA.nodes.length)openNode(index);
@@ -189,8 +233,10 @@ function renderCurrentView(){
     :currentView==='features'?renderFeatures(entries)
     :currentView==='completion'?renderCompletion(entries)
     :currentView==='workstreams'?renderWorkstreams(entries)
+    :currentView==='reviews'?renderReviews()
     :renderLedgers(entries);
   bindInteractiveView();
+  if(currentView==='reviews')bindReviewView();
 }
 function switchView(view,focus=false){
   currentView=ROUTE_VIEWS.has(view)?view:'constellation';

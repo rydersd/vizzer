@@ -7,16 +7,24 @@ approval, and prevents a later owner verdict from erasing machine evidence.
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 import re
 import stat
 import tempfile
+import threading
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 from .images import image_dimensions, image_media_type
+from .story_sidebar import canonical_story_sections
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Windows fallback
+    fcntl = None
 
 
 class ReviewContractError(ValueError):
@@ -31,7 +39,27 @@ _OUTCOMES = {"pass", "fail", "blocked", "skipped"}
 _VERDICTS = _OUTCOMES
 _MAX_LEDGER_EVENTS = 20_000
 _MAX_LEDGER_BYTES = 32 * 1024 * 1024
+_MAX_SOURCE_BYTES = 4 * 1024 * 1024
 _MAX_IMAGE_PIXELS = 32 * 1024 * 1024
+_PROCESS_RUN_LOCK = threading.RLock()
+
+
+@contextmanager
+def _run_ledger_lock(path: Path):
+    """Hold a crash-safe ledger lock; the marker itself is not lock authority."""
+    lock = path.with_name(f".{path.name}.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _PROCESS_RUN_LOCK:
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(lock, flags, 0o600)
+        try:
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
 
 
 def _object(value: object, subject: str) -> dict:
@@ -74,6 +102,79 @@ def _relative_path(value: object, subject: str) -> str:
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise ReviewContractError(f"{subject} must stay inside the project")
     return path.as_posix()
+
+
+@contextmanager
+def _contained_descriptor(root: Path, relative: str, subject: str):
+    """Open a project-relative file without following a swapped path component."""
+    project_root = root.resolve()
+    parts = PurePosixPath(relative).parts
+    if not parts:
+        raise ReviewContractError(f"{subject} must name a file")
+    # Preserve a useful diagnostic for already-present symlinks. The actual
+    # authority remains the descriptor walk below, so a post-check swap still
+    # cannot redirect the open.
+    diagnostic_cursor = project_root
+    for part in parts:
+        diagnostic_cursor = diagnostic_cursor / part
+        try:
+            if stat.S_ISLNK(diagnostic_cursor.lstat().st_mode):
+                raise ReviewContractError(f"{subject} may not traverse a symlink")
+        except FileNotFoundError:
+            break
+    supports_openat = os.open in getattr(os, "supports_dir_fd", set())
+    directory_flag = getattr(os, "O_DIRECTORY", 0)
+    nofollow_flag = getattr(os, "O_NOFOLLOW", 0)
+    if supports_openat and directory_flag and nofollow_flag:
+        opened: list[int] = []
+        try:
+            current = os.open(project_root, os.O_RDONLY | directory_flag)
+            opened.append(current)
+            for part in parts[:-1]:
+                current = os.open(
+                    part,
+                    os.O_RDONLY | directory_flag | nofollow_flag,
+                    dir_fd=current,
+                )
+                opened.append(current)
+            descriptor = os.open(
+                parts[-1], os.O_RDONLY | nofollow_flag, dir_fd=current
+            )
+            opened.append(descriptor)
+            yield descriptor
+        except OSError as exc:
+            raise ReviewContractError(f"cannot open {subject}: {exc}") from exc
+        finally:
+            for descriptor in reversed(opened):
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+        return
+
+    # Fallback for platforms without openat/O_NOFOLLOW. It retains containment
+    # checks, but POSIX platforms use the race-safe descriptor walk above.
+    candidate = project_root / PurePosixPath(relative)
+    cursor = project_root
+    for part in parts:
+        cursor = cursor / part
+        try:
+            if stat.S_ISLNK(cursor.lstat().st_mode):
+                raise ReviewContractError(f"{subject} may not traverse a symlink")
+        except FileNotFoundError as exc:
+            raise ReviewContractError(f"{subject} does not exist: {relative}") from exc
+    try:
+        candidate.resolve().relative_to(project_root)
+    except ValueError as exc:
+        raise ReviewContractError(f"{subject} resolves outside the project") from exc
+    try:
+        descriptor = os.open(candidate, os.O_RDONLY | nofollow_flag)
+    except OSError as exc:
+        raise ReviewContractError(f"cannot open {subject}: {exc}") from exc
+    try:
+        yield descriptor
+    finally:
+        os.close(descriptor)
 
 
 def _sha256(value: object, subject: str) -> str:
@@ -266,44 +367,30 @@ def verify_plan_sources(root: Path, plan: dict) -> dict:
     for row in normalized["rows"]:
         source = row["source"]
         relative = PurePosixPath(source["path"])
-        candidate = project_root / relative
-        cursor = project_root
-        for part in relative.parts:
-            cursor = cursor / part
-            try:
-                if stat.S_ISLNK(cursor.lstat().st_mode):
-                    raise ReviewContractError(
-                        f"review source may not traverse a symlink: {source['path']}"
-                    )
-            except FileNotFoundError as exc:
-                raise ReviewContractError(
-                    f"review source does not exist: {source['path']}"
-                ) from exc
-        try:
-            candidate.resolve().relative_to(project_root)
-        except ValueError as exc:
-            raise ReviewContractError("review source resolves outside the project") from exc
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            descriptor = os.open(candidate, flags)
-        except OSError as exc:
-            raise ReviewContractError(
-                f"cannot open review source {source['path']}: {exc}"
-            ) from exc
-        try:
+        with _contained_descriptor(
+            project_root, relative.as_posix(),
+            f"review source {source['path']}",
+        ) as descriptor:
             metadata = os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode):
                 raise ReviewContractError("review source must be a regular file")
+            if metadata.st_size <= 0 or metadata.st_size > _MAX_SOURCE_BYTES:
+                raise ReviewContractError(
+                    f"review source must contain 1 to {_MAX_SOURCE_BYTES} bytes"
+                )
             digest = hashlib.sha256()
             source_bytes = bytearray()
-            while True:
-                block = os.read(descriptor, 65_536)
+            while len(source_bytes) <= _MAX_SOURCE_BYTES:
+                block = os.read(
+                    descriptor,
+                    min(65_536, _MAX_SOURCE_BYTES + 1 - len(source_bytes)),
+                )
                 if not block:
                     break
                 digest.update(block)
                 source_bytes.extend(block)
-        finally:
-            os.close(descriptor)
+        if not source_bytes or len(source_bytes) > _MAX_SOURCE_BYTES:
+            raise ReviewContractError("review source exceeded its read budget")
         if digest.hexdigest() != source["fingerprint"]:
             raise ReviewContractError(
                 f"review source changed after the plan was derived: {source['path']}"
@@ -314,10 +401,21 @@ def verify_plan_sources(root: Path, plan: dict) -> dict:
             raise ReviewContractError(
                 f"review source is not UTF-8 text: {source['path']}"
             ) from exc
-        for criterion in row["definitionOfDone"]:
-            if criterion not in source_text:
+        authoritative_text = source_text
+        if relative.suffix.lower() == ".md":
+            authoritative_text = canonical_story_sections(source_text).get(
+                "definitionOfDone", ""
+            )
+            if not authoritative_text:
                 raise ReviewContractError(
-                    f"Definition of Done is not verbatim in {source['path']}: {criterion}"
+                    f"review source has no authored Definition of Done section: "
+                    f"{source['path']}"
+                )
+        for criterion in row["definitionOfDone"]:
+            if criterion not in authoritative_text:
+                raise ReviewContractError(
+                    f"Definition of Done is not verbatim in the authored contract section "
+                    f"of {source['path']}: {criterion}"
                 )
     return normalized
 
@@ -388,7 +486,7 @@ def parse_run_event(value: object, plan: dict, *, allow_owner: bool = False) -> 
         event, "review run",
         {"eventId", "recordedAt", "actor", "planId", "rowId", "planFingerprint",
          "stepResults", "evidence", "verdict"},
-        {"note"},
+        {"note", "basedOnAgentEventId"},
     )
     if event["planId"] != normalized_plan["id"]:
         raise ReviewContractError("review run planId does not match the plan")
@@ -404,6 +502,17 @@ def parse_run_event(value: object, plan: dict, *, allow_owner: bool = False) -> 
         raise ReviewContractError("review run actor kind must be agent or owner")
     if actor_kind == "owner" and not allow_owner:
         raise ReviewContractError("owner runs may be recorded only by an owner-facing surface")
+    if actor_kind == "owner":
+        based_on_agent = _id(
+            event.get("basedOnAgentEventId"),
+            "review run basedOnAgentEventId",
+        )
+    else:
+        if "basedOnAgentEventId" in event:
+            raise ReviewContractError(
+                "agent runs may not declare basedOnAgentEventId"
+            )
+        based_on_agent = None
     results = event["stepResults"]
     if not isinstance(results, list):
         raise ReviewContractError("review run stepResults must be an array")
@@ -437,11 +546,22 @@ def parse_run_event(value: object, plan: dict, *, allow_owner: bool = False) -> 
         _evidence(item, f"review run evidence #{index}", set(requirements))
         for index, item in enumerate(raw_evidence, 1)
     ]
+    evidence_ids = [item["requirementId"] for item in normalized_evidence]
+    if len(set(evidence_ids)) != len(evidence_ids):
+        raise ReviewContractError(
+            "review run evidence may satisfy each requirement at most once"
+        )
     verdict = _text(event["verdict"], "review run verdict", 20)
     if verdict not in _VERDICTS:
         raise ReviewContractError(f"review run verdict must be one of {sorted(_VERDICTS)}")
     if verdict == "pass" and any(result["outcome"] != "pass" for result in normalized_results):
         raise ReviewContractError("a passing review run requires every step to pass")
+    if verdict != "pass" and not any(
+        result["outcome"] == verdict for result in normalized_results
+    ):
+        raise ReviewContractError(
+            f"a {verdict} review run requires at least one {verdict} step"
+        )
     if actor_kind == "agent" and verdict == "pass":
         supplied = {item["requirementId"] for item in normalized_evidence}
         missing = sorted(
@@ -463,9 +583,30 @@ def parse_run_event(value: object, plan: dict, *, allow_owner: bool = False) -> 
         "evidence": normalized_evidence,
         "verdict": verdict,
     }
+    if based_on_agent is not None:
+        normalized_event["basedOnAgentEventId"] = based_on_agent
     if "note" in event:
         normalized_event["note"] = _text(event["note"], "review run note", 2000)
     return normalized_event
+
+
+def _verify_owner_lineage(event: dict, prior_events: list[dict]) -> None:
+    """Bind an owner verdict to the latest preceding agent run for its row."""
+    if event["actor"]["kind"] != "owner":
+        return
+    latest_agent = next((
+        prior for prior in reversed(prior_events)
+        if prior["rowId"] == event["rowId"]
+        and prior["actor"]["kind"] == "agent"
+    ), None)
+    if latest_agent is None:
+        raise ReviewContractError(
+            "owner validation requires a preceding agent run for the same row"
+        )
+    if event["basedOnAgentEventId"] != latest_agent["eventId"]:
+        raise ReviewContractError(
+            "owner validation must cite the latest agent run for the same row"
+        )
 
 
 def validate_run_ledger(value: object, plan: dict | None = None) -> dict:
@@ -496,6 +637,7 @@ def validate_run_ledger(value: object, plan: dict | None = None) -> dict:
                 event_without_revision, plan, allow_owner=True
             )
             event = dict(normalized_event, revision=expected_revision)
+            _verify_owner_lineage(event, normalized_events)
         event_id = _id(event.get("eventId"), "review run ledger eventId")
         if event_id in seen_ids:
             raise ReviewContractError("review run ledger event ids must be unique")
@@ -504,8 +646,8 @@ def validate_run_ledger(value: object, plan: dict | None = None) -> dict:
     return {"schema": 1, "revision": revision, "events": normalized_events}
 
 
-def verify_evidence_file(root: Path, evidence: dict, *, kind: str,
-                         maximum_bytes: int = 4 * 1024 * 1024) -> dict:
+def read_evidence_file(root: Path, evidence: dict, *, kind: str,
+                       maximum_bytes: int = 4 * 1024 * 1024) -> tuple[dict, bytes]:
     """Verify one evidence reference against contained, non-symlinked bytes.
 
     The caller supplies the requirement kind from the normalized plan.  Paths
@@ -518,27 +660,8 @@ def verify_evidence_file(root: Path, evidence: dict, *, kind: str,
     if isinstance(maximum_bytes, bool) or not isinstance(maximum_bytes, int) \
             or maximum_bytes <= 0:
         raise ReviewContractError("maximum evidence bytes must be positive")
-    project_root = root.resolve()
     relative = _relative_path(evidence.get("path"), "evidence path")
-    candidate = project_root / PurePosixPath(relative)
-    cursor = project_root
-    for part in PurePosixPath(relative).parts:
-        cursor = cursor / part
-        try:
-            if stat.S_ISLNK(cursor.lstat().st_mode):
-                raise ReviewContractError("evidence path may not traverse a symlink")
-        except FileNotFoundError as exc:
-            raise ReviewContractError(f"evidence file does not exist: {relative}") from exc
-    try:
-        candidate.resolve().relative_to(project_root)
-    except ValueError as exc:
-        raise ReviewContractError("evidence path resolves outside the project") from exc
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(candidate, flags)
-    except OSError as exc:
-        raise ReviewContractError(f"cannot open evidence file {relative}: {exc}") from exc
-    try:
+    with _contained_descriptor(root, relative, f"evidence file {relative}") as descriptor:
         metadata = os.fstat(descriptor)
         if not stat.S_ISREG(metadata.st_mode):
             raise ReviewContractError("evidence must be a regular file")
@@ -552,8 +675,6 @@ def verify_evidence_file(root: Path, evidence: dict, *, kind: str,
             if not block:
                 break
             payload += block
-    finally:
-        os.close(descriptor)
     digest = hashlib.sha256(payload).hexdigest()
     if evidence.get("bytes") != len(payload) or evidence.get("sha256") != digest:
         raise ReviewContractError("evidence bytes do not match their recorded size and SHA-256")
@@ -575,6 +696,15 @@ def verify_evidence_file(root: Path, evidence: dict, *, kind: str,
             )
         verified.update({"mediaType": media_type, "width": dimensions[0],
                          "height": dimensions[1]})
+    return verified, payload
+
+
+def verify_evidence_file(root: Path, evidence: dict, *, kind: str,
+                         maximum_bytes: int = 4 * 1024 * 1024) -> dict:
+    """Verify one evidence reference and discard the already-verified bytes."""
+    verified, _ = read_evidence_file(
+        root, evidence, kind=kind, maximum_bytes=maximum_bytes
+    )
     return verified
 
 
@@ -622,14 +752,7 @@ def append_run(path: Path, plan: dict, event: dict, *, project_root: Path,
         )
         for evidence in normalized_event["evidence"]
     ]
-    lock = path.with_name(f".{path.name}.lock")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as exc:
-        raise ReviewContractError("review run ledger is being updated") from exc
-    os.close(lock_fd)
-    try:
+    with _run_ledger_lock(path):
         if path.exists():
             try:
                 if path.stat().st_size > _MAX_LEDGER_BYTES:
@@ -650,6 +773,7 @@ def append_run(path: Path, plan: dict, event: dict, *, project_root: Path,
             )
         if any(item["eventId"] == normalized_event["eventId"] for item in current["events"]):
             raise ReviewContractError("review run eventId already exists")
+        _verify_owner_lineage(normalized_event, current["events"])
         revision = current["revision"] + 1
         appended = dict(normalized_event, revision=revision)
         updated = {"schema": 1, "revision": revision,
@@ -661,8 +785,3 @@ def append_run(path: Path, plan: dict, event: dict, *, project_root: Path,
             )
         _atomic_json(path, updated)
         return updated
-    finally:
-        try:
-            lock.unlink()
-        except FileNotFoundError:
-            pass

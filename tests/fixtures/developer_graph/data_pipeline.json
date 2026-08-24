@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "title": "Analytics pipeline",
+  "objects": [
+    {
+      "id": "job:daily-rollup",
+      "kind": "job",
+      "title": "Daily rollup",
+      "summary": "Aggregates daily account activity.",
+      "status": "ready",
+      "statusRole": "ready",
+      "groupId": "domain:analytics",
+      "provenance": {"kind": "observed", "source": "workflow-manifest", "locator": "pipelines/daily.yml"},
+      "details": {"schedule": "daily"},
+      "detail": {
+        "schema": "vizzer-object-detail/v1",
+        "id": "job:daily-rollup",
+        "title": "Daily rollup",
+        "summary": "Aggregates daily account activity.",
+        "status": "ready",
+        "sections": {},
+        "core": {"role": "delivery", "release": "", "appetite": "", "tags": [], "flags": [], "facets": {"runtime": ["batch"]}},
+        "relationships": {"dependsOn": ["dataset:events"], "typed": [{"kind": "writes", "target": "dataset:daily-metrics"}]},
+        "provenance": {"adapter": "workflow-manifest", "locator": "pipelines/daily.yml"}
+      }
+    },
+    {
+      "id": "dataset:events",
+      "kind": "dataset",
+      "title": "Events",
+      "summary": "Validated source events.",
+      "status": "shipped",
+      "statusRole": "shipped",
+      "groupId": "domain:analytics",
+      "provenance": {"kind": "observed", "source": "data-catalog", "locator": "datasets/events.json"},
+      "details": {"format": "columnar"},
+      "detail": {
+        "schema": "vizzer-object-detail/v1",
+        "id": "dataset:events",
+        "title": "Events",
+        "summary": "Validated source events.",
+        "status": "shipped",
+        "sections": {},
+        "core": {"role": "delivery", "release": "", "appetite": "", "tags": [], "flags": [], "facets": {"kind": ["source"]}},
+        "relationships": {"dependsOn": [], "typed": []},
+        "provenance": {"adapter": "data-catalog", "locator": "datasets/events.json"}
+      }
+    },
+    {
+      "id": "dataset:daily-metrics",
+      "kind": "dataset",
+      "title": "Daily metrics",
+      "summary": "Published daily aggregates.",
+      "status": "building",
+      "statusRole": "active",
+      "groupId": "domain:analytics",
+      "provenance": {"kind": "authored", "source": "data-catalog", "locator": "datasets/daily-metrics.json"},
+      "details": {"format": "table"},
+      "detail": {
+        "schema": "vizzer-object-detail/v1",
+        "id": "dataset:daily-metrics",
+        "title": "Daily metrics",
+        "summary": "Published daily aggregates.",
+        "status": "building",
+        "sections": {},
+        "core": {"role": "delivery", "release": "", "appetite": "", "tags": [], "flags": [], "facets": {"kind": ["output"]}},
+        "relationships": {"dependsOn": [], "typed": []},
+        "provenance": {"adapter": "data-catalog", "locator": "datasets/daily-metrics.json"}
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "dependency:job:daily-rollup->dataset:events",
+      "source": "job:daily-rollup",
+      "target": "dataset:events",
+      "kind": "depends-on",
+      "direction": "directed",
+      "confidence": "observed",
+      "provenance": {"kind": "observed", "source": "workflow-manifest"}
+    },
+    {
+      "id": "relation:job:daily-rollup:writes:dataset:daily-metrics",
+      "source": "job:daily-rollup",
+      "target": "dataset:daily-metrics",
+      "kind": "writes",
+      "direction": "directed",
+      "confidence": "authored",
+      "provenance": {"kind": "authored", "source": "workflow-manifest"}
+    }
+  ],
+  "groups": [
+    {
+      "id": "domain:analytics",
+      "title": "Analytics",
+      "kind": "domain",
+      "parentId": null,
+      "grouping": "authored",
+      "provenance": {"kind": "observed", "source": "architecture-manifest"}
+    }
+  ],
+  "vocab": {"objectKinds": {}, "relationKinds": {"depends-on": {"label": "depends on", "role": "dependency"}}},
+  "limits": {"sourceObjectCount": 3, "sourceRelationCount": 2, "sourceGroupCount": 1, "materializationCap": 600},
+  "provenance": {"kind": "observed", "source": "fixture-data-pipeline"}
+}

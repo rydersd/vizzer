@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "title": "Storefront architecture",
+  "objects": [
+    {
+      "id": "component:product-grid",
+      "kind": "component",
+      "title": "Product grid",
+      "summary": "Renders the searchable product list.",
+      "status": "building",
+      "statusRole": "active",
+      "groupId": "capability:browse",
+      "provenance": {"kind": "observed", "source": "component-index", "locator": "ui/product-grid.tsx"},
+      "details": {"runtime": "browser"},
+      "detail": {
+        "schema": "vizzer-object-detail/v1",
+        "id": "component:product-grid",
+        "title": "Product grid",
+        "summary": "Renders the searchable product list.",
+        "status": "building",
+        "sections": {},
+        "core": {"role": "delivery", "release": "R1", "appetite": "", "tags": [], "flags": [], "facets": {"runtime": ["browser"]}},
+        "relationships": {"dependsOn": ["endpoint:list-products"], "typed": []},
+        "provenance": {"adapter": "component-index", "locator": "ui/product-grid.tsx"}
+      }
+    },
+    {
+      "id": "endpoint:list-products",
+      "kind": "endpoint",
+      "title": "List products",
+      "summary": "Returns visible products.",
+      "status": "shipped",
+      "statusRole": "shipped",
+      "groupId": "capability:browse",
+      "provenance": {"kind": "observed", "source": "openapi", "locator": "api/store.yaml"},
+      "details": {"method": "GET"},
+      "detail": {
+        "schema": "vizzer-object-detail/v1",
+        "id": "endpoint:list-products",
+        "title": "List products",
+        "summary": "Returns visible products.",
+        "status": "shipped",
+        "sections": {},
+        "core": {"role": "delivery", "release": "R1", "appetite": "", "tags": [], "flags": [], "facets": {"protocol": ["http"]}},
+        "relationships": {"dependsOn": [], "typed": []},
+        "provenance": {"adapter": "openapi", "locator": "api/store.yaml"}
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "dependency:component:product-grid->endpoint:list-products",
+      "source": "component:product-grid",
+      "target": "endpoint:list-products",
+      "kind": "depends-on",
+      "direction": "directed",
+      "confidence": "observed",
+      "provenance": {"kind": "observed", "source": "component-index"}
+    }
+  ],
+  "groups": [
+    {
+      "id": "capability:browse",
+      "title": "Browse catalog",
+      "kind": "capability",
+      "parentId": null,
+      "grouping": "authored",
+      "provenance": {"kind": "observed", "source": "architecture-manifest"}
+    }
+  ],
+  "vocab": {"objectKinds": {}, "relationKinds": {"depends-on": {"label": "depends on", "role": "dependency"}}},
+  "limits": {"sourceObjectCount": 2, "sourceRelationCount": 1, "sourceGroupCount": 1, "materializationCap": 600},
+  "provenance": {"kind": "observed", "source": "fixture-web-application"}
+}

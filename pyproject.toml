@@ -17,7 +17,13 @@ vizzer = "vizzer.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"vizzer.render" = ["constellation/*.html", "constellation/*.css", "constellation/*.js"]
+"vizzer.render" = [
+  "constellation/*.html",
+  "constellation/*.css",
+  "constellation/*.js",
+  "developer_flow_assets/*",
+  "developer_flow_assets/third-party/*",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

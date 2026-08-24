@@ -1,6 +1,6 @@
 # G-001 — Upstream the generic review and evidence workflow
 
-> Status: in progress
+> Status: active — generic review loop complete; broader fork migration audit ongoing
 > Ambition: large
 > Created: 2026-08-23
 > Updated: 2026-08-23
@@ -60,6 +60,8 @@ acceptance loop:
 - [Named IllTool worktree inventory, 2026-08-23](materials/upstream-review-evidence-workflow/illtool-worktree-inventory-2026-08-23.md)
 - [Capability migration matrix, 2026-08-23](materials/upstream-review-evidence-workflow/capability-migration-matrix-2026-08-23.md)
 - [Adversarial review of the first upstream slice, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-2026-08-23.md)
+- [Adversarial review of the service and owner UI, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-service-ui-2026-08-23.md)
+- [Service, fixture, and browser verification, 2026-08-23](materials/upstream-review-evidence-workflow/verification-2026-08-23.md)
 - [Project-agnostic review workflow contract](../../docs/review-workflows.md)
 
 ## Progress log
@@ -80,3 +82,20 @@ acceptance loop:
   plus unbounded ledger growth. The expanded focused suite passes 15/15; stale-lock recovery remains
   explicitly deferred to the service layer because time-based lock theft would be unsafe. The full
   upstream suite passes 379/379 after these fixes.
+- 2026-08-23 — Added the opt-in project service: bounded plan discovery, trusted symbolic adapter
+  declarations, non-overlapping plan/run/evidence storage, per-plan ledgers, crash-safe file locks,
+  opaque and byte-reverified evidence delivery, an agent-only record CLI, and a served owner-only
+  validation transaction behind same-origin/CSRF and revision CAS.
+- 2026-08-23 — Added the Reviews view with side-by-side latest agent/owner claims and repeat-every-
+  step owner forms. Also upstreamed the shared title-bar 14/18/22-point sidebar preference and a
+  keyboard/pointer-resizable left rail while holding chip/pill type fixed.
+- 2026-08-23 — Exercised real project-neutral web and local host fixtures, persisted browser and
+  report evidence, submitted a served owner event, and completed a second adversarial pass. Fixed
+  evidence availability, cross-origin resource policy, owner/agent ordering, invalid-plan isolation,
+  fingerprint-epoch rotation, stale review checks, contradictory verdicts, and a screenshot-found
+  view overlap.
+- 2026-08-23 — Reworked review evidence from side-by-side thumbnails to stacked full-width runs.
+  Browser measurement proved a 1280×720 capture at 918×516 inline with preserved aspect ratio and an
+  actual-size link. Added latest-agent lineage to owner verdicts, descriptor-relative evidence/source
+  reads, loopback Host rejection, and authored-DoD-section verification. Combined suite: 453 passed,
+  2 skipped on Python 3.9.

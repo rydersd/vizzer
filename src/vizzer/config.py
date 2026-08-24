@@ -54,6 +54,12 @@ DEFAULTS = {
     "render": {"output_dir": "vizzer/views",
                "releases": ["R0", "R1", "R2", "R3"],
                "recommended": [], "obsidian_links": False, "title": ""},
+    # Optional precompiled developer-object graph. Core has no Node/React runtime.
+    "developer_flow": {
+        "enabled": False,
+        "materialization_cap": 1_200,
+        "direction": "RIGHT",
+    },
     "reconcile": {"precedence": ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"],
                   # codex-sequence-2026-08-08: optional field-specific migration seam.
                   "dependency_authority": "", "group_parent_authority": "",
@@ -99,6 +105,15 @@ DEFAULTS = {
         "definitions_path": "vizzer/workstreams.json",
         "runtime_path": ".vizzer/runtime/sessions.json",
         "lease_minutes": 30,
+    },
+    # Review plans are authored acceptance instructions. Agent and owner runs
+    # are append-only evidence in separate per-plan ledgers.
+    "reviews": {
+        "enabled": False,
+        "plans_dir": "vizzer/reviews/plans",
+        "runs_dir": "vizzer/reviews/runs",
+        "evidence_dir": "vizzer/reviews/evidence",
+        "adapters_path": "vizzer/reviews/adapters.json",
     },
     # Semantic project map. Folder names are user data, not Vizzer conventions.
     "source_area": [],
@@ -335,6 +350,16 @@ class Config:
                 raise ConfigError(f"area {area_id!r} values must be non-empty strings")
         if not isinstance(self.get("assessment.enabled"), bool):
             raise ConfigError("assessment.enabled must be true or false")
+        if not isinstance(self.get("developer_flow.enabled"), bool):
+            raise ConfigError("developer_flow.enabled must be true or false")
+        developer_cap = self.get("developer_flow.materialization_cap")
+        if (isinstance(developer_cap, bool) or not isinstance(developer_cap, int)
+                or not 100 <= developer_cap <= 5_000):
+            raise ConfigError(
+                "developer_flow.materialization_cap must be an integer from 100 through 5000"
+            )
+        if self.get("developer_flow.direction") not in {"RIGHT", "DOWN"}:
+            raise ConfigError("developer_flow.direction must be RIGHT or DOWN")
         signals_path = self.get("assessment.signals_path")
         if not isinstance(signals_path, str) or not signals_path:
             raise ConfigError("assessment.signals_path must be a non-empty string")
@@ -409,6 +434,32 @@ class Config:
         if (isinstance(lease_minutes, bool) or not isinstance(lease_minutes, int)
                 or lease_minutes <= 0):
             raise ConfigError("workstreams.lease_minutes must be a positive integer")
+        if not isinstance(self.get("reviews.enabled"), bool):
+            raise ConfigError("reviews.enabled must be true or false")
+        review_paths = []
+        for field in ("plans_dir", "runs_dir", "evidence_dir"):
+            value = self.get(f"reviews.{field}")
+            if not isinstance(value, str) or not value.strip():
+                raise ConfigError(f"reviews.{field} must be a non-empty string")
+            relative = Path(value)
+            if (relative == Path(".") or relative.is_absolute()
+                    or ".." in relative.parts):
+                raise ConfigError(f"reviews.{field} must stay inside the project")
+            review_paths.append(relative)
+        for index, first in enumerate(review_paths):
+            for second in review_paths[index + 1:]:
+                if first == second or first in second.parents or second in first.parents:
+                    raise ConfigError(
+                        "review plan, run, and evidence directories must not overlap"
+                    )
+        adapters_path = self.get("reviews.adapters_path")
+        if not isinstance(adapters_path, str):
+            raise ConfigError("reviews.adapters_path must be a string")
+        if adapters_path:
+            relative = Path(adapters_path)
+            if (relative == Path(".") or relative.is_absolute()
+                    or ".." in relative.parts):
+                raise ConfigError("reviews.adapters_path must stay inside the project")
 
     def status_meta(self, name: str) -> dict:
         for s in self.vocab["statuses"]:

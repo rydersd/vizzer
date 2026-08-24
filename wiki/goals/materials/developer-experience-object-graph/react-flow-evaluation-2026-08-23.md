@@ -31,3 +31,24 @@ Bundle React Flow only as an optional, precompiled Vizzer add-on:
 This accepts the owner's permission to bundle React Flow without making a frontend framework the
 authority for Vizzer's model. The latter would be an exciting way to make every adapter migration a
 UI rewrite, which is not the kind of excitement this goal needs.
+
+## Prototype update — 2026-08-23
+
+The IllTool integration pins `@xyflow/react` 12.11.3, React/ReactDOM 18.3.1, `elkjs` 0.11.1, and
+esbuild 0.28.2. React, ReactDOM, and React Flow carry MIT notices; ELK is EPL-2.0, so calling the
+whole optional bundle “MIT” would be wrong. The generated page is self-contained and retains React
+Flow's visible attribution.
+
+ELK Layered proved the useful renderer path because it supports compound hierarchy,
+`INCLUDE_CHILDREN`, cross-hierarchy edges, orthogonal routes, bend points, and ports. Dagre remains
+the wrong default for this use: its grouped-graph limitation appears exactly where a child connects
+outside its parent, which is the relationship this view exists to explain.
+
+The real 700-object IllTool graph also killed two naïve designs quickly:
+
+- fitting every rich story card at once produced unreadable star dust;
+- auto-fitting the whole graph after expanding one cluster made the chosen cluster microscopic.
+
+The corrected interaction starts with capability aggregates, focuses one semantic level at a time,
+bounds rich-card materialization, and keeps the camera readable during drill-down. See the linked
+prototype receipt for the resulting contract and remaining enterprise-scale gap.

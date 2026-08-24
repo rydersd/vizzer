@@ -412,6 +412,14 @@ obsidian_links = false
 # Optional title override for generated views.
 title = ""
 
+[developer_flow]
+# Optional precompiled React Flow + ELK view. Existing views need no Node or React.
+enabled = false
+# Maximum rich object cards mounted for one filtered/focused projection.
+materialization_cap = 1200
+# Deterministic ELK layered orientation: RIGHT or DOWN.
+direction = "RIGHT"
+
 [reconcile]
 # Source priority used when multiple adapters describe the same item.
 precedence = ["spec_tree", "dag_import", "ledgers", "todos", "loose_docs"]

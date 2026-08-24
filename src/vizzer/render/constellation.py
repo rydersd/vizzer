@@ -11,6 +11,7 @@ from urllib.parse import quote
 from .. import __version__
 from ..config import Config
 from ..model import Graph, owner_question_fingerprint
+from ..story_sidebar import object_detail_provider
 from .common import priority_items, source_link_prefix
 
 FRONTEND_DIR = "constellation"
@@ -19,8 +20,12 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_LAYOUT_CSS__", "layout.css"),
     ("__VIZZER_VIEWS_CSS__", "views.css"),
     ("__VIZZER_BOOT_JS__", "boot.js"),
+    ("__VIZZER_VIEW_QUERY_JS__", "view_query.js"),
     ("__VIZZER_STATE_JS__", "state.js"),
+    ("__VIZZER_PREFERENCES_JS__", "preferences.js"),
+    ("__VIZZER_MARKDOWN_JS__", "markdown.js"),
     ("__VIZZER_VIEWS_JS__", "views.js"),
+    ("__VIZZER_REVIEWS_JS__", "reviews.js"),
     ("__VIZZER_FILTERS_JS__", "filters.js"),
     ("__VIZZER_QUESTIONS_JS__", "questions.js"),
     ("__VIZZER_PLANNING_JS__", "planning.js"),
@@ -36,7 +41,7 @@ def _frontend_text(name: str) -> str:
     return (files(__package__) / FRONTEND_DIR / name).read_text(encoding="utf-8")
 
 
-def _template_text() -> str:
+def _template_text(cfg: Config) -> str:
     """Inline frontend sources into the shell without adding runtime dependencies."""
     shell = _frontend_text("shell.html")
     missing = [token for token, _ in FRONTEND_RESOURCES if token not in shell]
@@ -50,6 +55,11 @@ def _template_text() -> str:
         shell,
     )
     composed = composed.replace("__ENGINE_VERSION__", html.escape(__version__))
+    composed = composed.replace(
+        "__VIZZER_DEVELOPER_FLOW_LINK__",
+        '    <a href="developer-flow.html">Developer Flow</a>\n'
+        if cfg.get("developer_flow.enabled", False) else "",
+    )
     unresolved = re.findall(r"__(?:VIZZER|ENGINE)_[A-Z_]+__", composed)
     if unresolved:
         raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
@@ -297,6 +307,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
                 portfolio_lane.setdefault(item_id, lane)
     nodes, idx = [], {}
     items = sorted(graph.items, key=lambda i: i.id)
+    provide_detail = object_detail_provider(root)
     for it in items:
         if it.id in idx:
             continue
@@ -312,6 +323,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             w = ASSESSED_W.get(assessed_band, ASSESSED_W["XS"])
         else:
             w = APPETITE_W.get(it.appetite or "", DEFAULT_W)
+        detail = provide_detail(it)
         node = {
             "id": it.id,
             "s": it.id.split(":", 1)[1].split("/")[-1],
@@ -331,6 +343,13 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             # deep or project-configured group tree after rendering.
             "group": it.group or "",
             "p": it.source.get("path", ""),
+            # Renderer-neutral dossier data is the same contract consumed by
+            # Developer Flow. Compact legacy fields may project from this
+            # object, but they may not become a second source of truth.
+            "detail": detail,
+            "rs": detail["sections"].get("reviewSteps"),
+            "acx": detail["sections"].get("acceptance"),
+            "dod": detail["sections"].get("definitionOfDone"),
             # codex-sequence-2026-08-08: visible canonical on-drive story link.
             "h": _source_href(root, cfg, it.source.get("path")),
             "w": round(0.72 + 0.36 * w, 2),
@@ -641,6 +660,6 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     rendered = re.sub(
         "|".join(re.escape(token) for token in substitutions),
         lambda match: substitutions[match.group(0)],
-        _template_text(),
+        _template_text(cfg),
     )
     return {"constellation.html": rendered}

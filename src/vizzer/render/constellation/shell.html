@@ -14,6 +14,11 @@ __VIZZER_VIEWS_CSS__
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
   <div id="title"><b>__TITLE__</b><small>v__ENGINE_VERSION__</small></div>
+  <div id="sidebartype" class="seg typeseg" role="group" aria-label="Sidebar text size">
+    <button type="button" data-sidebar-size="14" aria-label="14 point sidebar text">A</button>
+    <button type="button" data-sidebar-size="18" aria-label="18 point sidebar text">A</button>
+    <button type="button" data-sidebar-size="22" aria-label="22 point sidebar text">A</button>
+  </div>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -22,7 +27,9 @@ __VIZZER_VIEWS_CSS__
     <a href="#features" data-view="features">Features</a>
     <a href="#completion" data-view="completion">Completion</a>
     <a href="#workstreams" data-view="workstreams">Workstreams</a>
+    <a href="#reviews" data-view="reviews">Reviews</a>
     <a href="#ledgers" data-view="ledgers">Ledgers</a>
+__VIZZER_DEVELOPER_FLOW_LINK__
   </div></details>
   <details id="exportmenu"><summary>Export</summary><div>
     <a href="dashboard.md" download>Dashboard Markdown</a>
@@ -45,6 +52,7 @@ __VIZZER_VIEWS_CSS__
   <output id="searchcount" for="searchinput" aria-live="polite"></output>
 </form>
 <div id="rail"></div>
+<button id="railresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize left sidebar" aria-valuemin="180" aria-valuemax="420" aria-valuenow="236"></button>
 <main id="viewpanel" tabindex="-1" hidden></main>
 <div id="dossier" aria-hidden="true">
   <button id="dossierresize" type="button" role="separator" aria-orientation="vertical" aria-label="Resize Story drawer" aria-valuemin="320" aria-valuemax="720" aria-valuenow="360"></button>
@@ -60,8 +68,12 @@ __VIZZER_VIEWS_CSS__
 __VIZZER_BOOT_JS__
 </script>
 <script>
+__VIZZER_VIEW_QUERY_JS__
 __VIZZER_STATE_JS__
+__VIZZER_PREFERENCES_JS__
+__VIZZER_MARKDOWN_JS__
 __VIZZER_VIEWS_JS__
+__VIZZER_REVIEWS_JS__
 __VIZZER_FILTERS_JS__
 __VIZZER_QUESTIONS_JS__
 __VIZZER_PLANNING_JS__

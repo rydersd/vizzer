@@ -45,6 +45,11 @@ from .question_answers import (
     append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
     read_answers, restore_answers,
 )
+from .review_contract import ReviewContractError
+from .review_service import (
+    ReviewServiceError, append_review_event, load_review_plans, review_state,
+)
+from .serve_extensions import SERVE_EXTENSIONS, ServeRequestContext
 from .workstreams import (
     WorkstreamConflict, WorkstreamError, append_discussion, apply_workstreams,
     heartbeat_session, load_workstream_overlay, read_runtime, read_workstreams, restore_runtime,
@@ -189,12 +194,42 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             self.end_headers()
             self.wfile.write(payload)
 
+        def _send_bytes(self, status: int, payload: bytes, media_type: str) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", media_type)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
+            self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Disposition", "inline")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def _extension_context(self) -> ServeRequestContext:
+            return ServeRequestContext(
+                root=root,
+                cfg=cfg,
+                graph=graph,
+                csrf_token=csrf_token,
+                current_engine=self._require_current_engine,
+                same_origin=self._same_origin,
+                read_json=self._read_json_body,
+                mutation_guard=lambda: _mutation_guard(root),
+                send_json=self._send_json,
+                send_bytes=self._send_bytes,
+            )
+
+        def _loopback_host(self) -> bool:
+            host = self.headers.get("Host", "")
+            hostname = host.rsplit(":", 1)[0].strip("[]").lower()
+            return hostname in {"127.0.0.1", "localhost", "::1"}
+
         def _same_origin(self) -> bool:
             host = self.headers.get("Host", "")
             origin = self.headers.get("Origin", "")
-            hostname = host.rsplit(":", 1)[0].strip("[]").lower()
             return (
-                hostname in {"127.0.0.1", "localhost", "::1"}
+                self._loopback_host()
                 and origin == f"http://{host}"
                 and self.headers.get("X-Vizzer-CSRF", "") == csrf_token
             )
@@ -536,7 +571,13 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 self._send_json(500, {"error": f"could not persist answers: {exc}"})
 
         def do_POST(self):
+            if not self._loopback_host():
+                self._send_json(421, {"error": "loopback Host required"})
+                return
             parsed = urlsplit(self.path)
+            context = self._extension_context()
+            if any(extension.post(context, parsed) for extension in SERVE_EXTENSIONS):
+                return
             if not parsed.query and parsed.path == "/api/discussions/queue":
                 self._discussion_queue_post()
                 return
@@ -579,7 +620,15 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             self._send_json(200, {"opened": item_id})
 
         def do_GET(self):
+            # Binding to 127.0.0.1 does not by itself defeat DNS rebinding.
+            # Refuse attacker-controlled Host names before serving project data.
+            if not self._loopback_host():
+                self._send_json(421, {"error": "loopback Host required"})
+                return
             parsed = urlsplit(self.path)
+            context = self._extension_context()
+            if any(extension.get(context, parsed) for extension in SERVE_EXTENSIONS):
+                return
             if parsed.path == "/api/discussions" and not parsed.query:
                 if not self._require_current_engine():
                     return
@@ -675,6 +724,36 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     "csrfToken": csrf_token,
                     "overlay": overlay,
                 })
+                return
+            story_body_prefix = "/api/story/"
+            story_body_suffix = "/body"
+            if (not parsed.query and parsed.path.startswith(story_body_prefix)
+                    and parsed.path.endswith(story_body_suffix)):
+                if not self._require_current_engine():
+                    return
+                encoded = parsed.path[
+                    len(story_body_prefix):-len(story_body_suffix)
+                ].rstrip("/")
+                item_id = unquote(encoded)
+                if not item_id:
+                    self._send_json(404, {"error": "not found"})
+                    return
+                source, error = _resolve_item_source(root, graph, item_id)
+                if source is None:
+                    self._send_json(404, {"error": error})
+                    return
+                if source.suffix.lower() != ".md":
+                    self._send_json(404, {"error": "item source is not markdown"})
+                    return
+                try:
+                    payload = source.read_text(encoding="utf-8").encode("utf-8")
+                except (OSError, UnicodeError):
+                    self._send_json(500, {"error": "could not read story body"})
+                    return
+                if len(payload) > 2 * 1024 * 1024:
+                    self._send_json(413, {"error": "story body is too large"})
+                    return
+                self._send_bytes(200, payload, "text/markdown; charset=utf-8")
                 return
             if parsed.path.startswith("/api/open/"):
                 self._send_json(405, {"error": "POST required"})
@@ -1072,6 +1151,13 @@ def _check(root: Path, structural: bool) -> int:
         return 2
     graph_path = root / GRAPH_RELPATH
     stale: set[str] = set()
+
+    if cfg.get("reviews.enabled", False):
+        try:
+            load_review_plans(cfg, root)
+        except ReviewContractError as exc:
+            print(f"check: review contracts are invalid: {exc}")
+            return 2
 
     # Installed copies carry a marker beside the vendored engine. A partial
     # update can render static files while every guarded HTTP API rejects the
@@ -1620,6 +1706,44 @@ def _sessions(root: Path, args: argparse.Namespace) -> int:
         return 2
 
 
+def _reviews(root: Path, args: argparse.Namespace) -> int:
+    """Inspect review authority or append an agent's independently run event."""
+    cfg = _load_config(root, "review")
+    if cfg is None:
+        return 2
+    if not cfg.get("reviews.enabled", False):
+        print("review: disabled in vizzer.toml")
+        return 2
+    try:
+        if args.review_action == "show":
+            print(json.dumps(review_state(cfg, root), indent=2))
+            return 0
+        event = _read_request_file(args.file, "review event")
+        actor = event.get("actor")
+        if not isinstance(actor, dict) or actor.get("kind") != "agent":
+            raise ReviewServiceError(
+                "review record accepts agent runs only; owners validate through vizzer serve"
+            )
+        with _mutation_guard(root):
+            ledger = append_review_event(
+                cfg, root, args.plan, event,
+                expected_revision=args.expected_revision,
+                allow_owner=False,
+            )
+        print(json.dumps({
+            "planId": args.plan,
+            "revision": ledger["revision"],
+            "event": ledger["events"][-1],
+        }, indent=2))
+        return 0
+    except ReviewContractError as exc:
+        print(f"review: {exc}")
+        return 3 if "stale; current revision" in str(exc) else 2
+    except (WorkstreamError, OSError, UnicodeError, json.JSONDecodeError) as exc:
+        print(f"review: {exc}")
+        return 2
+
+
 def _configure(root: Path, args: argparse.Namespace) -> int:
     from .onboarding import ConfigurationError, configure_from_answers, grill
 
@@ -1833,6 +1957,24 @@ def _parser() -> argparse.ArgumentParser:
     session_stop.add_argument("--id", required=True)
     session_stop.add_argument("--expected-revision", type=int, required=True)
     session_stop.set_defaults(handler=lambda args: _sessions(Path(args.root), args))
+
+    review = subparsers.add_parser(
+        "review", help="inspect review plans or record an agent evidence run"
+    )
+    review_subparsers = review.add_subparsers(dest="review_action", required=True)
+    review_show = review_subparsers.add_parser(
+        "show", help="print current plans and latest agent/owner runs"
+    )
+    review_show.add_argument("--root", default=".")
+    review_show.set_defaults(handler=lambda args: _reviews(Path(args.root), args))
+    review_record = review_subparsers.add_parser(
+        "record", help="append an agent run from a validated JSON event file"
+    )
+    review_record.add_argument("--root", default=".")
+    review_record.add_argument("--plan", required=True)
+    review_record.add_argument("--file", required=True)
+    review_record.add_argument("--expected-revision", type=int, required=True)
+    review_record.set_defaults(handler=lambda args: _reviews(Path(args.root), args))
 
     configure = subparsers.add_parser(
         "configure", help="grill project source roles and write vizzer.toml"

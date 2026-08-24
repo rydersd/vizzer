@@ -1,5 +1,6 @@
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
+:root{--rail-width:236px;--sidebar-type-size:14pt}
 body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
 #bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}
 #bgcv{pointer-events:none}
@@ -8,7 +9,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #cv.drag{cursor:grabbing}
 #cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
-#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;grid-template-rows:28px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
+#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
@@ -57,11 +58,12 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .seg button:last-child{border-right:none}
 .seg button.on{color:var(--ink);background:var(--bg2)}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.typeseg{height:32px;border-radius:7px;align-items:stretch}.typeseg button{display:grid;place-items:center;width:34px;padding:0;letter-spacing:0;line-height:1}.typeseg button[data-sidebar-size="14"]{font-size:14pt}.typeseg button[data-sidebar-size="18"]{font-size:18pt}.typeseg button[data-sidebar-size="22"]{font-size:22pt}
 .clearx{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1;width:22px;height:22px;padding:0;
   border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;align-self:center}
 .clearx:hover{color:var(--ink);border-color:var(--mut)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-#search{position:fixed;left:12px;top:112px;width:218px;height:34px;z-index:5;display:grid;
+#search{position:fixed;left:12px;top:116px;width:calc(var(--rail-width) - 18px);height:34px;z-index:5;display:grid;
   grid-template-columns:1fr 24px;grid-template-rows:24px 10px;column-gap:4px;align-items:center}
 #searchinput{min-width:0;height:24px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);
   padding:2px 8px;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;outline:none}
@@ -80,16 +82,17 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .symbol-defs{position:absolute;width:0;height:0;overflow:hidden}
 #searchcount{grid-column:1 / -1;grid-row:2;color:var(--mut);font:9px/1 ui-monospace,"SF Mono",Menlo,monospace;
   font-variant-numeric:tabular-nums;padding-left:2px}
-#rail{position:fixed;left:0;top:154px;bottom:0;width:236px;padding:8px 12px 20px;overflow-y:auto;z-index:4;
+#rail{position:fixed;left:0;top:158px;bottom:0;width:var(--rail-width);padding:8px 12px 20px;overflow-y:auto;z-index:4;
   background:linear-gradient(to right,var(--bg) 55%,transparent)}
+#railresize{position:fixed;z-index:5;left:calc(var(--rail-width) - 5px);top:158px;bottom:0;width:10px;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}#railresize::after{content:'';position:absolute;left:4px;top:50%;width:2px;height:44px;border-radius:2px;background:var(--line);transform:translateY(-50%)}#railresize:hover::after,#railresize:focus-visible::after,#railresize.dragging::after{background:var(--accent)}#railresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}
-.caphead{font-size:12px;font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.caphead{font-size:var(--sidebar-type-size);font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;line-height:1.25}
 .caplabel{min-width:0;display:grid;gap:1px;color:var(--ink)}
 .caplabel>span{overflow-wrap:anywhere}
-.caplabel small{color:var(--mut);font:8px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
-.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums}
+.caplabel small{color:var(--mut);font:10px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:var(--sidebar-type-size);font-variant-numeric:tabular-nums}
 .capbar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
 .capbar i{height:100%;background:var(--shipped)}
 .capbar b{height:100%;background:var(--buggap)}
@@ -108,7 +111,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
 @media (prefers-reduced-motion:reduce){.railcapability>summary::before{transition:none}}
 :root{--dossier-width:clamp(360px,36vw,560px)}
-#dossier{position:fixed;right:0;top:106px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - 260px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
+#dossier{position:fixed;right:0;top:110px;bottom:0;width:var(--dossier-width);min-width:320px;max-width:calc(100vw - var(--rail-width) - 24px);display:flex;flex-direction:column;overflow:hidden;overflow:clip;z-index:6;
   background:var(--panel);backdrop-filter:blur(10px);border-left:1px solid var(--line);
   transform:translateX(105%);transition:none}
 #dossier.open{transform:none}
@@ -125,18 +128,19 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
 .dossierkeyboard{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px;line-height:1.25}
 .dossierkeyboard span{white-space:nowrap}.dossierkeyboard kbd{display:inline-grid;place-items:center;min-width:17px;height:17px;margin-right:2px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
-#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable}
+#dbody{min-width:0;min-height:0;flex:1;overflow-x:hidden;overflow-y:auto;overflow-anchor:none;padding:12px 16px 16px;scrollbar-gutter:stable;font-size:var(--sidebar-type-size)}
 #dossierfooter{flex:none;min-width:0}
 #dossier h2,#dossier h3,#dossier h4,#dossier p,#dossier b,#dossier small,#dossier code{overflow-wrap:anywhere}
+#dossier #dbody :where(p,li,dd,button:not(.chip):not(.pill),label,textarea,select){font-size:inherit}.chip,.pill,#top button:not([data-sidebar-size]){font-size:11px}
 .pill{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
   padding:2px 10px;border-radius:20px;color:var(--bg);font-weight:600}
-.kv{font-size:12px;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
+.kv{font-size:inherit;line-height:1.35;color:var(--mut);display:grid;grid-template-columns:70px 1fr;gap:7px 10px;margin-bottom:14px}
 .kv span,.kv b{min-width:0;overflow-wrap:anywhere}.kv b{color:var(--ink);font-weight:500}
 #dossier .story{display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--accent);
   border:1px solid var(--accent);border-radius:6px;padding:6px 12px;text-decoration:none;margin:0 8px 16px 0;background:transparent;cursor:pointer}
 #dossier .story:hover{background:var(--accent);color:var(--bg)}
 #dossier .story:disabled{opacity:.6;cursor:progress}
-.workcard{border-left:2px solid var(--active);padding:4px 0 4px 9px;margin:8px 0;font-size:12px}
+.workcard{border-left:2px solid var(--active);padding:4px 0 4px 9px;margin:8px 0;font-size:inherit}
 .workcard.blocked{border-color:var(--buggap)}
 .workcard.stale{border-color:var(--mut);color:var(--mut)}
 .workcard b,.workcard small{display:block}.workcard small{color:var(--mut)}

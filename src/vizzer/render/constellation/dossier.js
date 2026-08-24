@@ -1,4 +1,47 @@
 // ---- dossier ----
+function storySidebarSectionBody(content,missing){
+  return content?`<div class="storymd">${renderStoryMarkdown(content)}</div>`
+    :`<p class="storysectionmissing">${esc(missing)}</p>`;
+}
+function storyFullBodyMarkup(n){
+  if(!SERVED||!n.id)return '';
+  return `<section class="storyaccordion"><button type="button" data-story-accordion="full-story" aria-expanded="false">Full story</button>`
+    +`<div data-story-accordion-panel="full-story" hidden>`
+    +`<p class="storysectionmissing" data-story-body="${esc(n.id)}">Loading story…</p></div></section>`;
+}
+function storySidebarSectionsMarkup(n){
+  if(n.foundation)return '';
+  return `<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
+    +storySidebarSectionBody(n.rs,'No review steps written yet for this item.')+`</section>`
+    +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="acceptance" aria-expanded="true">Acceptance criteria</button>`
+    +`<div data-story-accordion-panel="acceptance">`
+    +storySidebarSectionBody(n.acx,'No acceptance criteria written yet for this item.')+`</div></section>`
+    +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="definition-of-done" aria-expanded="false">Definition of done</button>`
+    +`<div data-story-accordion-panel="definition-of-done" hidden>`
+    +storySidebarSectionBody(n.dod,'No definition of done written yet for this item.')+`</div></section>`
+    +storyFullBodyMarkup(n);
+}
+function bindStorySidebar(container){
+  container.querySelectorAll('[data-story-accordion]').forEach(button=>{
+    const key=button.dataset.storyAccordion;
+    const panel=container.querySelector(`[data-story-accordion-panel="${key}"]`);
+    if(!panel)return;
+    button.addEventListener('click',async()=>{
+      const expanded=button.getAttribute('aria-expanded')!=='true';
+      button.setAttribute('aria-expanded',String(expanded));panel.hidden=!expanded;
+      const host=expanded&&key==='full-story'?panel.querySelector('[data-story-body]'):null;
+      if(!host||host.dataset.loading==='true')return;
+      host.dataset.loading='true';
+      try{
+        const response=await fetch('/api/story/'+encodeURIComponent(host.dataset.storyBody)+'/body');
+        if(!response.ok)throw new Error('story body fetch failed');
+        const rendered=document.createElement('div');
+        rendered.className='storymd storyfull';rendered.innerHTML=renderStoryMarkdown(await response.text());
+        host.replaceWith(rendered);
+      }catch(_){host.textContent='Could not load the story body.';host.dataset.loading='false';}
+    });
+  });
+}
 const dossier = document.getElementById('dossier'), dbody = document.getElementById('dbody'), dossierFooter = document.getElementById('dossierfooter'), dossierIdentity = document.getElementById('dossieridentity'), dossierResize = document.getElementById('dossierresize');
 const DOSSIER_MIN=320,DOSSIER_MAX=720,DOSSIER_CANVAS_MIN=260,DOSSIER_COMPACT=760;
 const dossierStorageKey=`vizzer:dossier-width:${document.title}`;
@@ -139,6 +182,7 @@ function openNode(i,{inPlace=false}={}){
     ${ownerQuestionCards}
     ${ownerDecisionCards}
     ${planSection(n)}
+    ${storySidebarSectionsMarkup(n)}
     ${n.h&&!SERVED?`<a class="story" href="${esc(n.h)}">open Markdown ${icon('arrow-up-right')}</a>`:''}
     ${n.id&&SERVED?`<button class="story" type="button" data-open-item="${esc(n.id)}">read story</button>`:''}
     ${DATA.root&&n.p?`<a class="story" href="obsidian://open?path=${esc(encodeURIComponent(DATA.root+'/'+n.p))}">obsidian</a>`:''}
@@ -159,6 +203,7 @@ function openNode(i,{inPlace=false}={}){
   });
   bindQuestionControls(n);
   bindPlanControls(n);
+  bindStorySidebar(dbody);
   // Reconciliation can replace long question forms with compact answer cards.
   // Preserve the old scrollable extent until an explicit close/reopen, or the
   // browser clamps the requested scrollTop to zero and makes the drawer jump.

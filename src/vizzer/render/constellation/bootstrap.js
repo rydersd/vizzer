@@ -31,6 +31,7 @@ if(SERVED){
     if(currentView==='workstreams')renderCurrentView();
     return body;
   }).catch(error=>{console.warn('Vizzer workstreams:',error.message||String(error));});
+  loadReviewContext();
 }
 frame();
 window.__vizzerBoot.ready();
