@@ -1,19 +1,19 @@
 # Completion audit — generic review and evidence workflow
 
 > Date: 2026-08-23
-> Audited implementation: `codex/developer-flow-upstream` through feature commit `95ff95b`
+> Audited implementation: feature code through `95ff95b`, completion evidence through `ba468ef`
 > Scope: G-001 objective and success conditions; G-002's separately disclosed 100k cold-start
 > performance follow-up is not promoted into an enterprise-performance claim here.
 
 ## Conclusion
 
-G-001 is implemented on the pushed upstream review branch. The source contract, derived procedure,
+G-001 is implemented and merged to upstream `main`. The source contract, derived procedure,
 agent execution, evidence bytes, owner repetition, and owner verdict are separate authorities; the
 web/local host boundary is symbolic and project-owned; the served owner mutation is loopback-only;
 and the generic runtime/fixtures contain no originating-project identity. The revalidation also
 closed the initial worktree inventory's explicit second-pass requirement.
 
-This conclusion is wrong if either of these conditions becomes true before merge:
+This conclusion needs revalidation if either of these conditions becomes true after publication:
 
 1. the live IllTool review-capture lane adds a new generic Vizzer engine module after
    `a23cccc29b18`; or
@@ -33,7 +33,7 @@ This conclusion is wrong if either of these conditions becomes true before merge
 | Identify source-of-truth and evidence schemas | Achieved | Schema-1 plan, event, ledger, adapter registry, object detail, and developer graph contracts are documented and parser-validated. A plan revision rotates to a new fingerprint epoch; historical events remain immutable. |
 | Enforce security/privacy boundaries | Achieved for local v1 | Project-relative descriptor walks use `openat`/`O_NOFOLLOW` where available; plans, sources, ledgers, images, decoded pixels, state projection, and evidence delivery are bounded; raw commands and executable adapter fields are rejected; storage roots are contained/non-overlapping; evidence URLs are opaque and byte-reverified; loopback Host, same-origin/CSRF, `nosniff`, sandbox CSP, and same-origin resource policy are tested. Capture redaction and semantic screenshot quality remain declared host responsibilities because Vizzer cannot infer secrets or scenario truth from pixels. |
 | Prove project agnosticism | Achieved | Unrelated web-application and data-pipeline graph fixtures plus neutral web/local review fixtures exercise the same contracts. Negative tests scan shipped runtime and fixtures for originating product names, paths, Apple/Xcode host assumptions, and personal identity. |
-| Verify rendered/served behavior, offline packaging, and core independence | Achieved | Fresh focused audit: **84 passed**. Fresh complete audit: **489 passed, 2 skipped in 41.16s**. `npm run build` passed; production audit reported **0 vulnerabilities**. Wheel/sdist built; the wheel installed with `--offline --no-deps`, declared no runtime requirements, and contained the optional assets/notices. Two deterministic zipapps had identical SHA-256 `6f542c912aaf1fc4fde2f64e127e42a7545bad855a5d11b77bfc90405da839df`. |
+| Verify rendered/served behavior, offline packaging, and core independence | Achieved | Publication gate: **491 passed** in 64.59 seconds. `npm run build` passed; production audit reported **0 vulnerabilities**. Wheel/sdist built; the wheel installed with `--offline --no-deps`, declared no runtime requirements, and contained the optional assets/notices. Two deterministic zipapps had identical SHA-256 `6f542c912aaf1fc4fde2f64e127e42a7545bad855a5d11b77bfc90405da839df`. |
 
 ## Fresh neutral served exercise
 
@@ -76,6 +76,6 @@ receipts had carried JPEG bytes under `.png` names and were renamed rather than 
   normalization/index cost remains too high for an “enterprise-performance-ready” label. G-002
   retains persisted/incremental indexing and adapter aggregation as an explicit performance
   follow-up.
-- Merge to upstream `main` is a repository-owner integration decision. The implementation and this
-  audit are pushed on `origin/codex/developer-flow-upstream`; the audit does not pretend branch
-  publication is a merge.
+- Ryder authorized publication after the fresh adversarial gate. Upstream `main` was fast-forwarded
+  from `8ae6462` to `ba468ef` without force and the fetched and independently queried remote SHAs
+  matched; this record follows that publication rather than pretending a branch push was a merge.

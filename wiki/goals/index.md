@@ -22,8 +22,8 @@ execute at once, without pretending that a wiki checkbox is a running agent.
 
 | ID | Status | Ambition | Goal | Next promotion gate |
 |---|---|---:|---|---|
-| `G-001` | complete | large | [Upstream the generic review and evidence workflow](upstream-review-evidence-workflow.md) | Completion audit passed on the pushed upstream review branch; merge remains a repository-owner integration decision. |
-| `G-002` | in progress | ambitious | [Developer-experience object graph](developer-experience-object-graph.md) | Extract the proven IllTool schema, semantic focus, shared-detail, ELK, and optional-bundle seams upstream without fixture vocabulary or monolithic enterprise payloads. |
+| `G-001` | complete | large | [Upstream the generic review and evidence workflow](upstream-review-evidence-workflow.md) | Merged to upstream `main` after the adversarial publication gate; retain the documented local-v1 trust boundaries. |
+| `G-002` | in progress | ambitious | [Developer-experience object graph](developer-experience-object-graph.md) | Replace the measured 21.765-second/~1.0 GB 100k-object cold index with persisted/incremental indexing before claiming enterprise-scale startup. |
 
 ## Storage convention
 

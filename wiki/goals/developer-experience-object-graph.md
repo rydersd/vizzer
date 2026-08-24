@@ -1,6 +1,6 @@
 # G-002 — Developer-experience object graph
 
-> Status: implemented and pushed on review branch; performance follow-up retained
+> Status: implemented and merged to upstream `main`; performance follow-up retained
 > Ambition: ambitious
 > Created: 2026-08-23
 > Updated: 2026-08-23

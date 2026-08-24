@@ -1,6 +1,6 @@
 # G-001 — Upstream the generic review and evidence workflow
 
-> Status: complete on pushed upstream review branch
+> Status: complete and merged to upstream `main`
 > Ambition: large
 > Created: 2026-08-23
 > Updated: 2026-08-23
@@ -62,6 +62,7 @@ acceptance loop:
 - [Adversarial review of the first upstream slice, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-2026-08-23.md)
 - [Adversarial review of the service and owner UI, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-service-ui-2026-08-23.md)
 - [Final reusable-fork adversarial review, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-review-final-migration-2026-08-23.md)
+- [Adversarial publication gate, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-publication-gate-2026-08-23.md)
 - [Service, fixture, and browser verification, 2026-08-23](materials/upstream-review-evidence-workflow/verification-2026-08-23.md)
 - [Requirement-by-requirement completion audit, 2026-08-23](materials/upstream-review-evidence-workflow/completion-audit-2026-08-23.md)
 - [Project-agnostic review workflow contract](../../docs/review-workflows.md)
@@ -117,3 +118,8 @@ acceptance loop:
   offline no-dependency wheel install, reproducible zipapp check, optional frontend build/audit,
   and full test rerun. The completion matrix records direct evidence and falsifiers for every G-001
   success condition; G-001 is complete on the pushed review branch without claiming a merge.
+- 2026-08-23 — Ryder authorized publication after a fresh adversarial gate. The gate reran the full
+  491-test suite, frontend build/audit, source compile, package/offline install, deterministic
+  zipapp, link, leakage, credential-pattern, ancestry, and remote-identity checks. Upstream `main`
+  fast-forwarded from `8ae6462` to `ba468ef` without force; G-002's measured 100k cold-start cost
+  remains an explicit performance follow-up rather than a hidden enterprise-readiness claim.
