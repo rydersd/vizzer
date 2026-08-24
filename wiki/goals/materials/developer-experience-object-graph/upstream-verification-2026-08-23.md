@@ -10,6 +10,11 @@
 - Capability overview, nested group drill-down, story functional neighborhood, status composition,
   shared dossier detail, orthogonal routed edges, filters, saved views, URL views, and SVG export are
   covered by focused tests and a real browser exercise.
+- Frame and card geometry grows from wrapped title/summary/failure content instead of fixed header
+  assumptions. The reported `Component Authoring & Instances` failure was reproduced at review
+  zoom and verified unclipped after the fix.
+- Orthogonal bends use a 10-unit quadratic corner radius. ELK reserves 18 units between parallel
+  routes; the fan-out regression fixture produces three adjacent lanes at x=204, 222, and 240.
 - Roadmap filters include release column, capability/product facet, last-modified order, and
   dependency order.
 - A synthetic 25,000-object/10-group graph normalized, indexed, and returned a bounded 600-of-2,500
@@ -31,6 +36,10 @@
 ![IllTool capability overview at full browser width](illtool-capability-overview-full-width-2026-08-23.png)
 
 ![Drawing story with the shared detail panel at full browser width](illtool-drawing-story-detail-full-width-2026-08-23.png)
+
+![Component capability frame with its full wrapped title](illtool-capability-frame-unclipped-2026-08-23.png)
+
+![Rounded dependency routes at full browser width](illtool-rounded-equidistant-routes-2026-08-23.png)
 
 The browser saved and restored a named “Commerce component map”, copied a URL-encoded story view,
 and exported [`upstream-neutral-commerce-component.svg`](upstream-neutral-commerce-component.svg).
@@ -54,3 +63,9 @@ evidence for the original Developer Flow slice.
 Final combined publication audit: **488 passed, 2 skipped in 99.08s** on Python 3.9. The optional
 frontend rebuilt successfully; its production dependency audit reported zero vulnerabilities; the
 wheel, source distribution, and deterministic zipapp built and validated.
+
+Post-review geometry audit: **126 focused tests passed in 44.17s**. The first complete run was
+**487 passed, 2 skipped with one expected Constellation golden identity drift** after bundle bytes
+changed; the golden was regenerated from the tested renderer and the CLI/golden slice then passed
+**43/43**. The final complete rerun against the settled source identity passed **488 tests with 2
+skipped in 83.04s**.

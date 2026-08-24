@@ -53,19 +53,26 @@ project vocabulary, while preserving the larger generic agent-to-owner review go
   617,362 bytes), but cold normalization/indexing took 21.765 seconds and about 1.0 GB RSS.
 - Final combined Python audit is 488 passed, 2 skipped in 99.08s. Frontend build/audit, wheel,
   sdist, zipapp, compile, archive-integrity, diff, and project-identity leakage gates are green.
+- Replaced fixed Developer Flow frame/card geometry with content-derived dimensions after the owner
+  exposed a clipped `Component Authoring & Instances` title. Added rounded orthogonal bends and
+  explicit 18-unit parallel lanes/24-unit node clearance; 126 focused tests and full-size browser
+  receipts cover the revised geometry.
+- Final post-geometry Python audit: 488 passed, 2 skipped in 83.04 seconds.
 
 ## Now
 
-Finish the publication gate. The migration matrix now classifies every audited family as ported or
-deliberately excluded; the remaining material risk is Developer Flow cold-start/memory at the
-100,000-object safety ceiling.
+Finish the publication and IllTool re-vendor gate. The migration matrix classifies every audited
+family as ported or deliberately excluded; the remaining material risk is Developer Flow
+cold-start/memory at the 100,000-object safety ceiling.
 
 ## Next
 
-1. Regenerate the Constellation golden after the final source hash settles.
-2. Run the complete suite, package/build/audit/leakage gates, and inspect the final diff.
-3. Commit and push the review branch. Keep the 100k persisted/incremental-index work as a named
-   performance follow-up rather than smuggling it into a completion claim.
+1. Run the complete suite against the settled post-geometry render identity and inspect the diff.
+2. Commit and push the review branch with `--force-with-lease` because it was rebased onto main.
+3. Re-vendor that exact upstream revision into IllTool, enable the optional add-on, refresh, and
+   prove `:8477` exposes Views → Developer Flow plus the direct URL.
+4. Keep the 100k persisted/incremental-index work as a named performance follow-up rather than
+   smuggling it into a completion claim.
 
 ## Open questions
 

@@ -1,4 +1,4 @@
-import {pathMidpoint} from './layout_contract.mjs';
+import {pathMidpoint,roundedOrthogonalPath} from './layout_contract.mjs';
 
 function esc(value){
   return String(value??'')
@@ -21,7 +21,7 @@ function wrap(value,limit=38,lines=3){
   return result.slice(0,lines);
 }
 function pointsPath(points){
-  return points.length?`M ${points.map(point=>`${number(point.x)} ${number(point.y)}`).join(' L ')}`:'';
+  return roundedOrthogonalPath(points.map(point=>({x:number(point.x),y:number(point.y)})),10);
 }
 
 export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],lod='summary',exportedAt=''}){

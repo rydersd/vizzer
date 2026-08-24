@@ -67,6 +67,8 @@ filtering, and detail concepts.
    future inference belongs in an adapter and must disclose its confidence.
 3. Groups carry authored/derived provenance and support nested capability/cluster frames.
 4. Pinned ELK Layered supplies compound, orthogonal, deterministic routing; React Flow renders it.
+   Parallel routes reserve equal 18-unit lanes and the renderer rounds orthogonal corners without
+   changing ELK's obstacle-avoiding topology.
 5. The add-on is disabled by default. Core retains Constellation and Markdown; the normalized graph
    and current routed scope can be exported as real SVG.
 6. Overview queries aggregate groups. Group and object-neighborhood queries return bounded slices,
@@ -92,4 +94,6 @@ filtering, and detail concepts.
 - [Readable story-neighborhood screenshot](materials/developer-experience-object-graph/upstream-neutral-story-neighborhood.png)
 - [Full-width IllTool capability overview](materials/developer-experience-object-graph/illtool-capability-overview-full-width-2026-08-23.png)
 - [Full-width Drawing story and shared detail](materials/developer-experience-object-graph/illtool-drawing-story-detail-full-width-2026-08-23.png)
+- [Unclipped capability frame at review scale](materials/developer-experience-object-graph/illtool-capability-frame-unclipped-2026-08-23.png)
+- [Rounded, equally spaced dependency routes](materials/developer-experience-object-graph/illtool-rounded-equidistant-routes-2026-08-23.png)
 - [Exported routed SVG](materials/developer-experience-object-graph/upstream-neutral-commerce-component.svg)

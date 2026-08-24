@@ -68,13 +68,24 @@ def test_nested_frames_semantic_focus_keyboard_selection_and_bounded_lod_are_wir
 def _route_probe():
     script = r"""
 import ELK from 'elkjs/lib/elk.bundled.js';
-import {pathMidpoint,rootLayoutOptions,routeCrossesRect} from './src/layout_contract.mjs';
+import {
+  groupFrameMetrics,objectCardMetrics,pathMidpoint,rootLayoutOptions,
+  roundedOrthogonalPath,routeCrossesRect,
+} from './src/layout_contract.mjs';
 const elk=new ELK();
 const graph={id:'root',layoutOptions:rootLayoutOptions('RIGHT'),children:[
   {id:'a',width:120,height:80},{id:'b',width:120,height:80},
   {id:'c',width:120,height:80},{id:'d',width:120,height:80}],edges:[
   {id:'ad',sources:['a'],targets:['d']},{id:'bc',sources:['b'],targets:['c']} ]};
 const layout=await elk.layout(graph);
+const fanout=await elk.layout({id:'fanout',layoutOptions:rootLayoutOptions('RIGHT'),children:[
+  {id:'source',width:120,height:70},
+  {id:'target-0',width:120,height:70},{id:'target-1',width:120,height:70},
+  {id:'target-2',width:120,height:70},{id:'target-3',width:120,height:70}],
+  edges:[0,1,2,3].map(index=>({id:`fan-${index}`,sources:['source'],targets:[`target-${index}`]}))});
+const laneXs=fanout.edges.flatMap(edge=>edge.sections?.[0]?.bendPoints||[])
+  .filter((point,index,points)=>index%2===0&&points[index+1]?.x===point.x)
+  .map(point=>point.x).sort((a,b)=>a-b);
 const rects=new Map(layout.children.map(n=>[n.id,{x:n.x,y:n.y,width:n.width,height:n.height}]));
 let hits=0;
 for(const edge of layout.edges){
@@ -88,7 +99,15 @@ for(const edge of layout.edges){
 const b=rects.get('b');
 const mutation=[{x:b.x-20,y:b.y+b.height/2},{x:b.x+b.width+20,y:b.y+b.height/2}];
 const midpoint=pathMidpoint([{x:0,y:0},{x:100,y:0},{x:100,y:300}]);
-console.log(JSON.stringify({hits,mutationDetected:routeCrossesRect(mutation,b),midpoint}));
+const options=rootLayoutOptions('RIGHT');
+const rounded=roundedOrthogonalPath([{x:0,y:0},{x:80,y:0},{x:80,y:70}],10);
+const frame=groupFrameMetrics('Component Authoring & Instances',
+  {blocked:13,active:6,ready:33,shipped:49},true);
+const card=objectCardMetrics({title:'A deliberately long object title that wraps safely',
+  summary:'A summary with enough content to occupy multiple complete lines without a clamp.'});
+console.log(JSON.stringify({hits,mutationDetected:routeCrossesRect(mutation,b),midpoint,
+  edgeGap:options['elk.spacing.edgeEdge'],betweenGap:options['elk.layered.spacing.edgeEdgeBetweenLayers'],
+  rounded,frame,card,laneXs}));
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script],
@@ -99,10 +118,16 @@ console.log(JSON.stringify({hits,mutationDetected:routeCrossesRect(mutation,b),m
 
 def test_orthogonal_layout_avoids_card_interiors_and_mutation_detects_overlap():
     result = _route_probe()
-    assert result == {
-        "hits": 0, "mutationDetected": True,
-        "midpoint": {"x": 100, "y": 100},
-    }
+    assert result["hits"] == 0
+    assert result["mutationDetected"] is True
+    assert result["midpoint"] == {"x": 100, "y": 100}
+    assert result["edgeGap"] == result["betweenGap"] == "18"
+    assert result["laneXs"] == [204, 222, 240]
+    assert result["rounded"] == "M 0 0 L 70 0 Q 80 0 80 10 L 80 70"
+    assert result["frame"]["width"] == 360
+    assert result["frame"]["height"] > 132
+    assert result["frame"]["headerHeight"] >= 54
+    assert result["card"]["height"] > 138
 
 
 def test_neighborhood_includes_prerequisites_consumers_and_typed_relations():

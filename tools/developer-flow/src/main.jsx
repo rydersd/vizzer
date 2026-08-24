@@ -6,7 +6,10 @@ import {
   ReactFlow,ReactFlowProvider,getSmoothStepPath,useReactFlow,
 } from '@xyflow/react';
 import {developerFlowSvg,svgFilename,triggerSvgDownload} from './export_svg.mjs';
-import {groupLayoutOptions,pathMidpoint,rootLayoutOptions} from './layout_contract.mjs';
+import {
+  groupFrameMetrics,groupLayoutOptions,objectCardMetrics,pathMidpoint,
+  rootLayoutOptions,roundedOrthogonalPath,
+} from './layout_contract.mjs';
 import {
   decodeViewState,encodeViewState,normalizeSavedViews,normalizeViewState,
   savedViewsStorageKey,
@@ -141,23 +144,19 @@ function projectVisible(data,filters,collapsed,selectedId){
   };
 }
 
-function objectHeight(object,expanded){
-  if(expanded)return 340;
-  if(object.failure)return 222;
-  return object.summary?176:138;
-}
 function buildElkGraph(projected,collapsed,expanded,direction){
   const groupsByParent=new Map(),objectsByGroup=new Map();
   for(const group of projected.groups){const key=group.parentId||'';groupsByParent.set(key,[...(groupsByParent.get(key)||[]),group]);}
   for(const object of projected.objects){const key=object.groupId||'';objectsByGroup.set(key,[...(objectsByGroup.get(key)||[]),object]);}
-  const objectNode=object=>({id:object.id,width:expanded.has(object.id)?440:320,height:objectHeight(object,expanded.has(object.id)),vizzerType:'object'});
+  const objectNode=object=>({id:object.id,...objectCardMetrics(object,expanded.has(object.id)),vizzerType:'object'});
   const groupNode=group=>{
     const isCollapsed=collapsed.has(group.id);
+    const metrics=groupFrameMetrics(group.title,projected.groupStatusCounts.get(group.id)||{},isCollapsed);
     const children=isCollapsed?[]:[
       ...(groupsByParent.get(group.id)||[]).sort((a,b)=>a.id.localeCompare(b.id)).map(groupNode),
       ...(objectsByGroup.get(group.id)||[]).sort((a,b)=>a.id.localeCompare(b.id)).map(objectNode),
     ];
-    return {id:group.id,vizzerType:'group',...(isCollapsed?{width:280,height:132}:{}),children,layoutOptions:groupLayoutOptions(direction)};
+    return {id:group.id,vizzerType:'group',...(isCollapsed?{width:metrics.width,height:metrics.height}:{}),children,layoutOptions:groupLayoutOptions(direction,metrics.headerHeight)};
   };
   return {
     id:'developer-root',
@@ -180,11 +179,14 @@ function flattenLayout(layout,projected,collapsed,expanded,onToggleGroup,onToggl
   const visit=(entry,parentId=null)=>{
     if(entry.vizzerType==='group'){
       const group=groupById.get(entry.id);
-      nodes.push({id:entry.id,type:'groupFrame',parentId:parentId||undefined,position:{x:entry.x||0,y:entry.y||0},style:{width:entry.width,height:entry.height},selectable:true,draggable:false,data:{...group,count:projected.groupCounts.get(entry.id)||0,statusCounts:projected.groupStatusCounts.get(entry.id)||{},collapsed:collapsed.has(entry.id),onToggle:onToggleGroup}});
+      const statusCounts=projected.groupStatusCounts.get(entry.id)||{};
+      const metrics=groupFrameMetrics(group.title,statusCounts,collapsed.has(entry.id));
+      nodes.push({id:entry.id,type:'groupFrame',parentId:parentId||undefined,position:{x:entry.x||0,y:entry.y||0},style:{width:entry.width,height:entry.height},selectable:true,draggable:false,data:{...group,count:projected.groupCounts.get(entry.id)||0,statusCounts,headerHeight:metrics.headerHeight,collapsed:collapsed.has(entry.id),onToggle:onToggleGroup}});
       for(const child of entry.children||[])visit(child,entry.id);
     }else{
       const object=objectById.get(entry.id);
-      nodes.push({id:entry.id,type:'objectCard',parentId:parentId||undefined,extent:parentId?'parent':undefined,position:{x:entry.x||0,y:entry.y||0},style:{width:entry.width,height:entry.height},draggable:false,data:{...object,expanded:expanded.has(entry.id),onToggleExpanded,onSelect}});
+      const metrics=objectCardMetrics(object,expanded.has(entry.id));
+      nodes.push({id:entry.id,type:'objectCard',parentId:parentId||undefined,extent:parentId?'parent':undefined,position:{x:entry.x||0,y:entry.y||0},style:{width:entry.width,height:entry.height},draggable:false,data:{...object,headerHeight:metrics.headerHeight,expanded:expanded.has(entry.id),onToggleExpanded,onSelect}});
     }
   };
   for(const child of layout.children||[])visit(child);
@@ -203,7 +205,7 @@ function flattenLayout(layout,projected,collapsed,expanded,onToggleGroup,onToggl
 const GroupFrame=memo(function GroupFrame({data}){
   const roles=['blocked','active','ready','shipped'];
   return <section className={`group-frame${data.collapsed?' is-collapsed':''}`} aria-label={`${data.title} group`}>
-    <header><span>{data.title}</span><small>{data.count} objects</small><button type="button" onClick={event=>{event.stopPropagation();data.onToggle(data.id);}} aria-expanded={!data.collapsed}>{data.collapsed?'Expand':'Collapse'}</button></header>
+    <header style={{minHeight:data.headerHeight}}><span>{data.title}</span><small>{data.count} objects</small><button type="button" onClick={event=>{event.stopPropagation();data.onToggle(data.id);}} aria-expanded={!data.collapsed}>{data.collapsed?'Expand':'Collapse'}</button></header>
     {data.collapsed&&<div className="group-aggregate"><span>{kindIcon(data.kind)} <b>{data.count}</b></span><span className="status-composition" aria-label="Subcomponent status">{roles.filter(role=>data.statusCounts[role]).map(role=><i className={`role-${role}`} key={role} title={`${data.statusCounts[role]} ${role}`}>{data.statusCounts[role]} {role}</i>)}</span></div>}
     <Handle type="target" position={Position.Left}/><Handle type="source" position={Position.Right}/>
   </section>;
@@ -211,7 +213,7 @@ const GroupFrame=memo(function GroupFrame({data}){
 const ObjectCard=memo(function ObjectCard({data,selected}){
   return <article className={`object-card status-${data.status}${data.failure?' has-failure':''}${selected?' selected':''}`} data-expanded={data.expanded?'true':'false'}>
     <Handle type="target" position={Position.Left}/>
-    <header><span className="kind-icon" aria-hidden="true">{kindIcon(data.kind)}</span><button className="object-select" type="button" onClick={event=>{event.stopPropagation();data.onSelect(data.id);}}><small>{data.kind}</small><b>{data.title}</b></button><em>{data.status}</em></header>
+    <header style={{minHeight:data.headerHeight}}><span className="kind-icon" aria-hidden="true">{kindIcon(data.kind)}</span><button className="object-select" type="button" onClick={event=>{event.stopPropagation();data.onSelect(data.id);}}><small>{data.kind}</small><b>{data.title}</b></button><em>{data.status}</em></header>
     {data.summary&&<p>{data.summary}</p>}
     {data.failure&&<button type="button" className="failure-strip" title={`${data.failure.source} · ${data.failure.at}`}>⚠ {data.failure.message}</button>}
     {data.expanded&&<dl className="card-details">{Object.entries(data.details||{}).filter(([,value])=>typeof value==='string'&&value).slice(0,5).map(([key,value])=><React.Fragment key={key}><dt>{key}</dt><dd>{value}</dd></React.Fragment>)}</dl>}
@@ -221,7 +223,7 @@ const ObjectCard=memo(function ObjectCard({data,selected}){
 });
 function RoutedEdge(props){
   const points=props.data?.points||[];
-  const path=points.length>1?'M '+points.map(point=>`${point.x} ${point.y}`).join(' L '):getSmoothStepPath(props)[0];
+  const path=points.length>1?roundedOrthogonalPath(points,10):getSmoothStepPath({...props,borderRadius:10})[0];
   const middle=points.length?pathMidpoint(points)
     :{x:(props.sourceX+props.targetX)/2,y:(props.sourceY+props.targetY)/2};
   return <><BaseEdge path={path} markerEnd={props.markerEnd} className={`relation-edge relation-${props.data?.kind||'other'}`}/><EdgeLabelRenderer><span className="relation-label" style={{transform:`translate(-50%,-50%) translate(${middle.x}px,${middle.y}px)`}}>{props.label}</span></EdgeLabelRenderer></>;

@@ -46,6 +46,22 @@ Earlier evidence reduced 1280×720 captures to ornamental thumbnails. The review
 evidence at full content width with an actual-size link. Final Developer Flow evidence is stored at
 1280×720 for the capability overview and the Drawing story/shared-detail drill-down.
 
+### High — authored titles escaped fixed frame geometry
+
+Collapsed frames were hard-coded to `280×132` with a `43px` header. A legitimate three-line
+capability title therefore rendered above its own border at review zoom. Frame and card dimensions
+now derive from wrapped content, visible summaries and failures no longer use silent clamps, and
+detail overflow remains scrollable. The exact failing title has a geometry regression and a
+full-size browser receipt.
+
+### Medium — orthogonal routing was readable but mechanically sharp
+
+The first renderer drew ELK bend points as square polylines and relied on default edge spacing.
+Routes now preserve ELK's obstacle-avoiding points while rounding corners with a 10-unit quadratic
+bend. Root and nested layouts reserve an explicit 18-unit edge-to-edge lane gap and 24-unit
+edge-to-node gap; a real four-edge fan-out test verifies adjacent vertical lanes exactly 18 units
+apart.
+
 ## Unresolved high-severity scale finding
 
 A fresh 100,000-object/100-group synthetic corpus returned the correct bounded 600-of-1,000 slice
