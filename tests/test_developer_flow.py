@@ -209,6 +209,49 @@ def test_orthogonal_layout_avoids_card_interiors_and_mutation_detects_overlap():
     assert result["card"]["height"] > 138
 
 
+def test_routed_edge_rejects_stale_endpoints_across_scope_frame_and_orientation_churn():
+    result = _node_module_probe(r"""
+import {routeMatchesEndpoints} from './src/layout_contract.mjs';
+const rightRoute=[{x:120,y:80},{x:260,y:80},{x:260,y:180},{x:420,y:180}];
+const current={source:{x:120,y:80},target:{x:420,y:180}};
+const tinyMeasurementDrift={source:{x:125,y:76},target:{x:415,y:184}};
+const orientationChanged={source:{x:80,y:120},target:{x:180,y:420}};
+const scopeChanged={source:{x:320,y:280},target:{x:620,y:380}};
+const frameChanged={source:{x:120,y:80},target:{x:468,y:180}};
+console.log(JSON.stringify({
+  current:routeMatchesEndpoints(rightRoute,current.source,current.target),
+  tinyMeasurementDrift:routeMatchesEndpoints(
+    rightRoute,tinyMeasurementDrift.source,tinyMeasurementDrift.target,
+  ),
+  orientationChanged:routeMatchesEndpoints(
+    rightRoute,orientationChanged.source,orientationChanged.target,
+  ),
+  scopeChanged:routeMatchesEndpoints(rightRoute,scopeChanged.source,scopeChanged.target),
+  frameChanged:routeMatchesEndpoints(rightRoute,frameChanged.source,frameChanged.target),
+  reversed:routeMatchesEndpoints(rightRoute,current.target,current.source),
+  malformed:routeMatchesEndpoints([{x:120,y:80}],current.source,current.target),
+  malformedInterior:routeMatchesEndpoints(
+    [current.source,{x:Number.NaN,y:120},current.target],current.source,current.target,
+  ),
+}));
+""")
+    assert result == {
+        "current": True,
+        "tinyMeasurementDrift": True,
+        "orientationChanged": False,
+        "scopeChanged": False,
+        "frameChanged": False,
+        "reversed": False,
+        "malformed": False,
+        "malformedInterior": False,
+    }
+
+    source = MAIN.read_text(encoding="utf-8")
+    assert "const routeIsCurrent=routeMatchesEndpoints(points,source,target)" in source
+    assert "const path=routeIsCurrent?roundedOrthogonalPath(points,10)" in source
+    assert "const middle=routeIsCurrent?" in source
+
+
 def test_nested_compound_edges_are_shifted_from_lca_space_to_root_space():
     result = _node_module_probe(r"""
 import ELK from 'elkjs/lib/elk.bundled.js';

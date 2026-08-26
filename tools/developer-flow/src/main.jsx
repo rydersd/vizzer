@@ -8,7 +8,7 @@ import {
 import {developerFlowSvg,svgFilename,triggerSvgDownload} from './export_svg.mjs';
 import {
   absoluteEdgeRoutes,groupFrameMetrics,objectCardMetrics,pathMidpoint,placePathLabel,
-  roundedOrthogonalPath,
+  roundedOrthogonalPath,routeMatchesEndpoints,
 } from './layout_contract.mjs';
 import {placeOverlay} from './overlay_geometry.mjs';
 import {annotationHistory,annotationHistoryReducer} from './annotation_history.mjs';
@@ -96,9 +96,12 @@ function NodePreview({preview}){
 }
 function RoutedEdge(props){
   const points=props.data?.points||[];
-  const path=points.length>1?roundedOrthogonalPath(points,10):getSmoothStepPath({...props,borderRadius:10})[0];
-  const middle=props.data?.labelPoint||(points.length?pathMidpoint(points)
-    :{x:(props.sourceX+props.targetX)/2,y:(props.sourceY+props.targetY)/2});
+  const source={x:props.sourceX,y:props.sourceY},target={x:props.targetX,y:props.targetY};
+  const routeIsCurrent=routeMatchesEndpoints(points,source,target);
+  const path=routeIsCurrent?roundedOrthogonalPath(points,10)
+    :getSmoothStepPath({...props,borderRadius:10})[0];
+  const middle=routeIsCurrent?(props.data?.labelPoint||pathMidpoint(points))
+    :{x:(props.sourceX+props.targetX)/2,y:(props.sourceY+props.targetY)/2};
   return <><BaseEdge path={path} markerEnd={props.markerEnd} className={`relation-edge relation-${props.data?.kind||'other'}`}/><EdgeLabelRenderer><span className="relation-label" style={{transform:`translate(-50%,-50%) translate(${middle.x}px,${middle.y}px)`}}>{props.label}</span></EdgeLabelRenderer></>;
 }
 const nodeTypes={groupFrame:GroupFrame,objectCard:ObjectCard},edgeTypes={routed:RoutedEdge};

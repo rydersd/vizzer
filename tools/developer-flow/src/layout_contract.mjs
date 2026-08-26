@@ -202,6 +202,22 @@ export function roundedOrthogonalPath(points,radius=10) {
   return `${path} L ${last.x} ${last.y}`;
 }
 
+export function routeMatchesEndpoints(
+  points, source, target, tolerance = 12,
+) {
+  if(!Array.isArray(points)||points.length<2)return false;
+  const start=points[0],end=points.at(-1);
+  const endpointCoordinates=[source?.x,source?.y,target?.x,target?.y];
+  if(!endpointCoordinates.every(value=>Number.isFinite(Number(value)))
+    ||!points.every(point=>Number.isFinite(Number(point?.x))
+      &&Number.isFinite(Number(point?.y))))return false;
+  const limit=Math.max(0,Number(tolerance)||0);
+  const distance=(left,right)=>Math.hypot(
+    Number(left.x)-Number(right.x),Number(left.y)-Number(right.y),
+  );
+  return distance(start,source)<=limit&&distance(end,target)<=limit;
+}
+
 export function routeCrossesRect(points, rect, inset = 0.01) {
   const left=rect.x+inset,right=rect.x+rect.width-inset;
   const top=rect.y+inset,bottom=rect.y+rect.height-inset;

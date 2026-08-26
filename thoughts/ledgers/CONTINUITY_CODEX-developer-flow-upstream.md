@@ -62,6 +62,11 @@ project vocabulary, while preserving the larger generic agent-to-owner review go
   bounds. Final settled audit: 489 passed, 2 skipped; pushed `95ff95b`.
 - Revalidated every owner-named IllTool path against its current on-disk state. No newer generic
   engine seam was found; the only new relevant commits belong to the excluded review-capture lane.
+- 2026-08-25: Fixed a renderer-only stale-route defect without changing source relationships.
+  Custom edges now accept cached ELK points only while their first and last points remain near the
+  current React Flow handles; scope, frame, or orientation churn falls back to the current-handle
+  route. Focused regression, full 540-test audit, and 1075x754 browser churn in both orientations
+  cover the seam, including frame collapse/expand culling.
 
 ## Now
 
