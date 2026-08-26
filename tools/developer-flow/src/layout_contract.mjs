@@ -167,9 +167,12 @@ export function absoluteEdgeRoutes(layout) {
     const endpointIds=[...(edge.sources||[]),...(edge.targets||[])];
     const lca=lowestCommonAncestor(endpointIds);
     const offset=originById.get(lca)||{x:0,y:0};
-    routes.set(edge.id,[section.startPoint,...(section.bendPoints||[]),section.endPoint]
-      .map(point=>({x:(Number(point?.x)||0)+offset.x,
-        y:(Number(point?.y)||0)+offset.y})));
+    const points=[section.startPoint,...(section.bendPoints||[]),section.endPoint]
+      .map(point=>({x:Number(point?.x),y:Number(point?.y)}));
+    if(!points.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y))){
+      routes.set(edge.id,[]);continue;
+    }
+    routes.set(edge.id,points.map(point=>({x:point.x+offset.x,y:point.y+offset.y})));
   }
   return routes;
 }
@@ -177,7 +180,8 @@ export function absoluteEdgeRoutes(layout) {
 export function roundedOrthogonalPath(points,radius=10) {
   const clean=[];
   for(const point of points||[]){
-    const next={x:Number(point?.x)||0,y:Number(point?.y)||0};
+    const next={x:Number(point?.x),y:Number(point?.y)};
+    if(!Number.isFinite(next.x)||!Number.isFinite(next.y))return '';
     const previous=clean.at(-1);
     if(!previous||previous.x!==next.x||previous.y!==next.y)clean.push(next);
   }
