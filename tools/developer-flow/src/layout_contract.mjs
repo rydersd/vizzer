@@ -263,28 +263,27 @@ export function pathMidpoint(points) {
   return {x:points.at(-1).x,y:points.at(-1).y};
 }
 
-function pointAlongPath(points,fraction) {
-  if(points.length<2)return {...(points[0]||{x:0,y:0}),dx:1,dy:0};
-  const segments=[];let total=0;
+export function routeBounds(points) {
+  const xs=(points||[]).map(point=>Number(point?.x)||0);
+  const ys=(points||[]).map(point=>Number(point?.y)||0);
+  if(!xs.length)return {x:0,y:0,width:0,height:0};
+  const left=Math.min(...xs),right=Math.max(...xs),top=Math.min(...ys),bottom=Math.max(...ys);
+  return {x:left,y:top,width:right-left,height:bottom-top};
+}
+
+export function edgeLabelMetrics(label) {
+  return {width:Math.max(42,Math.min(180,String(label||'').length*5.4+14)),height:18};
+}
+
+function routeSegments(points) {
+  const segments=[];
   for(let index=1;index<points.length;index++){
     const start=points[index-1],end=points[index];
     const length=Math.hypot(end.x-start.x,end.y-start.y);
-    if(length){segments.push({start,end,length});total+=length;}
+    if(length)segments.push({start,end,length,index:index-1,
+      dx:(end.x-start.x)/length,dy:(end.y-start.y)/length});
   }
-  let remaining=total*Math.min(1,Math.max(0,fraction));
-  for(const segment of segments){
-    if(remaining<=segment.length){
-      const ratio=remaining/segment.length;
-      return {x:segment.start.x+(segment.end.x-segment.start.x)*ratio,
-        y:segment.start.y+(segment.end.y-segment.start.y)*ratio,
-        dx:(segment.end.x-segment.start.x)/segment.length,
-        dy:(segment.end.y-segment.start.y)/segment.length};
-    }
-    remaining-=segment.length;
-  }
-  const last=segments.at(-1);
-  return {x:last.end.x,y:last.end.y,dx:(last.end.x-last.start.x)/last.length,
-    dy:(last.end.y-last.start.y)/last.length};
+  return segments;
 }
 
 function rectangleOverlap(first,second,gap=0) {
@@ -294,17 +293,59 @@ function rectangleOverlap(first,second,gap=0) {
       -Math.max(first.y,second.y)+gap*2);
 }
 
-export function placePathLabel(points,label,obstacles=[],occupied=[]) {
-  const width=Math.max(42,Math.min(180,String(label||'').length*5.4+14)),height=18;
-  const candidates=[];
-  for(const fraction of [.5,.35,.65,.2,.8]){
-    const point=pointAlongPath(points,fraction);
-    for(const offset of [0,-16,16]){
+function collinearOverlap(first,second,tolerance=1) {
+  const firstHorizontal=Math.abs(first.dy)<.001;
+  const secondHorizontal=Math.abs(second.dy)<.001;
+  if(firstHorizontal!==secondHorizontal)return 0;
+  if(firstHorizontal){
+    if(Math.abs(first.start.y-second.start.y)>tolerance)return 0;
+    return Math.max(0,Math.min(Math.max(first.start.x,first.end.x),Math.max(second.start.x,second.end.x))
+      -Math.max(Math.min(first.start.x,first.end.x),Math.min(second.start.x,second.end.x)));
+  }
+  if(Math.abs(first.start.x-second.start.x)>tolerance)return 0;
+  return Math.max(0,Math.min(Math.max(first.start.y,first.end.y),Math.max(second.start.y,second.end.y))
+    -Math.max(Math.min(first.start.y,first.end.y),Math.min(second.start.y,second.end.y)));
+}
+
+function expandedRect(rect,gap) {
+  return {x:rect.x-gap,y:rect.y-gap,width:rect.width+gap*2,height:rect.height+gap*2};
+}
+
+export function placePathLabel(
+  points,label,obstacles=[],occupied=[],peerRoutes=[],preferredOrientation='horizontal',
+) {
+  const {width,height}=edgeLabelMetrics(label);
+  const preferred=preferredOrientation==='vertical'?'vertical':'horizontal';
+  const segments=routeSegments(points||[]),peerSegments=peerRoutes.flatMap(route=>routeSegments(route||[]));
+  if(!segments.length)return {x:Number(points?.[0]?.x)||0,y:Number(points?.[0]?.y)||0,
+    rect:{x:(Number(points?.[0]?.x)||0)-width/2,y:(Number(points?.[0]?.y)||0)-height/2,width,height}};
+  const candidates=[],lastIndex=segments.length-1;
+  for(const segment of segments){
+    const horizontal=Math.abs(segment.dy)<.001;
+    const sharedLength=peerSegments.reduce((sum,peer)=>sum+collinearOverlap(segment,peer),0);
+    for(const fraction of [.5,.35,.65]){
+      const point={x:segment.start.x+(segment.end.x-segment.start.x)*fraction,
+        y:segment.start.y+(segment.end.y-segment.start.y)*fraction,
+        dx:segment.dx,dy:segment.dy};
+      for(const offset of [-18,18,0]){
       const x=point.x-point.dy*offset,y=point.y+point.dx*offset;
       const rect={x:x-width/2,y:y-height/2,width,height};
       const nodeOverlap=obstacles.reduce((sum,item)=>sum+rectangleOverlap(rect,item,5),0);
       const labelOverlap=occupied.reduce((sum,item)=>sum+rectangleOverlap(rect,item,7),0);
-      candidates.push({x,y,rect,score:nodeOverlap*1000+labelOverlap*2000+Math.abs(offset)});
+      const peerCrossings=peerRoutes.reduce((sum,route)=>sum+
+        (routeCrossesRect(route,expandedRect(rect,4))?1:0),0);
+      const terminalDistance=lastIndex-segment.index;
+      const shortfall=Math.max(0,width+16-segment.length);
+      // A label on a vertical lane can look like it belongs to every branch
+      // crossing that lane. Treat horizontal placement as semantic ownership,
+      // accepting a slight card-edge overhang before falling back to a trunk.
+      const orientation=horizontal?'horizontal':'vertical';
+      const orientationPenalty=orientation===preferred?0:2000000;
+      const score=nodeOverlap*1000+labelOverlap*2000+peerCrossings*500000
+        +sharedLength*4000+terminalDistance*120+orientationPenalty
+        +shortfall*50+(offset===0?100:Math.abs(offset));
+      candidates.push({x,y,rect,score,segmentIndex:segment.index,orientation,offset});
+      }
     }
   }
   candidates.sort((left,right)=>left.score-right.score);
