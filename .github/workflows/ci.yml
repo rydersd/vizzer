@@ -16,7 +16,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/developer-flow/package-lock.json
       - run: pip install pytest
+      - name: Install developer-flow test dependencies
+        run: npm ci --prefix tools/developer-flow --ignore-scripts
       - name: Configure git identity (fixture commits)
         run: |
           git config --global user.email ci@example.com

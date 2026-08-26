@@ -47,11 +47,12 @@ const waitFor=async(fn,label,timeout=10000)=>{
 let browser,socket;
 try{
   browser=spawn(chrome,['--headless=new','--no-first-run','--no-default-browser-check',
-    '--disable-background-networking','--remote-debugging-port=0',`--user-data-dir=${profile}`,url],
+    '--disable-background-networking','--disable-dev-shm-usage','--remote-debugging-port=0',
+    `--user-data-dir=${profile}`,url],
     {stdio:'ignore',detached:useProcessGroup});
   const devtoolsActive=path.join(profile,'DevToolsActivePort');
   const port=await waitFor(()=>fs.existsSync(devtoolsActive)&&fs.readFileSync(devtoolsActive,'utf8').split('\n')[0],
-    'DevTools port');
+    'DevTools port',20000);
   const target=await waitFor(async()=>{
     const targets=await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     return targets.find(candidate=>candidate.type==='page'&&candidate.url===url);

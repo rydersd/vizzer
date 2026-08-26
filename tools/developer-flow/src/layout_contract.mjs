@@ -3,6 +3,8 @@ import {groupSymbolName,objectSymbolName} from './vizzer_sf_symbols.mjs';
 const EDGE_LANE_GAP = 18;
 const EDGE_NODE_GAP = 24;
 
+const isFiniteCoordinate=value=>typeof value==='number'&&Number.isFinite(value);
+
 function textUnits(value) {
   let units=0;
   for(const character of String(value||'')){
@@ -167,9 +169,12 @@ export function absoluteEdgeRoutes(layout) {
     const endpointIds=[...(edge.sources||[]),...(edge.targets||[])];
     const lca=lowestCommonAncestor(endpointIds);
     const offset=originById.get(lca)||{x:0,y:0};
-    routes.set(edge.id,[section.startPoint,...(section.bendPoints||[]),section.endPoint]
-      .map(point=>({x:(Number(point?.x)||0)+offset.x,
-        y:(Number(point?.y)||0)+offset.y})));
+    const points=[section.startPoint,...(section.bendPoints||[]),section.endPoint]
+      .map(point=>({x:point?.x,y:point?.y}));
+    if(!points.every(point=>isFiniteCoordinate(point.x)&&isFiniteCoordinate(point.y))){
+      routes.set(edge.id,[]);continue;
+    }
+    routes.set(edge.id,points.map(point=>({x:point.x+offset.x,y:point.y+offset.y})));
   }
   return routes;
 }
@@ -177,7 +182,8 @@ export function absoluteEdgeRoutes(layout) {
 export function roundedOrthogonalPath(points,radius=10) {
   const clean=[];
   for(const point of points||[]){
-    const next={x:Number(point?.x)||0,y:Number(point?.y)||0};
+    const next={x:point?.x,y:point?.y};
+    if(!isFiniteCoordinate(next.x)||!isFiniteCoordinate(next.y))return '';
     const previous=clean.at(-1);
     if(!previous||previous.x!==next.x||previous.y!==next.y)clean.push(next);
   }
@@ -200,6 +206,22 @@ export function roundedOrthogonalPath(points,radius=10) {
   }
   const last=clean.at(-1);
   return `${path} L ${last.x} ${last.y}`;
+}
+
+export function routeMatchesEndpoints(
+  points, source, target, tolerance = 12,
+) {
+  if(!Array.isArray(points)||points.length<2)return false;
+  const start=points[0],end=points.at(-1);
+  const endpointCoordinates=[source?.x,source?.y,target?.x,target?.y];
+  if(!endpointCoordinates.every(isFiniteCoordinate)
+    ||!points.every(point=>isFiniteCoordinate(point?.x)
+      &&isFiniteCoordinate(point?.y)))return false;
+  const limit=Math.max(0,Number(tolerance)||0);
+  const distance=(left,right)=>Math.hypot(
+    left.x-right.x,left.y-right.y,
+  );
+  return distance(start,source)<=limit&&distance(end,target)<=limit;
 }
 
 export function routeCrossesRect(points, rect, inset = 0.01) {
