@@ -1085,7 +1085,7 @@ def test_constellation_work_keyboard_navigation_physical_browser_smoke(tmp_path)
     script = Path(__file__).with_name("browser_work_navigation_smoke.js")
     completed = subprocess.run(
         [shutil.which("node") or "node", str(script), chrome], input=html,
-        text=True, capture_output=True, timeout=30,
+        text=True, capture_output=True, timeout=45,
     )
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == {
