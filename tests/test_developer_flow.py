@@ -211,7 +211,9 @@ def test_orthogonal_layout_avoids_card_interiors_and_mutation_detects_overlap():
 
 def test_routed_edge_rejects_stale_endpoints_across_scope_frame_and_orientation_churn():
     result = _node_module_probe(r"""
-import {absoluteEdgeRoutes,routeMatchesEndpoints} from './src/layout_contract.mjs';
+import {
+  absoluteEdgeRoutes,roundedOrthogonalPath,routeMatchesEndpoints,
+} from './src/layout_contract.mjs';
 const rightRoute=[{x:120,y:80},{x:260,y:80},{x:260,y:180},{x:420,y:180}];
 const current={source:{x:120,y:80},target:{x:420,y:180}};
 const tinyMeasurementDrift={source:{x:125,y:76},target:{x:415,y:184}};
@@ -224,6 +226,12 @@ const malformedLayout={id:'root',children:[{id:'a',x:0,y:0},{id:'b',x:0,y:0}],ed
   }],
 }]};
 const composedMalformed=absoluteEdgeRoutes(malformedLayout).get('malformed');
+const nullLayout={...malformedLayout,edges:[{
+  ...malformedLayout.edges[0],id:'null-route',sections:[{
+    startPoint:current.source,bendPoints:[{x:null,y:120}],endPoint:current.target,
+  }],
+}]};
+const composedNull=absoluteEdgeRoutes(nullLayout).get('null-route');
 console.log(JSON.stringify({
   current:routeMatchesEndpoints(rightRoute,current.source,current.target),
   tinyMeasurementDrift:routeMatchesEndpoints(
@@ -239,9 +247,17 @@ console.log(JSON.stringify({
   malformedInterior:routeMatchesEndpoints(
     [current.source,{x:Number.NaN,y:120},current.target],current.source,current.target,
   ),
+  nullInterior:routeMatchesEndpoints(
+    [current.source,{x:null,y:120},current.target],current.source,current.target,
+  ),
   composedMalformedRoute:composedMalformed,
   composedMalformedMatches:routeMatchesEndpoints(
     composedMalformed,current.source,current.target,
+  ),
+  composedNullRoute:composedNull,
+  composedNullMatches:routeMatchesEndpoints(composedNull,current.source,current.target),
+  roundedNull:roundedOrthogonalPath(
+    [current.source,{x:null,y:120},current.target],10,
   ),
 }));
 """)
@@ -254,8 +270,12 @@ console.log(JSON.stringify({
         "reversed": False,
         "malformed": False,
         "malformedInterior": False,
+        "nullInterior": False,
         "composedMalformedRoute": [],
         "composedMalformedMatches": False,
+        "composedNullRoute": [],
+        "composedNullMatches": False,
+        "roundedNull": "",
     }
 
     source = MAIN.read_text(encoding="utf-8")

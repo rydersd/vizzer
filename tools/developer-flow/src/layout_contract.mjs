@@ -3,6 +3,8 @@ import {groupSymbolName,objectSymbolName} from './vizzer_sf_symbols.mjs';
 const EDGE_LANE_GAP = 18;
 const EDGE_NODE_GAP = 24;
 
+const isFiniteCoordinate=value=>typeof value==='number'&&Number.isFinite(value);
+
 function textUnits(value) {
   let units=0;
   for(const character of String(value||'')){
@@ -168,8 +170,8 @@ export function absoluteEdgeRoutes(layout) {
     const lca=lowestCommonAncestor(endpointIds);
     const offset=originById.get(lca)||{x:0,y:0};
     const points=[section.startPoint,...(section.bendPoints||[]),section.endPoint]
-      .map(point=>({x:Number(point?.x),y:Number(point?.y)}));
-    if(!points.every(point=>Number.isFinite(point.x)&&Number.isFinite(point.y))){
+      .map(point=>({x:point?.x,y:point?.y}));
+    if(!points.every(point=>isFiniteCoordinate(point.x)&&isFiniteCoordinate(point.y))){
       routes.set(edge.id,[]);continue;
     }
     routes.set(edge.id,points.map(point=>({x:point.x+offset.x,y:point.y+offset.y})));
@@ -180,8 +182,8 @@ export function absoluteEdgeRoutes(layout) {
 export function roundedOrthogonalPath(points,radius=10) {
   const clean=[];
   for(const point of points||[]){
-    const next={x:Number(point?.x),y:Number(point?.y)};
-    if(!Number.isFinite(next.x)||!Number.isFinite(next.y))return '';
+    const next={x:point?.x,y:point?.y};
+    if(!isFiniteCoordinate(next.x)||!isFiniteCoordinate(next.y))return '';
     const previous=clean.at(-1);
     if(!previous||previous.x!==next.x||previous.y!==next.y)clean.push(next);
   }
@@ -212,12 +214,12 @@ export function routeMatchesEndpoints(
   if(!Array.isArray(points)||points.length<2)return false;
   const start=points[0],end=points.at(-1);
   const endpointCoordinates=[source?.x,source?.y,target?.x,target?.y];
-  if(!endpointCoordinates.every(value=>Number.isFinite(Number(value)))
-    ||!points.every(point=>Number.isFinite(Number(point?.x))
-      &&Number.isFinite(Number(point?.y))))return false;
+  if(!endpointCoordinates.every(isFiniteCoordinate)
+    ||!points.every(point=>isFiniteCoordinate(point?.x)
+      &&isFiniteCoordinate(point?.y)))return false;
   const limit=Math.max(0,Number(tolerance)||0);
   const distance=(left,right)=>Math.hypot(
-    Number(left.x)-Number(right.x),Number(left.y)-Number(right.y),
+    left.x-right.x,left.y-right.y,
   );
   return distance(start,source)<=limit&&distance(end,target)<=limit;
 }
