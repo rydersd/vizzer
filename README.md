@@ -607,6 +607,54 @@ orientation, update source stories/issues/ledgers first, then run `refresh`
 after completion, issue discovery, status changes, or dependency changes.
 `update` rewrites only that block; your other instructions are never touched.
 
+## Suggested project conventions
+
+Vizzer works on whatever your project already does — none of the following is
+required. But the graph is only as good as the files it reads, and these five
+conventions are the ones that measurably change what vizzer can tell you. Adopt
+them in your own `CLAUDE.md` / `AGENTS.md` if they fit; vizzer will never write
+them there for you.
+
+**1. Separate "shipped" from "verified."** The most common way a completion
+number lies is by counting merged work as finished work. Vizzer's `[[status]]`
+table lets you define the vocabulary and mark which entries are `done`, and the
+completion sheet reports a verified rate — so a project that distinguishes
+`shipped` (merged) from `verified` (tests, logs, or user confirmation exist)
+gets an honest number instead of a hopeful one. A build succeeding is not
+evidence that a feature works.
+
+**2. Link with `[display text](relative-path.md)`.** Vizzer renders links in
+six of its seven views. Relative markdown links resolve in GitHub, Obsidian,
+IDE previews and any future renderer; `[[wikilinks]]` only reliably work in
+Obsidian, and absolute paths break for everyone but you. Make the visible text
+the human-readable name and put the path inside the link, rather than showing a
+raw path as the link text. Note that `render.obsidian_links` deliberately
+trades this portability away for local-vault convenience — leave it off if the
+views are committed anywhere others read them.
+
+**3. Fix the source, never the derived view.** `vizzer-graph.json` and
+everything in the output directory are regenerated wholesale by `sync` and
+`render`; edits there are silently discarded on the next run. When two sources
+disagree about an item, vizzer keeps the higher-precedence value, records the
+disagreement in the graph's `conflicts` array, and prints it — it never averages
+the two or quietly picks a winner. Those conflicts are a to-do list against your
+source files, not noise to tune out. In practice they are the fastest way to
+find a stale cached status.
+
+**4. Give continuity ledgers a predictable shape.** The `ledgers` adapter reads
+a `## Goal` section, phase checkboxes (`[x]` done, `[→]` in progress, `[ ]`
+pending), and `## Open Questions`. A project that writes ledgers that way gets
+the ledger table for free. One trap worth stating plainly: **a source directory
+that is gitignored produces silently empty views.** If ledgers live somewhere
+untracked, vizzer sees nothing in CI or in a fresh clone, and the resulting view
+is empty rather than wrong — which is harder to notice.
+
+**5. Cite the work item in the pull request.** Every item gets a stable id
+(`story:<slug>`). If merged PRs carry a `Spec: <path-to-item.md>` line, those
+ids become checkable against real work, and the graph stops being decorative:
+you can gate on whether shipped code corresponds to a specified item, and find
+items whose status was never updated after their PR merged.
+
 ## Safety
 
 Vizzer never executes project code. It reads files and git history, and writes
