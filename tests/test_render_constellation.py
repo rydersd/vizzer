@@ -558,11 +558,12 @@ def test_constellation_serializes_roles_and_facets_and_scopes_delivery_metrics(t
     assert state["capCount"] == "1/2"
 
 
-def test_constellation_composes_frontend_sources_into_one_dependency_free_artifact(tmp_path):
+def test_constellation_uses_only_bundled_local_editor_assets(tmp_path):
     html = render_all(_graph(), Config(data=DEFAULTS), tmp_path,
                       only={"constellation"})["constellation.html"]
 
-    assert not re.search(r"<(?:script|link)\b[^>]+(?:src|href)=", html, re.I)
+    references=re.findall(r'<(?:script|link)\b[^>]+(?:src|href)="([^"]+)"',html,re.I)
+    assert references==['milkdown.css','milkdown.js']
     assert len(re.findall(r"<script>", html)) == 2
     assert len(re.findall(r"<style>", html)) == 1
     assert not re.search(r"__VIZZER_[A-Z_]+__", html)
@@ -750,7 +751,7 @@ def test_constellation_sanitizes_persisted_assessment_before_html(tmp_path):
     assert node["assess"]["immediateUnlock"] == 0
     assert node["assess"]["frontierReach"] == 1_000_000
     assert node["assess"]["parallel"] == "unknown"
-    assert html.count("</script>") == 2
+    assert html.count("</script>") == 3
 
 
 def test_constellation_keeps_file_mode_source_link_relative_and_http_open_by_id(tmp_path):
@@ -1731,10 +1732,7 @@ def test_constellation_physical_option_click_keeps_dossier_open_and_enables_answ
             "calls": 2, "dossierOpen": True, "selected": 0, "scroll": 0,
             "route": "constellation", "search": "A", "r1": False,
             "camera": [.125, .75, 1.4, 31, -19],
-            "drafts": [
-                {"kind": "option", "optionId": "a", "text": ""},
-                {"kind": "freeform", "optionId": "", "text": "Keep it exact."},
-            ],
+            "drafts": [None, None],
             "openQuestions": 0, "decisions": 2, "answeredCards": 2,
             "queueGone": True, "metadataVisible": True, "spacerGone": True,
         },

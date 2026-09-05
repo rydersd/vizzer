@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+from importlib.resources import files
 from pathlib import Path
 
 from ..config import Config
@@ -48,4 +49,10 @@ def render_all(
             continue
         module = importlib.import_module(f".{module_name}", __name__)
         output.update(module.render(graph, cfg, root))
+    if "constellation" in selected:
+        frontend = files(__package__) / "constellation"
+        output["evolution.html"] = (frontend / "evolution.html").read_text(encoding="utf-8")
+        assets = frontend / "third-party"
+        for name in ("milkdown.js", "milkdown.css", "THIRD-PARTY-NOTICES.txt", "about.html"):
+            output[name] = (assets / name).read_text(encoding="utf-8")
     return output

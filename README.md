@@ -615,3 +615,7 @@ only inside `vizzer/` plus the managed doc block and one `.gitignore` line.
 ## License
 
 MIT.
+
+### Progress pathing and owner editing
+
+[Progress pathing](docs/progress-pathing.md) records checkpoint evolution for annotated playback. The same guide covers sidebar Markdown answers, editable Story revisions with exact review diffs, optional tag colors, and opt-in macOS login services.

@@ -75,3 +75,19 @@
 .reviewevidence{grid-template-columns:1fr;gap:12px}
 .reviewevidencelink{display:block}
 .reviewevidence img{width:auto;max-width:100%;height:auto;max-height:min(72vh,900px);margin-inline:auto}
+
+/* Owner direction uses the same reading-size control as the story sidebar. */
+.questioncustom textarea{box-sizing:border-box;font:var(--sidebar-type-size)/1.5 var(--sans,system-ui,sans-serif);overflow:hidden;resize:none;min-height:calc(var(--sidebar-type-size) * 7.5)}
+.questioncustom [data-question-edit]{font:inherit;color:var(--owner-override);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:8px 12px;margin-bottom:8px;cursor:pointer}
+
+#dossier .questioneditor{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;min-height:0;background:var(--panel);color:var(--ink);font:var(--sidebar-type-size)/1.5 var(--sans,system-ui,sans-serif)}
+.questioneditor header,.questioneditor footer{flex:none;padding:14px 20px;background:var(--panel)}
+.questioneditor header{border-bottom:1px solid var(--line)}.questioneditor footer{border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+#dossier .questioneditor h2{font:inherit;font-weight:650;margin:12px 0 0}.questioneditor button{font:inherit;padding:9px 14px;border:1px solid var(--owner-override);border-radius:8px;background:var(--owner-override);color:var(--bg);cursor:pointer}.questioneditor button:disabled{opacity:.45;cursor:default}
+.questioneditorbody{flex:1;min-height:0;overflow:auto;padding:8px 20px 24px}.questioneditor label{display:block;margin:12px 0 8px}.questioneditor textarea{box-sizing:border-box;display:block;width:100%;min-height:180px;padding:14px;font:inherit;line-height:1.5;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;resize:none;overflow:hidden}.questioneditor textarea:focus{outline:2px solid var(--owner-override);outline-offset:2px}.questioneditor .editorhint{color:var(--mut);width:100%;margin:0}.questioneditor summary{cursor:pointer;margin-top:16px}.questioneditor [data-editor-preview]{overflow-wrap:anywhere}
+
+.questioncard .storymarkdown strong{display:inline;font:inherit;font-weight:700;text-transform:none;letter-spacing:normal;color:inherit}
+
+.questioneditor [hidden]{display:none!important}.markdownmode{display:flex;align-items:center;gap:8px;margin-bottom:12px}.markdownmode button{background:var(--bg2);color:var(--ink);padding:6px 10px;font-size:.85em}.markdownmode span{font-size:.85em;color:var(--mut)}
+.markdownsurface{min-height:240px}.questioneditor .milkdown{--crepe-color-background:var(--panel);--crepe-color-on-background:var(--ink);--crepe-color-surface:var(--bg2);--crepe-color-on-surface:var(--ink);--crepe-color-on-surface-variant:var(--mut);--crepe-font-default:system-ui,sans-serif;--crepe-font-title:system-ui,sans-serif;background:var(--panel);color:var(--ink)}
+.questioneditor .milkdown .ProseMirror{padding:16px 8px 60px;min-height:240px;font-size:var(--sidebar-type-size);line-height:1.5}.questioneditor .milkdown button{font:inherit;padding:4px;background:transparent;color:inherit;border:0}.questioneditor .milkdown .ProseMirror p{margin:8px 0}.questioneditor .milkdown .ProseMirror h1{font-size:1.6em}.questioneditor .milkdown .ProseMirror h2{font-size:1.35em}.questioneditor .milkdown .ProseMirror h3{font-size:1.15em}.questioneditor .milkdown .ProseMirror strong{font:inherit;font-weight:700;display:inline;text-transform:none;letter-spacing:normal}

@@ -21,6 +21,7 @@ where = ["src"]
   "constellation/*.html",
   "constellation/*.css",
   "constellation/*.js",
+  "constellation/third-party/*",
   "developer_flow_assets/*",
   "developer_flow_assets/third-party/*",
 ]

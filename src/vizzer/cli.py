@@ -21,6 +21,7 @@ try:  # Unix gets cross-process exclusion; other platforms retain process safety
 except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None
 
+from .story_edits import read_edit, save_edit, StoryEditConflict
 from .adapters import get_adapters
 from . import (
     RenderIdError, __version__, process_render_id, process_render_id_reason,
@@ -597,11 +598,45 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             except (OSError, UnicodeError) as exc:
                 self._send_json(500, {"error": f"could not persist answers: {exc}"})
 
+        def _story_edit(self, item_id=None):
+            if not self._require_current_engine():
+                return
+            writing = item_id is None
+            if writing and not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                body = self._read_json_body("story edit", maximum=1200000) if writing else None
+                if writing:
+                    item_id = body.get("storyId")
+                if not isinstance(item_id, str) or not item_id.startswith("story:"):
+                    raise ValueError("A story ID is required")
+                with _mutation_guard(root):
+                    live_graph = _read_graph(root)
+                    if live_graph is None:
+                        self._send_json(409, {"error": "current work graph unavailable; refresh before editing"})
+                        return
+                    source, error = _resolve_item_source(root, live_graph, item_id)
+                    if source is None:
+                        self._send_json(404, {"error": error})
+                        return
+                    result = save_edit(root, item_id, source, body) if writing else read_edit(root, item_id, source)
+                self._send_json(200, {**result, "csrfToken": csrf_token, "renderId": process_render_id()})
+            except StoryEditConflict as exc:
+                self._send_json(409, {"error": str(exc)})
+            except (ValueError, QuestionAnswerError) as exc:
+                self._send_json(400, {"error": str(exc)})
+            except (OSError, UnicodeError) as exc:
+                self._send_json(500, {"error": f"Could not access story revision: {exc}"})
+
         def do_POST(self):
             if not self._loopback_host():
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path == "/api/story-edits":
+                self._story_edit()
+                return
             context = self._extension_context()
             if any(extension.post(context, parsed) for extension in SERVE_EXTENSIONS):
                 return
@@ -653,6 +688,9 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path.startswith("/api/story-edits/"):
+                self._story_edit(unquote(parsed.path[len("/api/story-edits/"):]))
+                return
             context = self._extension_context()
             if any(extension.get(context, parsed) for extension in SERVE_EXTENSIONS):
                 return

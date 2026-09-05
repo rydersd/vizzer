@@ -117,6 +117,7 @@ addEventListener('resize',()=>{
   applyDossierWidth(dossierUserSized?(preferredDossierWidth||dossierWidth):defaultDossierWidth(),{remember:false});
 });
 function dismissDossier({focusCanvas=true}={}){
+  if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
   dossier.classList.remove('open');
   dossier.setAttribute('aria-hidden','true');
@@ -133,6 +134,7 @@ function refreshDossier(){
   if(sel>=0)openNode(sel,{inPlace:true});
 }
 function openNode(i,{inPlace=false}={}){
+  if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
   const previousScroll=inPlace&&sel===i?dbody.scrollTop:0;
   const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0;
@@ -211,6 +213,11 @@ function openNode(i,{inPlace=false}={}){
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
   dossierFooter.innerHTML=storyActions;
+  if(SERVED&&n.id?.startsWith('story:')){
+    const edit=document.createElement('button');edit.type='button';edit.className='story';edit.dataset.editStory=n.id;edit.textContent='Edit story';edit.onclick=()=>openStoryEditor(n);
+    dbody.prepend(edit);
+  }
+
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
     b.disabled = true;
