@@ -1,5 +1,68 @@
+// The editor lives outside the replaceable dossier DOM so polling cannot steal its caret.
+let questionEditor=null;
+function sizeQuestionInput(text){
+  text.style.height='auto';
+  const line=parseFloat(getComputedStyle(text).lineHeight)||24;
+  text.style.height=(text.scrollHeight+line*2)+'px';
+}
+function openQuestionEditor(id,returnTarget){
+  if(questionEditor)return;
+  const q=(DATA.questions||[]).find(value=>value.id===id);
+  if(!q||!questionContext)return;
+  const draft=questionDrafts.get(id)||{kind:'freeform',optionId:'',text:''};
+  draft.kind='freeform';draft.optionId='';questionDrafts.set(id,draft);
+  const panel=document.createElement('section');questionEditor=panel;
+  panel.className='questioneditor';panel.setAttribute('aria-label','Edit owner direction');
+  panel.innerHTML=`<header><button type="button" data-editor-back>← Back</button><h2>${esc(q.prompt)}</h2></header><div class="questioneditorbody"><label for="question-editor-text">Your suggestion · Markdown supported</label><textarea id="question-editor-text" maxlength="2000" spellcheck="true"></textarea><details><summary>Markdown preview</summary><div class="storymarkdown" data-editor-preview></div></details></div><footer><p class="editorhint" data-editor-status>Draft saved in this browser. Submit saves the complete question and answer to the project.</p><span data-editor-count></span><button type="button" data-editor-submit>Submit answer</button></footer>`;
+  const covered=[...dossier.children].filter(child=>child.id!=='dossierresize').map(child=>[child,child.inert]);
+  covered.forEach(([child])=>child.inert=true);
+  const uncover=()=>covered.forEach(([child,inert])=>child.inert=inert);
+  dossier.append(panel);
+  const text=panel.querySelector('textarea'),preview=panel.querySelector('[data-editor-preview]'),submit=panel.querySelector('[data-editor-submit]'),back=panel.querySelector('[data-editor-back]'),status=panel.querySelector('[data-editor-status]');
+  let submitting=false;
+  text.value=draft.text;
+  const sync=()=>{draft.text=text.value;persistQuestionDrafts();sizeQuestionInput(text);if(preview)preview.innerHTML=renderStoryMarkdown(text.value);panel.querySelector('[data-editor-count]').textContent=`${text.value.length}/2000`;submit.disabled=submitting||!text.value.trim();};
+  const finish=()=>{if(submitting)return;sync();resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;refreshDossier();document.getElementById(returnTarget)?.focus();};
+  text.addEventListener('input',sync);back.onclick=finish;
+  panel.addEventListener('keydown',event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();finish();}});
+  submit.onclick=async()=>{
+    if(submitting||!text.value.trim())return;
+    sync();submitting=true;submit.disabled=true;back.disabled=true;text.readOnly=true;status.textContent='Saving answer…';
+    try{
+      await preflightQuestionAuthority([{dataset:{questionId:id}}]);
+      const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers:[{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}]})});
+      const body=await response.json();if(!response.ok)throw new Error(body.error||'Answer could not be saved');
+      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
+    }catch(error){status.textContent=error.message||String(error);status.setAttribute('role','alert');submitting=false;back.disabled=false;text.readOnly=false;sync();text.focus();}
+  };
+  sync();text.focus();text.setSelectionRange(text.value.length,text.value.length);
+  const resize=new ResizeObserver(()=>{if(text.isConnected)sizeQuestionInput(text);else resize.disconnect();});resize.observe(panel);
+  void mountMarkdownSurface(panel,text);
+
+}
+
 let questionContext=null, questionError='', questionSubmissionError='';
 const questionDrafts=new Map();
+// Owner directive 2026-08-22: a typed answer must never be lost to a reload or
+// a server restart. Drafts mirror to localStorage on every edit and clear only
+// when the answer is ACCEPTED by the server. Parked drafts persist the same
+// way (they rehydrate as live drafts, which restores the half-written thought).
+const QUESTION_DRAFT_STORE='vizzer-question-drafts:'+(DATA.root||location.origin);
+try{
+  const stored=JSON.parse(localStorage.getItem(QUESTION_DRAFT_STORE)||'{}');
+  for(const [id,d] of Object.entries(stored)){
+    if(d&&typeof d==='object'&&d.kind)questionDrafts.set(id,{kind:d.kind||'',optionId:d.optionId||'',text:d.text||''});
+  }
+}catch(e){/* storage unavailable: drafts stay in-tab only */}
+function persistQuestionDrafts(){
+  try{
+    const obj={};
+    for(const [id,d] of questionDrafts)if(d&&d.kind)obj[id]=d;
+    if(typeof parkedDrafts!=='undefined')for(const [id,d] of parkedDrafts)if(d&&d.kind&&!obj[id])obj[id]=d;
+    localStorage.setItem(QUESTION_DRAFT_STORE,JSON.stringify(obj));
+  }catch(e){}
+}
+
 let discussionContext=null, discussionError='';
 const discussionMessages=new Map();
 const discussionProviderFrom=text=>{
@@ -61,7 +124,7 @@ function questionCard(q){
   return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
-    <div class="questioncustom" ${custom?'':'hidden'}><label for="${token}-text">Your suggestion</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>
+    <div class="questioncustom" ${custom?'':'hidden'}><button type="button" data-question-edit>Edit in Markdown panel</button><label for="${token}-text">Your suggestion · Markdown supported</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>
     <div class="recommendation">recommended · ${esc(q.options.find(option=>option.id===q.recommendation.optionId)?.label||q.recommendation.optionId)} — ${esc(q.recommendation.rationale)}</div>
     <small>falsifier · ${esc(q.falsifier)}<br>evidence<br>${evidence}</small>
     <div class="questionstatus${ready?' ready':''}" aria-live="polite">${status}</div></fieldset></form>`;
@@ -72,7 +135,7 @@ function decisionCard(decision){
     ?q.options?.find(option=>option.id===decision.optionId)?.label||decision.optionId
     :decision.text;
   return `<div class="questioncard answered"><strong>answered · ${esc(decision.answeredBy||q.owner||'owner')}</strong><h3>${esc(q.prompt)}</h3>
-    <div class="acceptedanswer">${decision.kind==='option'?'accepted option':'owner suggestion'} · ${esc(chosen||'')}</div>
+    <div class="acceptedanswer">${decision.kind==='option'?'accepted option · '+esc(chosen||''):'<div class="storymarkdown">'+renderStoryMarkdown(chosen||'')+'</div>'}</div>
     <small>recorded ${esc(decision.answeredAt||'')} · decision r${esc(decision.revision||1)} · fingerprint <code>${esc((decision.fingerprint||'').slice(0,12))}</code></small></div>`;
 }
 async function preflightQuestionAuthority(forms){
@@ -153,10 +216,11 @@ function bindQuestionControls(n){
   forms.forEach(form=>{
     const id=form.dataset.questionId;
     const sync=()=>{
+      persistQuestionDrafts();
       const draft=draftFor(id), custom=draft.kind==='freeform';
       const panel=form.querySelector('.questioncustom'), text=form.querySelector('[data-question-text]');
       const status=form.querySelector('.questionstatus');
-      panel.hidden=!custom;text.disabled=!custom||!questionContext;
+      panel.hidden=!custom;text.disabled=!custom||!questionContext;if(custom)sizeQuestionInput(text);
       const isReady=ready(draft);
       status.classList.toggle('ready',isReady);
       status.textContent=!SERVED?'Read-only file · run vizzer serve to answer'
@@ -167,9 +231,11 @@ function bindQuestionControls(n){
       if(!input.checked)return;questionSubmissionError='';const draft=draftFor(id);draft.kind='option';draft.optionId=input.value;sync();
     }));
     form.querySelector('[data-question-custom]')?.addEventListener('change',event=>{
-      if(!event.currentTarget.checked)return;questionSubmissionError='';const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();
+      if(!event.currentTarget.checked)return;questionSubmissionError='';const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();openQuestionEditor(id,form.querySelector('[data-question-text]').id);
     });
     const text=form.querySelector('[data-question-text]');
+    form.querySelector('[data-question-edit]')?.addEventListener('click',()=>openQuestionEditor(id,text.id));
+    text?.addEventListener('click',()=>openQuestionEditor(id,text.id));
     text?.addEventListener('focus',()=>{
       const custom=form.querySelector('[data-question-custom]');if(custom&&!custom.checked){questionSubmissionError='';custom.checked=true;const draft=draftFor(id);draft.kind='freeform';draft.optionId='';sync();}
     });
@@ -225,6 +291,7 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
   questionSubmissionError='';
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
+    questionDrafts.delete(snapshot.id);persistQuestionDrafts();
     const q=(DATA.questions||[]).find(value=>value.id===snapshot.id);
     if(!q)continue;
     const node=DATA.nodes[q.n], questionIndex=DATA.questions.indexOf(q);
@@ -246,4 +313,77 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
   // Story update succeeds, rebuild the complete dossier from its top instead
   // of preserving a now-invalid question-form scroll extent and spacer.
   if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
+}
+
+// Owner revisions are review candidates, with exact source identity and durable diffs.
+async function openStoryEditor(n){
+  if(questionEditor)return;
+  const panel=document.createElement('section');questionEditor=panel;
+  panel.className='questioneditor';panel.setAttribute('aria-label','Edit story for review');
+  const covered=[...dossier.children].filter(child=>child.id!=='dossierresize').map(child=>[child,child.inert]);
+  covered.forEach(([child])=>child.inert=true);dossier.append(panel);
+  panel.innerHTML=`<header><button type="button" data-edit-back>← Back</button><h2>${esc(n.t)}</h2></header><div class="questioneditorbody"><label for="story-editor-text">Story · Markdown</label><textarea id="story-editor-text" disabled></textarea><details><summary>Markdown preview</summary><div class="storymd" data-edit-preview></div></details></div><footer><p class="editorhint" role="status" data-edit-status>Loading story…</p><button type="button" data-edit-save disabled>Save for review</button></footer>`;
+  const text=panel.querySelector('textarea'),status=panel.querySelector('[data-edit-status]'),save=panel.querySelector('[data-edit-save]'),back=panel.querySelector('[data-edit-back]');
+  const key=`vizzer-story-draft:${DATA.root||location.origin}:${n.id}`;
+  let state=null,busy=false,finished=false;
+  const persist=()=>{if(state)try{localStorage.setItem(key,JSON.stringify({text:text.value,sourceHash:state.sourceHash,revision:state.revision}));}catch(_){}};
+  const sync=()=>{persist();sizeQuestionInput(text);if(panel.querySelector('[data-edit-preview]'))panel.querySelector('[data-edit-preview]').innerHTML=renderStoryMarkdown(text.value);save.disabled=busy||!state||!text.value.trim();};
+  const resize=new ResizeObserver(()=>{if(text.isConnected)sizeQuestionInput(text);});resize.observe(panel);
+  const finish=()=>{if(busy)return;finished=true;persist();resize.disconnect();covered.forEach(([child,inert])=>child.inert=inert);panel._markdownDispose?.();panel.remove();questionEditor=null;refreshDossier();dbody.querySelector('[data-edit-story]')?.focus();};
+  back.onclick=finish;panel.addEventListener('keydown',event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();finish();}});text.addEventListener('input',sync);
+  try{
+    const response=await fetch('/api/story-edits/'+encodeURIComponent(n.id),{cache:'no-store'});
+    const body=await response.json();if(!response.ok)throw new Error(body.error||'Could not load story');if(finished)return;
+    state=body;text.value=state.latest?.edited??state.source;
+    let draft=null;try{draft=JSON.parse(localStorage.getItem(key)||'null');}catch(_){}
+    if(draft&&typeof draft.text==='string'){text.value=draft.text;state.sourceHash=draft.sourceHash;state.revision=draft.revision;}
+    text.disabled=false;status.textContent=state.latest?`Revision ${body.revision} pending review. Editing opens the latest submitted text.`:'Your changes will be saved with the original story and an exact diff for review.';
+    sync();text.focus();void mountMarkdownSurface(panel,text);
+  }catch(error){if(!finished){status.textContent=error.message||String(error);status.setAttribute('role','alert');}}
+  save.onclick=async()=>{
+    if(!state||busy)return;persist();busy=true;save.disabled=true;back.disabled=true;text.readOnly=true;status.textContent='Saving revision…';
+    try{
+      const authority=await fetch('/api/story-edits/'+encodeURIComponent(n.id),{cache:'no-store'});
+      const current=await authority.json();if(!authority.ok)throw new Error(current.error||'Story authority unavailable');
+      const response=await fetch('/api/story-edits',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':current.csrfToken},body:JSON.stringify({storyId:n.id,expectedSourceHash:state.sourceHash,expectedRevision:state.revision,text:text.value})});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save revision');
+      state.revision=result.revision;try{localStorage.removeItem(key);}catch(_){}
+      status.textContent=`Revision ${result.revision} saved · pending review. You can continue editing or go Back.`;
+      // Future edits continue from this submitted revision; keep the source hash for CAS.
+      busy=false;back.disabled=false;text.readOnly=false;save.disabled=true;
+    }catch(error){busy=false;back.disabled=false;text.readOnly=false;save.disabled=false;status.textContent=error.message||String(error);status.setAttribute('role','alert');text.focus();}
+  };
+}
+
+// One editing surface: formatted Markdown by default, explicit source mode.
+async function mountMarkdownSurface(panel,text){
+  const body=panel.querySelector('.questioneditorbody');
+  body.querySelector('details')?.remove();
+  const controls=document.createElement('div');controls.className='markdownmode';
+  controls.innerHTML='<button type="button" data-markdown-mode>Markdown source</button><span role="status" data-markdown-note></span>';
+  const host=document.createElement('div');host.className='markdownsurface';
+  text.before(controls,host);
+  const mode=controls.querySelector('button'),note=controls.querySelector('span');
+  let editor=null,source=false,disposed=false,initializing=false;
+  const onChange=value=>{text.value=value;text.dispatchEvent(new Event('input',{bubbles:true}));};
+  const destroy=()=>{const old=editor;editor=null;if(old)void old.destroy();host.replaceChildren();};
+  const showSource=()=>{source=true;mode.textContent='Formatted editor';host.hidden=true;text.hidden=false;sizeQuestionInput(text);text.focus();};
+  const showRich=async()=>{
+    if(initializing||disposed)return;initializing=true;mode.disabled=true;note.textContent='Loading editor…';
+    try{
+      if(!window.VizzerMarkdownEditor)throw new Error('Formatted editor unavailable; your Markdown remains editable in source mode.');
+      if(/^\s*<(?:details|summary|table|div)\b/im.test(text.value))throw new Error('Raw HTML blocks use source mode to preserve them exactly.');
+      destroy();host.hidden=false;text.hidden=true;
+      const before=text.value;editor=await window.VizzerMarkdownEditor.mount(host,before,onChange);
+      if(disposed){destroy();return;}
+      const metadata=value=>(value.match(/^> (?:Status|Release|Deps|Tags):.*$/gm)||[]).join('\n');
+      if(metadata(before)!==metadata(editor.normalized))throw new Error('Story metadata requires source mode to preserve its exact headers.');
+      source=false;mode.textContent='Markdown source';note.textContent='';editor.setReadonly(text.readOnly||text.disabled);editor.focus();
+    }catch(error){destroy();showSource();note.textContent=error.message||String(error);}
+    finally{initializing=false;mode.disabled=false;}
+  };
+  mode.onclick=()=>{if(source){void showRich();}else{if(editor)onChange(editor.getMarkdown());destroy();showSource();}};
+  const readonly=new MutationObserver(()=>editor?.setReadonly(text.readOnly||text.disabled));readonly.observe(text,{attributes:true,attributeFilter:['readonly','disabled']});
+  panel._markdownDispose=()=>{disposed=true;readonly.disconnect();destroy();};
+  await showRich();
 }

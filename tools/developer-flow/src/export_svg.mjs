@@ -1,5 +1,5 @@
 import {
-  groupFrameMetrics,groupFramePresentation,objectCardMetrics,objectCardPresentation,
+  edgeLabelMetrics,groupFrameMetrics,groupFramePresentation,objectCardMetrics,objectCardPresentation,
   pathMidpoint,roundedOrthogonalPath,wrapTextLines,
 } from './layout_contract.mjs';
 import {sfSymbolPresentation} from './vizzer_sf_symbols.mjs';
@@ -26,9 +26,11 @@ function pointsPath(points){
   return roundedOrthogonalPath(points.map(point=>({x:number(point.x),y:number(point.y)})),10);
 }
 function edgeLabelLayout(edge,points){
-  const middle=pathMidpoint(points),label=String(edge.label||edge.data?.kind||'relation');
-  const width=Math.max(36,label.length*7+14);
-  return {middle,label,width,x:number(middle.x)-width/2,y:number(middle.y)-17};
+  const middle=edge.data?.labelPoint||pathMidpoint(points);
+  const label=String(edge.label||edge.data?.kind||'relation');
+  const {width,height}=edgeLabelMetrics(label);
+  return {middle,label,width,height,x:number(middle.x)-width/2,
+    y:number(middle.y)-height/2};
 }
 function noteLayout(note){
   const lines=wrapTextLines(note.text,30),width=240;
@@ -122,7 +124,7 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],annot
     for(const point of points)bounds.push(number(point.x),number(point.y));
     if(points.length){
       const label=edgeLabelLayout(edge,points);
-      bounds.push(label.x,label.y,label.x+label.width,label.y+18);
+      bounds.push(label.x,label.y,label.x+label.width,label.y+label.height);
     }
   }
   for(const annotation of exportedAnnotations){
@@ -139,7 +141,7 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],annot
     const points=edge.data?.points||[];
     const path=pointsPath(points);if(!path)return '';
     const label=edgeLabelLayout(edge,points);
-    return `<g class="edge"><path d="${path}" marker-end="url(#arrow)"/><rect class="edge-label-bg" x="${label.x}" y="${label.y}" width="${label.width}" height="18" rx="9"/><text x="${number(label.middle.x)}" y="${number(label.middle.y)-6}">${esc(label.label)}</text></g>`;
+    return `<g class="edge"><path d="${path}" marker-end="url(#arrow)"/><rect class="edge-label-bg" x="${label.x}" y="${label.y}" width="${label.width}" height="${label.height}" rx="9"/><text x="${number(label.middle.x)}" y="${number(label.middle.y)+3}">${esc(label.label)}</text></g>`;
   }).join('');
   const ordered=[...nodes].sort((a,b)=>(a.type==='groupFrame'?0:1)-(b.type==='groupFrame'?0:1));
   const nodeMarkup=ordered.map(node=>{
@@ -157,8 +159,9 @@ export function developerFlowSvg({title='Developer Flow',nodes=[],edges=[],annot
   }).join('');
   const metadata=esc(JSON.stringify({schema:'vizzer-developer-flow-svg/v1',lod,exportedAt,
     annotationCount:exportedAnnotations.length,annotationsIncluded:Boolean(includeAnnotations)}));
+  const edgeLabelStyle='.edge text{font-size:8px}';
   const styles=`svg{background:#fff}.edge path{fill:none;stroke:#64748b;stroke-width:2}.edge-label-bg{fill:#fff;stroke:#cbd5e1;stroke-width:1}.edge text{font:700 11px ui-monospace,monospace;fill:#64748b}.group-body{fill:#f8fafc;stroke:#94a3b8;stroke-width:2}.group-header{fill:#f1f5f9;stroke:none}.group-divider,.object-divider{stroke:#cbd5e1;stroke-width:1}.group-title,.title{font:700 15px system-ui,sans-serif;fill:#0f172a}.meta{font:11px system-ui,sans-serif;fill:#64748b}.group-symbol,.sf-symbol{fill:#2563eb}.group-total{font:700 23px system-ui,sans-serif;fill:#2563eb}.status-badge rect{fill:#fff;stroke:#94a3b8}.status-badge text{font:700 9px ui-monospace,monospace;fill:#64748b}.status-badge.role-blocked rect{stroke:#dc2626}.status-badge.role-blocked text{fill:#dc2626}.status-badge.role-active rect{stroke:#2563eb}.status-badge.role-active text{fill:#2563eb}.object-body{fill:#fff;stroke:#64748b;stroke-width:1.5}.object-header{fill:#f8fafc;stroke:none}.status-rule{stroke:#64748b;stroke-width:4;stroke-linecap:round}.object-dot{fill:#fff;stroke:#64748b;stroke-width:3}.status-blocked .status-rule,.status-blocked .object-dot{stroke:#dc2626}.status-active .status-rule,.status-active .object-dot{stroke:#2563eb}.status-shipped .status-rule,.status-shipped .object-dot{stroke:#16a34a}.kind-icon{fill:#fff;stroke:#94a3b8;stroke-width:1}.symbol-dot{fill:#2563eb}.kind{font:11px ui-monospace,monospace;fill:#64748b;text-transform:uppercase}.status-pill rect{fill:#fff;stroke:#94a3b8}.status-pill text{font:700 9px ui-monospace,monospace;fill:#64748b;text-transform:uppercase}.summary{font:12px system-ui,sans-serif;fill:#64748b}.detail-key{font:700 9px ui-monospace,monospace;fill:#64748b;text-transform:uppercase}.detail-value{font:11px system-ui,sans-serif;fill:#334155}.failure-strip rect{fill:#fff1f2;stroke:#fda4af}.failure{font:700 12px system-ui,sans-serif;fill:#dc2626}.failure-strip .sf-symbol{fill:#dc2626}.lod-overview{opacity:.75}.annotation-stroke{fill:none;stroke:#f59e0b;stroke-linecap:round;stroke-linejoin:round}.annotation-note rect{fill:#fff7cc;stroke:#f59e0b;stroke-width:2}.annotation-note text{font:12px system-ui,sans-serif;fill:#0f172a}.annotation-note .annotation-object{font:10px ui-monospace,monospace;fill:#64748b}.annotation-blue{stroke:#2563eb}.annotation-pink{stroke:#db2777}.annotation-green{stroke:#16a34a}.annotation-white{stroke:#e2e8f0}.annotation-note.annotation-blue rect{fill:#eff6ff;stroke:#2563eb}.annotation-note.annotation-pink rect{fill:#fdf2f8;stroke:#db2777}.annotation-note.annotation-green rect{fill:#ecfdf5;stroke:#16a34a}.annotation-note.annotation-white rect{fill:#fff;stroke:#94a3b8}`;
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><metadata>${metadata}</metadata><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#64748b"/></marker><style>${styles}</style></defs>${edgeMarkup}${nodeMarkup}${annotationMarkup}</svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title><metadata>${metadata}</metadata><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#64748b"/></marker><style>${styles}${edgeLabelStyle}</style></defs>${edgeMarkup}${nodeMarkup}${annotationMarkup}</svg>`;
 }
 
 export function svgFilename(title='developer-flow',scope='overview'){

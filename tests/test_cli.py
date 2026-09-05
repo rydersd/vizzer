@@ -23,7 +23,8 @@ def test_sync_render_check_archive(tmp_path, make_repo, capsys):
     assert names == sorted(["roadmap.md", "feature-index.md", "dashboard.md",
                             "completion-sheet.md", "ledger-table.md",
                             "decision-journal.md", "discussion-queue.md", "manifest.json",
-                            "constellation.html"])
+                            "constellation.html", "evolution.html", "milkdown.js",
+                            "milkdown.css", "about.html", "THIRD-PARTY-NOTICES.txt"])
 
     assert main(["check", "--root", str(repo), "--structural"]) == 0
 
@@ -232,7 +233,7 @@ def test_refresh_syncs_and_renders_one_fresh_graph(tmp_path, make_repo, capsys):
     repo = make_repo(tmp_path, "mixed_proj")
     assert main(["refresh", "--root", str(repo)]) == 0
     output = capsys.readouterr().out
-    assert "refresh:" in output and "wrote 9 files" in output
+    assert "refresh:" in output and "wrote 14 files" in output
     assert (repo / "vizzer" / "vizzer-graph.json").is_file()
     assert main(["check", "--root", str(repo), "--structural"]) == 0
 

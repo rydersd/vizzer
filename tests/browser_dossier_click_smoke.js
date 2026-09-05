@@ -7,6 +7,10 @@ const chrome=process.argv[2];
 if(!chrome)throw new Error('Chrome executable path is required');
 const profile=fs.mkdtempSync(path.join(os.tmpdir(),'vizzer-browser-'));
 const server=http.createServer((request,response)=>{
+  if(['/milkdown.js','/milkdown.css'].includes(request.url)){
+    response.writeHead(200,{'Content-Type':request.url.endsWith('.js')?'text/javascript':'text/css'});
+    response.end(fs.readFileSync(path.join(__dirname,'../src/vizzer/render/constellation/third-party',request.url.slice(1))));return;
+  }
   if(request.url==='/constellation.html'){
     response.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});
     response.end(html);return;
@@ -118,6 +122,14 @@ try{
   responsive.narrowDrawer=narrowDrawer;
   await send('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
   await waitFor(()=>evaluate(`innerWidth===1280&&innerHeight===800`),'restored wide viewport');
+  const roundTripSource='# Original\n\n> Status: specced\n> Release: M1\n> Deps: foo\n\n- Preserve list.\n\n```gherkin\nGiven a retained fence\n```\n';
+  await evaluate(`(async()=>{globalThis.__richRoot=document.createElement('div');__richRoot.style.cssText='position:fixed;inset:0;z-index:9999;background:#111';document.body.append(__richRoot);globalThis.__rich=await VizzerMarkdownEditor.mount(__richRoot,${JSON.stringify(roundTripSource)},()=>{});__rich.focus();})()`);
+  if(await evaluate(`__rich.getMarkdown()`)!==roundTripSource)throw new Error('Opening formatted editor changed original Markdown');
+  await send('Input.insertText',{text:'Edited '});
+  await waitFor(()=>evaluate(`__rich.getMarkdown().startsWith('# Edited Original')`),'rich text round trip');
+  const roundTripAfter=await evaluate(`__rich.getMarkdown()`);
+  if(roundTripAfter!==roundTripSource.replace('# Original','# Edited Original'))throw new Error('Rich edit changed unrelated Markdown: '+roundTripAfter);
+  await evaluate(`(async()=>{await __rich.destroy();__richRoot.remove();})()`);
   const rect=await evaluate(`(()=>{
     switchView('constellation');
     questionContext={schema:1,revision:0,csrfToken:'test',questions:DATA.questions,decisions:[]};
@@ -133,11 +145,18 @@ try{
     const r=label.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:customRect.x,y:customRect.y,button:'left',clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:customRect.x,y:customRect.y,button:'left',clickCount:1});
-  const textRect=await evaluate(`(()=>{const text=document.querySelectorAll('[data-question-text]')[1];
+  await waitFor(()=>evaluate(`Boolean(document.querySelector('.markdownsurface [contenteditable]'))`),'Milkdown editor');
+  const textRect=await evaluate(`(()=>{const text=document.querySelector('.markdownsurface [contenteditable]');
     text.scrollIntoView({block:'center'});const r=text.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()`);
   await send('Input.dispatchMouseEvent',{type:'mousePressed',x:textRect.x,y:textRect.y,button:'left',clickCount:1});
   await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:textRect.x,y:textRect.y,button:'left',clickCount:1});
   await send('Input.insertText',{text:'Keep it exact.'});
+  await waitFor(()=>evaluate(`questionDrafts.get(DATA.questions[1].id)?.text==='Keep it exact.'`),'formatted draft serialization');
+  const editorProof=await evaluate(`(()=>{const text=document.querySelector('.markdownsurface [contenteditable]');const before=text;refreshDossier();return document.activeElement===before&&document.querySelector('.markdownsurface [contenteditable]')===before&&text.textContent==='Keep it exact.';})()`);
+  if(!editorProof)throw new Error('Sidebar refresh replaced editor or stole typing focus');
+  const backRect=await evaluate(`(()=>{const r=document.querySelector('[data-editor-back]').getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};})()`);
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:backRect.x,y:backRect.y,button:'left',clickCount:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:backRect.x,y:backRect.y,button:'left',clickCount:1});
   await waitFor(()=>evaluate(`!document.querySelector('[data-question-queue] button').disabled`),'complete answer queue');
   const state=await evaluate(`(()=>{const forms=[...document.querySelectorAll('form[data-question-id]')],button=document.querySelector('[data-question-queue] button');return{
     checked:forms[0].querySelector('[data-question-option]').checked,

@@ -177,6 +177,15 @@ const mutation=[{x:b.x-20,y:b.y+b.height/2},{x:b.x+b.width+20,y:b.y+b.height/2}]
 const midpoint=pathMidpoint([{x:0,y:0},{x:100,y:0},{x:100,y:300}]);
 const label=placePathLabel([{x:0,y:0},{x:300,y:0}],'depends-on',
   [{x:120,y:-30,width:60,height:60}],[]);
+const sharedRoute=[{x:0,y:0},{x:42,y:0},{x:42,y:370},{x:92,y:370}];
+const peerRoute=[{x:0,y:-42},{x:60,y:-42},{x:60,y:172},{x:92,y:172}];
+const contextualLabel=placePathLabel(sharedRoute,'depends-on',[
+  {x:-320,y:-100,width:320,height:200},
+  {x:92,y:270,width:320,height:200},
+],[],[peerRoute]);
+const downLabel=placePathLabel([
+  {x:0,y:0},{x:0,y:42},{x:370,y:42},{x:370,y:92},
+],'depends-on',[],[],[],'vertical');
 const options=rootLayoutOptions('RIGHT');
 const rounded=roundedOrthogonalPath([{x:0,y:0},{x:80,y:0},{x:80,y:70}],10);
 const frame=groupFrameMetrics('Component Authoring & Instances',
@@ -185,7 +194,7 @@ const card=objectCardMetrics({title:'A deliberately long object title that wraps
   summary:'A summary with enough content to occupy multiple complete lines without a clamp.'});
 console.log(JSON.stringify({hits,mutationDetected:routeCrossesRect(mutation,b),midpoint,
   edgeGap:options['elk.spacing.edgeEdge'],betweenGap:options['elk.layered.spacing.edgeEdgeBetweenLayers'],
-  rounded,frame,card,laneXs,label}));
+  rounded,frame,card,laneXs,label,contextualLabel,downLabel}));
 """
     result = subprocess.run(
         ["node", "--input-type=module", "-e", script],
@@ -203,6 +212,12 @@ def test_orthogonal_layout_avoids_card_interiors_and_mutation_detects_overlap():
     assert result["laneXs"] == [204, 222, 240]
     assert result["rounded"] == "M 0 0 L 70 0 Q 80 0 80 10 L 80 70"
     assert not (120 <= result["label"]["x"] <= 180 and -30 <= result["label"]["y"] <= 30)
+    assert result["contextualLabel"]["segmentIndex"] == 2
+    assert result["contextualLabel"]["orientation"] == "horizontal"
+    assert abs(result["contextualLabel"]["offset"]) == 18
+    assert result["downLabel"]["segmentIndex"] == 2
+    assert result["downLabel"]["orientation"] == "vertical"
+    assert abs(result["downLabel"]["offset"]) == 18
     assert result["frame"]["width"] == 360
     assert result["frame"]["height"] > 132
     assert result["frame"]["headerHeight"] >= 54
@@ -565,7 +580,7 @@ const nodes=[
   {id:'a',type:'objectCard',parentId:'g',position:{x:30,y:70},style:{width:180,height:120},data:{title:'Orders',kind:'service',status:'building',statusRole:'active',summary:'Creates orders'}},
   {id:'b',type:'objectCard',parentId:'g',position:{x:280,y:70},style:{width:180,height:120},data:{title:'Database',kind:'database',status:'failed',statusRole:'blocked',failure:{message:'probe <failed>'}}},
 ];
-const edges=[{id:'e',label:'depends-on',data:{kind:'depends-on',points:[{x:220,y:140},{x:290,y:140}]}}];
+const edges=[{id:'e',label:'depends-on',data:{kind:'depends-on',points:[{x:220,y:140},{x:290,y:140}],labelPoint:{x:252,y:164}}}];
 const annotations=[
   {id:'stroke',kind:'stroke',color:'pink',width:4,points:[[20,30],[40,50],[70,50]]},
   {id:'note',kind:'note',color:'yellow',x:80,y:220,text:'Owner <script>alert(1)</script> note',objectId:'a'},
@@ -583,8 +598,8 @@ console.log(JSON.stringify({svg,cleanSvg,longLabelContained:labelRect[0]>=viewBo
     assert '<svg xmlns="http://www.w3.org/2000/svg"' in svg
     assert '<foreignObject' not in svg
     assert '<path d="M 220 140 L 290 140"' in svg
-    assert '<rect class="edge-label-bg" x="213" y="123" width="84" height="18" rx="9"/>' in svg
-    assert '<text x="255" y="134">depends-on</text>' in svg
+    assert '<rect class="edge-label-bg" x="218" y="155" width="68" height="18" rx="9"/>' in svg
+    assert '<text x="252" y="167">depends-on</text>' in svg
     assert ".edge-label-bg{fill:#fff" in svg
     assert "depends-on" in svg and "Orders" in svg and "probe &lt;failed&gt;" in svg
     assert "Commerce &lt;core&gt;" in svg

@@ -231,3 +231,9 @@ const progressText = n => {
   const stuck=blocked&&blockedDays>=blocked.afterDays?`stalled ${blockedDays.toFixed(1)}d since verified/eligible evidence · ${blocked.source}`:'';
   return [trail,stuck].filter(Boolean).join(' | ');
 };
+
+// Optional tag identity colors; lifecycle remains explicit in the dossier.
+function nodeColor(n){
+  for(const tag of n.tags||[]){const color=(DATA.tagColors||{})[tag];if(typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color))return [1,3,5].map(i=>parseInt(color.slice(i,i+2),16));}
+  return RGB[n.g];
+}

@@ -8,7 +8,7 @@ import {
 import {developerFlowSvg,svgFilename,triggerSvgDownload} from './export_svg.mjs';
 import {
   absoluteEdgeRoutes,groupFrameMetrics,objectCardMetrics,pathMidpoint,placePathLabel,
-  roundedOrthogonalPath,routeMatchesEndpoints,
+  roundedOrthogonalPath,routeBounds,routeMatchesEndpoints,
 } from './layout_contract.mjs';
 import {placeOverlay} from './overlay_geometry.mjs';
 import {annotationHistory,annotationHistoryReducer} from './annotation_history.mjs';
@@ -24,7 +24,7 @@ import {
 const INITIAL_DATA=globalThis.__VIZZER_DEVELOPER_GRAPH__;
 const INITIAL_VIEW=decodeViewState(globalThis.location?.search||'');
 const elk=new ELK();
-function flattenLayout(layout,projected,collapsed,expanded,selectedId,onToggleGroup,onToggleExpanded,onSelect,onPreview){
+function flattenLayout(layout,projected,collapsed,expanded,selectedId,onToggleGroup,onToggleExpanded,onSelect,onPreview,direction){
   const objectById=new Map(projected.objects.map(object=>[object.id,object]));
   const groupById=new Map(projected.groups.map(group=>[group.id,group]));
   const nodes=[],labelObstacles=[];
@@ -46,19 +46,39 @@ function flattenLayout(layout,projected,collapsed,expanded,selectedId,onToggleGr
   };
   for(const child of layout.children||[])visit(child);
   const relationById=new Map(projected.relations.map(relation=>[relation.id,relation]));
-  const routes=absoluteEdgeRoutes(layout),edges=[],labelRects=[];
+  const routes=absoluteEdgeRoutes(layout),routed=[],labelRects=[];
   const collect=entry=>{
     for(const edge of entry.edges||[]){
       const relation=relationById.get(edge.id);if(!relation)continue;
       const label=relation.count>1?`${relation.kind} ×${relation.count}`:relation.kind;
       const points=routes.get(edge.id)||[];
-      const placement=placePathLabel(points,label,labelObstacles,labelRects);
-      labelRects.push(placement.rect);
-      edges.push({id:edge.id,source:relation.source,target:relation.target,type:'routed',data:{...relation,points,labelPoint:{x:placement.x,y:placement.y}},label,markerEnd:'developer-arrow'});
+      routed.push({edge,relation,label,points});
     }
     for(const child of entry.children||[])collect(child);
   };
   collect(layout);
+  const routeIndex=routed.map(candidate=>({...candidate,bounds:routeBounds(candidate.points)}));
+  const edges=routeIndex.map(({edge,relation,label,points,bounds})=>{
+    // Labels are at most 180px wide and offset by 18px. Routes outside this
+    // local envelope cannot collide, so do not turn dense project maps into
+    // a full geometry comparison between every pair of edges.
+    const envelope={x:bounds.x-120,y:bounds.y-36,width:bounds.width+240,
+      height:bounds.height+72};
+    const peerRoutes=routeIndex.filter(candidate=>candidate.edge.id!==edge.id
+      &&candidate.bounds.x+candidate.bounds.width>=envelope.x
+      &&candidate.bounds.x<=envelope.x+envelope.width
+      &&candidate.bounds.y+candidate.bounds.height>=envelope.y
+      &&candidate.bounds.y<=envelope.y+envelope.height)
+      .map(candidate=>candidate.points);
+    const preferredOrientation=direction==='DOWN'?'vertical':'horizontal';
+    const placement=placePathLabel(
+      points,label,labelObstacles,labelRects,peerRoutes,preferredOrientation,
+    );
+    labelRects.push(placement.rect);
+    return {id:edge.id,source:relation.source,target:relation.target,type:'routed',
+      data:{...relation,points,labelPoint:{x:placement.x,y:placement.y}},label,
+      markerEnd:'developer-arrow'};
+  });
   return {nodes,edges};
 }
 
@@ -324,7 +344,7 @@ function DeveloperFlow(){
     let live=true;setLayout(current=>({...current,busy:true,error:'',stats:projected.stats}));
     elk.layout(buildElkGraph(projected,collapsed,expanded,direction)).then(result=>{
       if(!live)return;
-      const flat=flattenLayout(result,projected,collapsed,expanded,selectedId,toggleGroup,toggleExpanded,selectObject,previewObject);
+      const flat=flattenLayout(result,projected,collapsed,expanded,selectedId,toggleGroup,toggleExpanded,selectObject,previewObject,direction);
       setLayout({...flat,busy:false,error:'',stats:projected.stats});
     }).catch(error=>live&&setLayout(current=>({...current,busy:false,error:String(error)})));
     return()=>{live=false;};

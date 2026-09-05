@@ -179,7 +179,7 @@ function draw(){
     const p=P[i],n=DATA.nodes[i],rr=nodeRadius(i);
     const searchDim=searchTerms.length>0&&!searchMatches[i];
     const dim=(sel>=0&&!selSet.has(i))||searchDim;
-    const rgb=RGB[n.g],rec=lens.delivery&&n.rec&&!dim;
+    const rgb=nodeColor(n),rec=lens.delivery&&n.rec&&!dim;
     if(rec){
       ctx.globalAlpha=.16;ctx.fillStyle=rgbCss(mixA(rgb,[255,255,255],.5));
       ctx.beginPath();ctx.arc(p.x,p.y,rr*2.6,0,7);ctx.fill();
@@ -208,7 +208,7 @@ function draw(){
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
     const dim = (sel>=0 && !selSet.has(i)) || searchDim;
-    let rgb = RGB[n.g];
+    let rgb = nodeColor(n);
     const rec = lens.delivery && n.rec && !dim;
     if (rec) rgb = mixA(rgb, [255,255,255], .55); // ★ next: brighter lightness
     const col = rgbCss(rgb);

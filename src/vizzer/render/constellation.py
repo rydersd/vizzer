@@ -628,6 +628,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         "engineVersion": __version__,
         "renderId": _current_render_id(),
         "nodes": nodes,
+        "tagColors": cfg.get("render.tag_colors", {}),
         "groups": rendered_groups,
         "edges": edges,
         "relations": relations,
