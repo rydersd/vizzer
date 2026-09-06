@@ -56,7 +56,8 @@ DEFAULTS = {
     },
     "render": {"output_dir": "vizzer/views",
                "releases": ["R0", "R1", "R2", "R3"],
-               "recommended": [], "obsidian_links": False, "title": ""},
+               "recommended": [], "project_documents": [],
+               "obsidian_links": False, "title": ""},
     # Optional precompiled developer-object graph. Core has no Node/React runtime.
     "developer_flow": {
         "enabled": False,

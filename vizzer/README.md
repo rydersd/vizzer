@@ -66,7 +66,7 @@ in `vizzer.toml`; this is a local address on this Mac.
 
 On the current Mac, the user LaunchAgent
 `com.vizzer.project.ad84a7edba4f.server` starts at login and restarts on exit.
-Its plist lives in `~/Library/LaunchAgents/` and its logs in
+It uses Interactive scheduling for user-facing requests. Its plist lives in `~/Library/LaunchAgents/` and its logs in
 `~/Library/Logs/Vizzer/ad84a7edba4f/`. It invokes `/usr/bin/python3 -u` with
 this checkout's `vizzer/start_server.py`, which refreshes before serving and
 uses the configured port. The machine-specific plist is local; the launcher
@@ -91,3 +91,13 @@ Do not manually start another server while the service owns port 8480. This
 starts after user login, not before login, and does not open a browser or
 poll/pull other repositories. The downstream startup installer assumes a
 vendored engine; this source checkout instead uses `start_server.py`.
+
+## Project landing page
+
+The dashboard now opens with six project-library shortcuts: product spec,
+current behavior, change register, wiki, docs and this operating guide. These
+remain available independently of work filters. Below them, recommendations
+and the work register expose pending and shipped Stories under current filters.
+Documents open with their full Markdown body rather than empty Story review
+fields. Configure these shortcuts with `render.project_documents`, an ordered
+list of source paths already ingested as references.

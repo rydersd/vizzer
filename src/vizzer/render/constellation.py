@@ -628,6 +628,11 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         "engineVersion": __version__,
         "renderId": _current_render_id(),
         "nodes": nodes,
+        "projectDocuments": [
+            item.id for path in cfg.get("render.project_documents", [])
+            for item in items
+            if item.role == "reference" and item.source.get("path") == path
+        ],
         "tagColors": cfg.get("render.tag_colors", {}),
         "groups": rendered_groups,
         "edges": edges,

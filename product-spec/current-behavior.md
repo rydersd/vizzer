@@ -59,6 +59,12 @@ using a login LaunchAgent with refresh-before-serve and restart-on-exit. See the
 [startup Story](stories/stable-local-startup.md) and [operating instructions](../vizzer/README.md).
 This is local availability after login; it is not a public deployment.
 
+## Project landing page
+
+Configured `render.project_documents` references appear as persistent dashboard
+shortcuts, alongside a filtered work register. Reference dossiers open the full
+Markdown document. [Landing-page Story](stories/project-landing-page.md).
+
 ## Limits and open work
 
 Self-hosting does not automatically pull projects, watch repositories or prove

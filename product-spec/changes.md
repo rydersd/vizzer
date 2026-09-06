@@ -15,6 +15,8 @@ history; downstream changes enter here only after comparison.
 
 | Stable local address and login startup | Local LaunchAgent plus tracked source launcher | [Startup Story](stories/stable-local-startup.md) |
 
+| Discoverable project landing page and document reader | This repair | [Story](stories/project-landing-page.md) |
+
 ## Next work
 
 1. [Inventory concrete downstream changes](stories/cross-project-change-intake.md) against this baseline using exact origin commits.

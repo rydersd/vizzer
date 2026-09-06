@@ -212,7 +212,11 @@ function openNode(i,{inPlace=false}={}){
     ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ${icon('arrow-up-right')}</a>`:''}
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
-  dossierFooter.innerHTML=storyActions;
+  if(n.role==='reference'){
+    dbody.innerHTML=storyFullBodyMarkup(n)+storyDeepLinkMarkup(n)
+      +(n.h?`<a class="story" href="${esc(n.h)}" target="_blank" rel="noopener">Open source document</a>`:'');
+  }
+  dossierFooter.innerHTML=n.role==='reference'?'':storyActions;
   if(SERVED&&n.id?.startsWith('story:')){
     const edit=document.createElement('button');edit.type='button';edit.className='story';edit.dataset.editStory=n.id;edit.textContent='Edit story';edit.onclick=()=>openStoryEditor(n);
     dbody.prepend(edit);
@@ -232,6 +236,10 @@ function openNode(i,{inPlace=false}={}){
   bindQuestionControls(n);
   bindPlanControls(n);
   bindStorySidebar(dbody);
+  if(n.role==='reference'){
+    const documentToggle=dbody.querySelector('[data-story-accordion="full-story"]');
+    if(documentToggle){documentToggle.textContent='Document';documentToggle.click();}
+  }
   // Reconciliation can replace long question forms with compact answer cards.
   // Preserve the old scrollable extent until an explicit close/reopen, or the
   // browser clamps the requested scrollTop to zero and makes the drawer jump.

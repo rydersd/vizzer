@@ -16,6 +16,11 @@ function viewCard(index,detail=''){
 const emptyPanel=message=>`<div class="viewemptycopy">${esc(message)}</div>`;
 const panelHead=(title,copy)=>`<header class="viewhead"><div><h1>${esc(title)}</h1><p>${esc(copy)}</p></div></header>`;
 function renderDashboard(entries){
+  // Project navigation is persistent, independently of delivery/search filters.
+  const documents=(DATA.projectDocuments||[]).map(id=>nodeById.get(id))
+    .filter(index=>index!==undefined);
+  const projectHome=documents.length?`<section class="viewsection"><h2>Project library</h2><p>Product specification, change history, wiki and documentation. These shortcuts stay available while you filter work.</p><div class="viewgrid">${documents.map(index=>viewCard(index,'Open project document')).join('')}</div></section>`:'';
+  const register=documents.length?`<section class="viewsection"><h2>Work register</h2><p>Tracked work under the current filters. Completion counts these Stories, not the whole product.</p><div class="viewgrid">${entries.filter(({node})=>(node.role||'delivery')==='delivery').map(({index})=>viewCard(index)).join('')||emptyPanel('No delivery Stories match the current filters.')}</div></section>`:'';
   const available=new Set(entries.map(({node})=>node.id));
   const portfolio=DATA.assessment?.portfolio||{};
   const lanes=[
@@ -33,8 +38,8 @@ function renderDashboard(entries){
     return `<section class="viewsection"><h2>${esc(label)} <span>${indexes.length}</span></h2><div class="viewgrid">${indexes.map(index=>viewCard(index)).join('')}</div></section>`;
   }).join('');
   const fallback=entries.filter(({node})=>(node.role||'delivery')==='delivery'&&node.rec).map(({index})=>viewCard(index)).join('');
-  return panelHead('Dashboard','Impact-ranked delivery candidates, blockers, defects, and active ownership under the current filters.')+
-    (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'));
+  return panelHead('Dashboard','Project documents, recommended next actions, and tracked work.')+projectHome+
+    (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'))+register;
 }
 const roadmapParams=requestedViewParams();
 const roadmapQuery={

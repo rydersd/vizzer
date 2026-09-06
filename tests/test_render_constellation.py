@@ -2081,3 +2081,22 @@ def test_constellation_search_is_accessible_local_and_topology_preserving(tmp_pa
     assert "n.h&&!SERVED" in html and "n.id&&SERVED" in html
     assert "fetch('/api/open/'+encodeURIComponent(b.dataset.openItem)" in html
     assert "prefers-reduced-motion: reduce" in html
+
+
+def test_project_library_resolves_only_configured_reference_sources(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {"render": {
+        "project_documents": ["wiki/index.md", "work.md", "missing.md"],
+    }}))
+    graph = Graph(vocab=cfg.vocab, items=[
+        Item(id="doc:wiki", title="Wiki", status="unknown", role="reference",
+             source={"path": "wiki/index.md"}),
+        Item(id="story:work", title="Work", status="ready",
+             source={"path": "work.md"}),
+        Item(id="doc:other", title="Other", status="unknown", role="reference",
+             source={"path": "other.md"}),
+    ])
+    html = render_all(graph, cfg, tmp_path, only={"constellation"})["constellation.html"]
+    assert _data(html)["projectDocuments"] == ["doc:wiki"]
+    plain = render_all(graph, Config(data=DEFAULTS), tmp_path,
+                       only={"constellation"})["constellation.html"]
+    assert _data(plain)["projectDocuments"] == []
