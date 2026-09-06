@@ -551,7 +551,7 @@ The optional **Reviews** view keeps source Definition of Done, derived steps, ag
 captured evidence, and owner repetition as separate claims. Agents append only agent runs through
 `vizzer review record`; served owner forms append an independent owner event and never overwrite
 the agent's pass. Visual rows require structurally valid screenshot evidence, but Vizzer does not
-pretend that a screenshot proves acceptance. See [Repeatable review workflows](docs/review-workflows.md)
+pretend that a screenshot proves acceptance. See [Repeatable review workflows](wiki/guides/review-workflows.md)
 for plan, adapter-registry, evidence, CLI, and security contracts.
 
 The title bar's 14/18/22-point A control changes sidebar and dossier reading text without inflating
@@ -597,8 +597,8 @@ without `--yes`. Widen the scope via `archive.adapters` only if you mean it.
 Two portable research notes explain the assumptions behind the assessor and the
 work-source model:
 
-- [Story sizing and portfolio selection](docs/context/story-sizing-and-portfolio-selection.md)
-- [PRDs and living product specs](docs/context/prds-and-living-product-specs.md)
+- [Story sizing and portfolio selection](wiki/concepts/story-sizing-and-portfolio-selection.md)
+- [PRDs and living product specs](wiki/concepts/prds-and-living-product-specs.md)
 
 They are guidance, not runtime contracts. Projects remain free to use stories,
 issues, RFCs, PRDs, or another source form; Vizzer cares about explicit authority,
@@ -624,4 +624,4 @@ MIT.
 
 ### Progress pathing and owner editing
 
-[Progress pathing](docs/progress-pathing.md) records checkpoint evolution for annotated playback. The same guide covers sidebar Markdown answers, editable Story revisions with exact review diffs, optional tag colors, and opt-in macOS login services.
+[Progress pathing](wiki/guides/progress-pathing.md) records checkpoint evolution for annotated playback. The same guide covers sidebar Markdown answers, editable Story revisions with exact review diffs, optional tag colors, and opt-in macOS login services.

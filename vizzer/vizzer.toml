@@ -32,7 +32,7 @@ enabled = false
 
 [sources.loose_docs]
 enabled = true
-globs = ["README.md", "product-spec/*.md", "wiki/**/*.md", "docs/**/*.md", "vizzer/README.md"]
+globs = ["README.md", "product-spec/*.md", "wiki/**/*.md", "docs/README.md", "docs/reviews/*.md", "docs/fix*.md", "docs/superpowers/plans/*.md", "vizzer/README.md"]
 item_role = "reference"
 
 [sources.todos]

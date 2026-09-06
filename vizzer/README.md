@@ -20,7 +20,7 @@ the work graph, roadmap, and reference documents. The optional 2D view is at
 ## Source of truth
 
 - `product-spec/stories/*.md`: current delivery work, including cross-project imports.
-- `product-spec/*.md`, `wiki/**/*.md`, and `docs/**/*.md`: reference context.
+- `product-spec/*.md`, `wiki/**/*.md`, and selected evidence/plan docs: reference context. Old docs forwarding pages are excluded.
 - Old continuity ledgers and test fixtures are excluded from current work tracking.
 - `vizzer/vizzer.toml`: explicit source map and stable local port.
 
@@ -101,3 +101,10 @@ and the work register expose pending and shipped Stories under current filters.
 Documents open with their full Markdown body rather than empty Story review
 fields. Configure these shortcuts with `render.project_documents`, an ordered
 list of source paths already ingested as references.
+
+## Wiki knowledge ownership
+
+Maintained guides, concepts and design lessons live in [the wiki](../wiki/index.md).
+The [migration inventory](../wiki/documentation-map.md) maps former docs paths.
+`docs/` retains evidence and historical execution plans; forwarding pages stay
+available for old links but are excluded from the graph to avoid duplicates.

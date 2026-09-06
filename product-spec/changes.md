@@ -5,7 +5,7 @@ history; downstream changes enter here only after comparison.
 
 | Integrated change | Commit or PR | Contract / evidence |
 | --- | --- | --- |
-| Generic reviews and developer-flow workspace | `40e98e5`, `83c66ff` | [Review guide](../docs/review-workflows.md) |
+| Generic reviews and developer-flow workspace | `40e98e5`, `83c66ff` | [Review guide](../wiki/guides/review-workflows.md) |
 | Reusable fork semantics and perspectives | `5df6826` | [Current behavior](current-behavior.md) |
 | Lazy detail and persisted developer queries | `091a2fc`, `736815f` | [Current behavior](current-behavior.md) |
 | Route integrity and hosted startup repairs | [PR #3](https://github.com/rydersd/vizzer/pull/3), `46d4bde` | [Current behavior](current-behavior.md) |
@@ -16,6 +16,8 @@ history; downstream changes enter here only after comparison.
 | Stable local address and login startup | Local LaunchAgent plus tracked source launcher | [Startup Story](stories/stable-local-startup.md) |
 
 | Discoverable project landing page and document reader | This repair | [Story](stories/project-landing-page.md) |
+
+| Wiki consolidation: nine guides, concepts and historical records | Documentation migration | [Story](stories/wiki-documentation-migration.md) |
 
 ## Next work
 

@@ -27,12 +27,12 @@ live in the [main guide](../README.md).
 | Owner decisions | Model-neutral answer records retain decision identity, validation and inspectable history. | [Answers](../src/vizzer/question_answers.py), [journal](../src/vizzer/decision_journal.py) | [Tests](../tests/test_question_answers.py) |
 | Discussions | Repo-local queues record requests and provider lanes; providers are not decision authority. | [Queue](../src/vizzer/discussion_queue.py) | [Tests](../tests/test_discussion_queue.py) |
 | Concurrent work | Workstreams and activity expose ownership and freshness, not independent proof of completion. | [Workstreams](../src/vizzer/workstreams.py), [activity](../src/vizzer/activity.py) | [Tests](../tests/test_workstreams.py) |
-| Reviews | Generic review contracts/adapters expose scoped review states and evidence. | [Service](../src/vizzer/review_service.py) | [Tests](../tests/test_review_service.py), [guide](../docs/review-workflows.md) |
+| Reviews | Generic review contracts/adapters expose scoped review states and evidence. | [Service](../src/vizzer/review_service.py) | [Tests](../tests/test_review_service.py), [guide](../wiki/guides/review-workflows.md) |
 | Developer graph | Optional 2D graph supports query-backed materialization, lazy detail and persisted views. | [Store](../src/vizzer/developer_store.py), [queries](../src/vizzer/developer_query.py) | [Store tests](../tests/test_developer_store.py), [query tests](../tests/test_developer_query.py) |
-| Route integrity | Developer-flow routes remain attached across layout changes; malformed composed coordinates are rejected. | [Render sources](../src/vizzer/render/) | [Tests](../tests/test_developer_flow.py) |
+| Route integrity | Developer-flow routes remain attached across layout changes; malformed composed coordinates are rejected. | [Render sources](../src/vizzer/render) | [Tests](../tests/test_developer_flow.py) |
 | Owner Markdown edits | Source-preserving Story edits use revision conflicts; newly refreshed Stories use current graph lookup. | [Edits](../src/vizzer/story_edits.py) | [HTTP tests](../tests/test_story_edits_http.py), [review](../docs/reviews/2026-09-05-upstream-integration.md) |
-| Progress playback | Recordings use configured output paths. Playback, editor assets, tag colors and optional login-service operation have a dedicated guide. | [Evolution](../src/vizzer/evolution.py) | [Tests](../tests/test_evolution.py), [guide](../docs/progress-pathing.md) |
-| Exports | Markdown views and machine-readable manifests regenerate from the graph rather than becoming independent authority. | [Renderers](../src/vizzer/render/) | [Tests](../tests/test_render_ledger_manifest.py) |
+| Progress playback | Recordings use configured output paths. Playback, editor assets, tag colors and optional login-service operation have a dedicated guide. | [Evolution](../src/vizzer/evolution.py) | [Tests](../tests/test_evolution.py), [guide](../wiki/guides/progress-pathing.md) |
+| Exports | Markdown views and machine-readable manifests regenerate from the graph rather than becoming independent authority. | [Renderers](../src/vizzer/render) | [Tests](../tests/test_render_ledger_manifest.py) |
 | Local serving | Loopback serving supports configured ports and identity checks; restart after code/config changes. | [CLI](../src/vizzer/cli.py), [startup](../src/vizzer/startup.py) | [Tests](../tests/test_startup.py), [identity tests](../tests/test_render_identity.py) |
 | Archiving | Archiving is opt-in and adapter-scoped. | [Guide](../README.md#archiving-opt-in-off-by-default) | [CLI tests](../tests/test_cli.py) |
 
@@ -64,6 +64,13 @@ This is local availability after login; it is not a public deployment.
 Configured `render.project_documents` references appear as persistent dashboard
 shortcuts, alongside a filtered work register. Reference dossiers open the full
 Markdown document. [Landing-page Story](stories/project-landing-page.md).
+
+## Knowledge organization
+
+The wiki owns maintained guides, design concepts and dated learning records.
+Docs retains raw evidence and historical execution plans. Compatibility
+forwarding pages are excluded from the graph. See the
+[documentation map](../wiki/documentation-map.md).
 
 ## Limits and open work
 

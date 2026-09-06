@@ -862,5 +862,5 @@ before anything moves.
 
 ## See Also
 
-- [PRDs and living product specs](../../docs/context/prds-and-living-product-specs.md)
-- [Story sizing and portfolio selection](../../docs/context/story-sizing-and-portfolio-selection.md)
+- [PRDs and living product specs](prds-and-living-product-specs.md)
+- [Story sizing and portfolio selection](story-sizing-and-portfolio-selection.md)

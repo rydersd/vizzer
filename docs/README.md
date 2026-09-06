@@ -1,21 +1,18 @@
-# Vizzer documentation
+# Vizzer documentation and evidence archive
 
-## Start here
+Operating guides and reusable knowledge now live in the [Vizzer wiki](../wiki/index.md).
+Start there for configuration, navigation, progress playback, review workflows,
+living specs, sizing and design lessons. The [product spec](../product-spec/README.md)
+owns current behavior and delivery work.
 
-- [Product specification](../product-spec/README.md): current contracts, changes and work.
-- [Operating guide](../README.md): install, configure, sources, views, decisions, workstreams and safety.
-- [Vizzer's own dashboard](../vizzer/README.md): source checkout and troubleshooting.
-- [Progress pathing and owner editing](progress-pathing.md).
-- [Review and evidence workflows](review-workflows.md).
-- [Wiki](../wiki/index.md): architecture and background.
+## Retained source records
 
-## Evidence and historical design
+- [Upstream integration review, 2026-09-05](reviews/2026-09-05-upstream-integration.md): dated findings and validation outcomes.
+- [Fix 1 acceptance evidence](fix-1-evidence.md): raw receipts and follow-up observations.
+- [Original Fix 1 request](fix%201.md): historical owner brief, not a new instruction or current checklist.
+- [Original implementation plan](superpowers/plans/2026-08-06-vizzer-implementation.md): historical execution checklist and code sketches, not current architecture.
 
-- [Upstream integration review, 2026-09-05](reviews/2026-09-05-upstream-integration.md).
-- [Living product specs](context/prds-and-living-product-specs.md) and [story sizing](context/story-sizing-and-portfolio-selection.md): design context.
-- [Original design](superpowers/specs/2026-08-06-vizzer-portable-spec-views-design.md) and [implementation plan](superpowers/plans/2026-08-06-vizzer-implementation.md): dated history, not current product authority.
-- [Field report](field-report-2026-08-07.md) and [fix evidence](fix-1-evidence.md): historical observations.
-
-Documentation lives in this repository and enters the local graph as reference
-material. Open **Views → Features**, select **References** or **All** under item role, then search by title;
-the dossier links to source. The default delivery dashboard counts Stories only.
+The former guide/concept/spec paths contain forwarding links for old bookmarks.
+Their substantive content is maintained only in the wiki, and forwarding pages
+are excluded from the self-host graph so they do not duplicate search results.
+See the [migration inventory](../wiki/documentation-map.md) for each destination.

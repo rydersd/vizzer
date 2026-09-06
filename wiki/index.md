@@ -1,25 +1,39 @@
 # Vizzer wiki
 
-The wiki explains the system and preserves dated decisions. The
-[product specification](../product-spec/README.md) owns current behavior/work;
-[docs](../docs/README.md) owns operating instructions and evidence. Everything
-lives in the main Git repository so code and knowledge can change in one review.
-A separate GitHub Wiki repository is not required.
+The wiki is the home for Vizzer's operating guides, design concepts and useful
+project knowledge. The [product spec](../product-spec/README.md) owns current
+behavior and delivery status; [docs](../docs/README.md) retains raw review
+receipts and historical execution plans. Everything is versioned in this repo.
 
-## Current knowledge
+## Use Vizzer
 
-- [Architecture and documentation ownership](architecture.md).
-- [Product behavior inventory](../product-spec/current-behavior.md).
-- [Change register](../product-spec/changes.md).
-- [Self-hosting and troubleshooting](../vizzer/README.md).
+- [Installation and configuration](../README.md): main operating reference.
+- [Vizzer's own dashboard and login service](../vizzer/README.md).
+- [Stable per-project addresses](guides/configured-serve-port.md).
+- [Active/recent work keyboard navigation](guides/active-recent-keyboard-navigation.md).
+- [Progress pathing, playback and owner Markdown editing](guides/progress-pathing.md).
+- [Repeatable review workflows](guides/review-workflows.md): plans, evidence, agent runs and owner verification.
 
-## Historical goals and evidence
+## Product and architecture
 
-- [Goal index](goals/index.md): dated planning; use the product register for current work.
-- [Review evidence workflow](goals/upstream-review-evidence-workflow.md).
-- [Developer experience object graph](goals/developer-experience-object-graph.md).
+- [Architecture and repository ownership](architecture.md).
+- [Current capability inventory](../product-spec/current-behavior.md).
+- [Integrated changes and open work](../product-spec/changes.md).
+- [PRDs and living product specifications](concepts/prds-and-living-product-specs.md): artifact authority and longitudinal Stories.
+- [Story sizing and portfolio selection](concepts/story-sizing-and-portfolio-selection.md): appetite, uncertainty, impact and coordination.
+
+## Design history and lessons
+
+These records retain their original dates and claims. Consult the current
+product spec for implemented behavior and present limitations.
+
+- [Original portable work-graph design, 2026-08-06](history/2026-08-06-portable-work-graph-design.md).
+- [Deployment failures and lessons, 2026-08-07](history/2026-08-07-deployment-lessons.md).
+- [Lifecycle, priority, activity and planning inventory, 2026-08-08](history/2026-08-08-change-manifest.md).
 - [IllTool divergence map, 2026-08-21](concepts/illtool-fork-divergence-map-2026-08-21.md): historical comparison, not current parity.
+- [Goal index](goals/index.md), [review workflow goal](goals/upstream-review-evidence-workflow.md), and [developer graph goal](goals/developer-experience-object-graph.md).
 
-Material under `goals/materials/` remains attached to its original goal. Later
-integrations can supersede conclusions without rewriting those receipts.
-Every wiki Markdown page is discoverable through the References filter.
+Supporting material in `goals/materials/` remains attached to its original goal.
+[Migration inventory](documentation-map.md) records where every former docs
+page belongs. Wiki pages appear as references in Vizzer; the dashboard's
+**Vizzer wiki** shortcut is the entry point.

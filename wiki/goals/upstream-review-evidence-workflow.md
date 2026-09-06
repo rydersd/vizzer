@@ -65,7 +65,7 @@ acceptance loop:
 - [Adversarial publication gate, 2026-08-23](materials/upstream-review-evidence-workflow/adversarial-publication-gate-2026-08-23.md)
 - [Service, fixture, and browser verification, 2026-08-23](materials/upstream-review-evidence-workflow/verification-2026-08-23.md)
 - [Requirement-by-requirement completion audit, 2026-08-23](materials/upstream-review-evidence-workflow/completion-audit-2026-08-23.md)
-- [Project-agnostic review workflow contract](../../docs/review-workflows.md)
+- [Project-agnostic review workflow contract](../guides/review-workflows.md)
 
 ## Progress log
 

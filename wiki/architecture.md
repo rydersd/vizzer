@@ -9,8 +9,8 @@ and HTML are projections.
 | --- | --- |
 | `src/vizzer/` | Authoritative Python engine and bundled rendering assets |
 | `product-spec/` | Current contract, change register and delivery Stories |
-| `wiki/` | Explanations, historical goals and supporting material |
-| `docs/` | Operating guides, design context and dated review evidence |
+| `wiki/` | Operating guides, concepts, design history, historical goals and supporting material |
+| `docs/` | Raw review evidence, historical execution plans and compatibility forwarding links |
 | `tests/` | Verification harnesses; fixtures are not this project's backlog |
 | `vizzer/vizzer.toml` | Explicit source map and stable local port |
 | `vizzer/engine/__main__.py` | Source launcher, not a second engine |

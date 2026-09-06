@@ -6,8 +6,8 @@ is authoritative; the local dashboard is a derived view.
 - [Current behavior](current-behavior.md): feature contracts and implementation/verification pointers.
 - [Change register](changes.md): integrations and unresolved coverage.
 - [Work items](stories/): concrete changes, acceptance criteria and lifecycle.
-- [Wiki](../wiki/index.md): explanations and historical context.
-- [Documentation](../docs/README.md): operating instructions and evidence.
+- [Wiki](../wiki/index.md): operating guides, concepts and historical context.
+- [Documentation](../docs/README.md): evidence archive and historical plans.
 - [Dashboard setup](../vizzer/README.md): refresh, serve and troubleshoot.
 
 ## Coverage and authority
