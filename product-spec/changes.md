@@ -13,6 +13,8 @@ history; downstream changes enter here only after comparison.
 | Progress pathing, owner Markdown editing and portability repairs | [PR #4](https://github.com/rydersd/vizzer/pull/4), `1d9e4e4` | [Completed Story](stories/progress-pathing-upstream-integration.md), [review](../docs/reviews/2026-09-05-upstream-integration.md) |
 | Self-host product contract, documentation map, recommendations and narrow-panel filter repair | This documentation/setup change | [Setup Story](stories/self-host-documentation.md) |
 
+| Stable local address and login startup | Local LaunchAgent plus tracked source launcher | [Startup Story](stories/stable-local-startup.md) |
+
 ## Next work
 
 1. [Inventory concrete downstream changes](stories/cross-project-change-intake.md) against this baseline using exact origin commits.

@@ -58,3 +58,36 @@ checkout on port 8480; other projects have their own Vizzer processes.
 Start reading: [product spec](../product-spec/README.md), [wiki](../wiki/index.md),
 [documentation](../docs/README.md). These sources are tracked in the main repo;
 there is no separate GitHub Wiki to synchronize.
+
+## Stable address and automatic login startup
+
+Bookmark <http://127.0.0.1:8480/constellation.html#dashboard>. Port 8480 is pinned
+in `vizzer.toml`; this is a local address on this Mac.
+
+On the current Mac, the user LaunchAgent
+`com.vizzer.project.ad84a7edba4f.server` starts at login and restarts on exit.
+Its plist lives in `~/Library/LaunchAgents/` and its logs in
+`~/Library/Logs/Vizzer/ad84a7edba4f/`. It invokes `/usr/bin/python3 -u` with
+this checkout's `vizzer/start_server.py`, which refreshes before serving and
+uses the configured port. The machine-specific plist is local; the launcher
+and documentation are tracked in Git. Moving this checkout requires updating
+the plist's absolute paths.
+
+Inspect or restart after pulling engine/config changes:
+
+```sh
+launchctl print gui/$(id -u)/com.vizzer.project.ad84a7edba4f.server
+launchctl kickstart -k gui/$(id -u)/com.vizzer.project.ad84a7edba4f.server
+```
+
+Stop and disable automatic startup:
+
+```sh
+launchctl bootout gui/$(id -u)/com.vizzer.project.ad84a7edba4f.server
+launchctl disable gui/$(id -u)/com.vizzer.project.ad84a7edba4f.server
+```
+
+Do not manually start another server while the service owns port 8480. This
+starts after user login, not before login, and does not open a browser or
+poll/pull other repositories. The downstream startup installer assumes a
+vendored engine; this source checkout instead uses `start_server.py`.

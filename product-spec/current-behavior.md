@@ -52,6 +52,13 @@ the measured header/search area. This makes References usable in the narrow
 Codex panel. The source-map and this repair are captured in the
 [setup Story](stories/self-host-documentation.md).
 
+## Local availability — 2026-09-05
+
+This Mac runs the source checkout at `http://127.0.0.1:8480/constellation.html#dashboard`
+using a login LaunchAgent with refresh-before-serve and restart-on-exit. See the
+[startup Story](stories/stable-local-startup.md) and [operating instructions](../vizzer/README.md).
+This is local availability after login; it is not a public deployment.
+
 ## Limits and open work
 
 Self-hosting does not automatically pull projects, watch repositories or prove
