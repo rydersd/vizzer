@@ -18,6 +18,7 @@ history; downstream changes enter here only after comparison.
 | Discoverable project landing page and document reader | This repair | [Story](stories/project-landing-page.md) |
 
 | Wiki consolidation: nine guides, concepts and historical records | Documentation migration | [Story](stories/wiki-documentation-migration.md) |
+| Bounded adversarial test-review packets, durable review requests and constellation test-state presentation | This change | [Guide](../wiki/guides/adversarial-test-design.md) |
 
 ## Next work
 

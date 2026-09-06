@@ -35,6 +35,7 @@ def test_loopback_discussion_queue_is_guarded_audited_and_refreshes_markdown(
     request = {
         "expectedRevision": 0, "provider": "codex",
         "storyId": "story:canvas-core", "questions": [],
+        "request": {"kind": "test-design", "prompt": "One bounded test."},
     }
     try:
         status, context = _request(connection, "GET", "/api/discussions")
@@ -52,9 +53,11 @@ def test_loopback_discussion_queue_is_guarded_audited_and_refreshes_markdown(
         assert status == 200 and queued["changed"] is True
         assert queued["queue"]["queues"]["codex"][0] == "story:canvas-core"
         assert queued["queue"]["history"][0]["questionIds"] == []
+        assert queued["queue"]["requests"][0]["state"] == "queued"
         markdown = (repo / "vizzer/views/discussion-queue.md").read_text()
         assert "## Codex" in markdown and "canvas-core" in markdown
         assert "general Story discussion" in markdown
+        assert "Bounded test-design request" in markdown
 
         status, stale = _request(
             connection, "POST", "/api/discussions/queue", request, guarded
@@ -69,6 +72,9 @@ def test_loopback_discussion_queue_is_guarded_audited_and_refreshes_markdown(
         assert moved["queue"]["queues"] == {
             "codex": [], "claude": ["story:canvas-core"],
         }
+        assert [entry["state"] for entry in moved["queue"]["requests"]] == [
+            "superseded", "queued",
+        ]
     finally:
         connection.close()
         server.shutdown()

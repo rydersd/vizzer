@@ -48,6 +48,19 @@ function agentTrailColor(agent){
   for(const char of agent)hash=Math.imul(hash^char.codePointAt(0),16777619);
   return C.trails[Math.abs(hash)%C.trails.length]||C.active;
 }
+function latestTestReview(i){
+  const refs=DATA.nodes[i].tr||[];
+  return refs.length?(DATA.testReviews||[])[refs[refs.length-1]]:null;
+}
+function testReviewVisualState(testReview,{active=.5,slow=.5,reduced=false}={}){
+  const snag=Boolean(testReview.snag)||['snagged','unauthorized-execution'].includes(testReview.state)||testReview.outcome==='infrastructure-failure';
+  const preparing=testReview.state==='preparing',reviewing=testReview.state==='under-review',running=testReview.state==='running',moving=preparing||reviewing||running||snag;
+  const outcomeBadge={pass:'✓','expected-red':'R','unexpected-fail':'!','infrastructure-failure':'⚠',partial:'½',inconclusive:'?',cancelled:'×',invalidated:'!'};
+  return {snag,preparing,reviewing,running,moving,wave:running?active:slow,
+    dash:snag?[2,2]:(reviewing?[7,3]:(preparing?[2,4]:[])),
+    stateLabel:reduced&&moving?({preparing:'P','under-review':'U',running:'R',snagged:'S','unauthorized-execution':'!'}[testReview.state]||'•'):'',
+    outcomeBadge:outcomeBadge[testReview.outcome]||(testReview.outcome==='pending'?'':'•')};
+}
 function trailArrow(a,b,color,alpha){
   const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
   if(length<8)return;
@@ -232,6 +245,17 @@ function draw(){
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
     ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
+    const testReview=latestTestReview(i);
+    if(testReview&&!dim){
+      const isC=testReview.risk==='C',visual=testReviewVisualState(testReview,{active:activeWave,slow:xWave,reduced:reducedMotion});
+      const outcomeColor={pass:C.shipped,'expected-red':C.ready,'unexpected-fail':C.buggap,partial:C.active,inconclusive:C.specced,'infrastructure-failure':C.conflict,invalidated:C.buggap,cancelled:C.faint};
+      ctx.globalAlpha=(visual.moving?(reducedMotion?.92:.42+.58*visual.wave):.86)*fog;
+      ctx.strokeStyle=visual.snag?C.buggap:(visual.reviewing?C.owner:(outcomeColor[testReview.outcome]||C.active));ctx.lineWidth=visual.snag?4:(isC?3:1.7);ctx.setLineDash(visual.dash);
+      const radius=rr*((isC?2.12:1.82)+(visual.preparing?.16:visual.reviewing?.08:visual.running?.24:0)*visual.wave);
+      ctx.beginPath();ctx.arc(p.x,p.y,radius,0,7);ctx.stroke();ctx.setLineDash([]);
+      if(testReview.outcome!=='pending'){ctx.globalAlpha=.96*fog;ctx.fillStyle=outcomeColor[testReview.outcome]||C.owner;ctx.font=`700 ${Math.max(8,rr*.72)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.outcomeBadge,p.x+rr*1.7,p.y-rr*1.7);}
+      if(reducedMotion&&visual.moving){ctx.globalAlpha=.98*fog;ctx.fillStyle=visual.snag?C.buggap:C.owner;ctx.font=`700 ${Math.max(8,rr*.68)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.stateLabel,p.x-rr*1.7,p.y-rr*1.7);}
+    }
     // Unknown assessed size gets a neutral dashed ring. It must not look like
     // XS merely because both are visually compact.
     if(sizeMode==='delivery'&&n.assess&&n.assess.band==null&&!dim){

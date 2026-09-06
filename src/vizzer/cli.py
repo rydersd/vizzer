@@ -367,8 +367,9 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             try:
                 body = self._read_json_body("discussion queue")
                 required = {"expectedRevision", "provider", "storyId", "questions"}
+                allowed = required | {"request"}
                 missing = sorted(required - set(body))
-                unknown = sorted(set(body) - required)
+                unknown = sorted(set(body) - allowed)
                 if missing or unknown:
                     field = (missing or unknown)[0]
                     raise DiscussionQueueError(
@@ -387,7 +388,8 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     queue, changed = enqueue_discussion(
                         live_cfg, root, live_graph,
                         provider=body["provider"], story_id=body["storyId"],
-                        questions=body["questions"], expected_revision=expected,
+                        questions=body["questions"], request=body.get("request"),
+                        expected_revision=expected,
                     )
                     if changed and _refresh(root) != 0:
                         restore_discussion_queue(live_cfg, root, previous)

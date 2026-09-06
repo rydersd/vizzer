@@ -13,6 +13,7 @@ receipts and historical execution plans. Everything is versioned in this repo.
 - [Active/recent work keyboard navigation](guides/active-recent-keyboard-navigation.md).
 - [Progress pathing, playback and owner Markdown editing](guides/progress-pathing.md).
 - [Repeatable review workflows](guides/review-workflows.md): plans, evidence, agent runs and owner verification.
+- [Adversarial test design](guides/adversarial-test-design.md): bounded Risk A/B/C tests, independent review packets, agent roles, and Vizzer presentation.
 
 ## Product and architecture
 

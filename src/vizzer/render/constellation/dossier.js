@@ -133,6 +133,65 @@ addEventListener('keydown',event=>{
 function refreshDossier(){
   if(sel>=0)openNode(sel,{inPlace:true});
 }
+function nodeTestReviews(i){
+  return (DATA.nodes[i].tr||[]).map(ref=>(DATA.testReviews||[])[ref]).filter(Boolean);
+}
+function testReviewMarkup(i){
+  const packets=nodeTestReviews(i);if(!packets.length)return'';
+  const cards=packets.slice().reverse().map(packet=>{
+    const snag=packet.snag?`<p class="testsnag"><b>Snag</b> ${esc(packet.snag)}</p>`:'';
+    const designGate=packet.risk==='A'?''
+      :packet.verdict==='PASS'
+        ?`<p class="testownergate approved"><b>Independent design review</b> PASS for this exact bounded packet.</p>`
+        :`<p class="testownergate rejected"><b>Independent design review required</b> Risk ${esc(packet.risk)} must not run until a separate testing agent returns PASS.<button type="button" data-review-test>Discuss</button></p>`;
+    const facts=[["Goal",packet.goal],["Selectors",packet.selectors],["Bounds",packet.bounds],
+      ["Evidence",packet.evidence],["Defect",packet.defect],["Challenge",packet.challenge],
+      ["Opportunity",packet.opportunity],["Source boundary",packet.sourceBoundary],
+      ["Falsifiers",packet.falsifiers],["Environment",packet.environment],
+      ["Executor",packet.executor],["Current phase",packet.phase],["Elapsed",packet.elapsed],
+      ["Reviewer",packet.reviewer],["Reviewer session",packet.reviewerSession],
+      ["Reviewed at",packet.reviewedAt]].filter(([,value])=>value);
+    const factsMarkup=facts.length?`<dl class="testreviewfacts">${facts.map(([label,value])=>`<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`:'';
+    return `<details class="testreviewcard risk-${esc(packet.risk.toLowerCase())} outcome-${esc(packet.outcome)} state-${esc(packet.state)}" open><summary><b>Test Risk ${esc(packet.risk)}</b><span>${esc(packet.state)} · ${esc(packet.verdict)} · ${esc(packet.outcome)}</span></summary>${designGate}${snag}${factsMarkup}<div class="storymd">${renderStoryMarkdown(packet.body)}</div><small>${esc(packet.author||'unknown author')} · ${esc(packet.createdAt||'undated')} · ${esc(packet.workstreamId)}</small></details>`;
+  }).join('');
+  return `<section class="testreviews"><h3>Test reviews</h3>${cards}</section>`;
+}
+function storyNeedsTestReview(n){
+  return ['in review','in-review','review'].includes(String(n.st||'').toLowerCase())||n.g==='inreview';
+}
+function testDesignRequest(n){
+  return (`Create a bounded adversarial test plan for ${n.id} — ${n.t}. `
+    +`Start from every acceptance criterion and Definition of Done clause, map each to its production route and observable oracle, and attack blind spots. `
+    +`Use attributable competitor evidence where relevant, and ask the owner when intended behavior is ambiguous. `
+    +`Define one falsifiable goal, classify risk A/B/C, name exact selectors, fixtures, resources, time bounds, evidence gaps, snag handling, source boundary, executor, and falsifiers. `
+    +`Risk B/C requires a separate testing-agent PASS for the exact packet before execution. `
+    +`Canonical Story: ${n.p||'unknown'}. Acceptance criteria:\n${n.acx||'not authored'}\nDefinition of Done:\n${n.dod||'not authored'}`).slice(0,9800);
+}
+function activeTestDesignRequest(storyId,queue){
+  const activeProvider=Object.entries(queue?.queues||{}).find(([,stories])=>stories.includes(storyId))?.[0];
+  return (queue?.requests||[]).slice().reverse().find(request=>request.kind==='test-design'&&request.storyId===storyId&&request.state==='queued'&&request.provider===activeProvider);
+}
+function createTestActionMarkup(i){
+  const n=DATA.nodes[i];if(!storyNeedsTestReview(n)||nodeTestReviews(i).length)return'';
+  const queued=activeTestDesignRequest(n.id,discussionContext?.queue);
+  if(queued)return `<section class="createtestcallout queued"><b>Test design queued</b><span>${esc(queued.provider)} · fingerprint ${esc(queued.fingerprint.slice(0,12))}</span></section>`;
+  return `<section class="createtestcallout"><b>Review needs stronger evidence</b><span>No bounded test-review packet is recorded.</span><button type="button" data-create-test="${i}">Create bounded test</button></section>`;
+}
+async function queueTestDesignRequest(i,button){
+  const n=DATA.nodes[i];if(!n)return;
+  const prompt=testDesignRequest(n);
+  try{
+    button.disabled=true;button.textContent='Queuing…';const authority=await preflightDiscussionAuthority();
+    const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id).map(question=>({id:question.id,fingerprint:question.fingerprint}));
+    const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({expectedRevision:discussionContext.queue.revision,provider:'codex',storyId:n.id,questions:liveQuestions,request:{kind:'test-design',prompt}})});
+    const body=await response.json();if(!response.ok)throw new Error(body.error||'test-design queue failed');discussionContext.queue=body.queue;
+    button.textContent=body.changed?'Test review queued':'Already queued';refreshDossier();
+  }catch(error){button.disabled=false;button.textContent='Queue test review';if(typeof toast==='function')toast(error.message||'Could not queue test review',true);}
+  if(activeTestDesignRequest(n.id,discussionContext?.queue)){
+    try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(prompt);}
+    catch(error){if(typeof toast==='function')toast('Test review was queued, but the prompt could not be copied.',true);}
+  }
+}
 function openNode(i,{inPlace=false}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
@@ -212,6 +271,7 @@ function openNode(i,{inPlace=false}={}){
     ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ${icon('arrow-up-right')}</a>`:''}
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
+  dbody.innerHTML=createTestActionMarkup(i)+testReviewMarkup(i)+dbody.innerHTML;
   if(n.role==='reference'){
     dbody.innerHTML=storyFullBodyMarkup(n)+storyDeepLinkMarkup(n)
       +(n.h?`<a class="story" href="${esc(n.h)}" target="_blank" rel="noopener">Open source document</a>`:'');
@@ -221,6 +281,12 @@ function openNode(i,{inPlace=false}={}){
     const edit=document.createElement('button');edit.type='button';edit.className='story';edit.dataset.editStory=n.id;edit.textContent='Edit story';edit.onclick=()=>openStoryEditor(n);
     dbody.prepend(edit);
   }
+
+  dbody.querySelectorAll('[data-create-test]').forEach(button=>
+    button.addEventListener('click',()=>queueTestDesignRequest(Number(button.dataset.createTest),button)));
+  dbody.querySelectorAll('[data-review-test]').forEach(button=>button.addEventListener('click',()=>{
+    dossierFooter.querySelector('[data-chat-primary]')?.click();
+  }));
 
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
