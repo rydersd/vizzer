@@ -1,0 +1,51 @@
+# Explicit self-hosting map: never auto-detect tests/fixtures as project work.
+[project]
+name = "Vizzer"
+
+[server]
+port = 8480
+
+[[source_area]]
+id = "upstream-work"
+title = "Upstream work and cross-project intake"
+role = "delivery"
+path = "product-spec"
+adapter = "spec_tree"
+
+[[source_area]]
+id = "project-knowledge"
+title = "Product goals and reference documentation"
+role = "knowledge"
+path = "wiki"
+adapter = "loose_docs"
+
+[sources.spec_tree]
+enabled = true
+glob = "product-spec/stories/*.md"
+levels = []
+item_kind = "story"
+dag_import = ""
+
+# Historical continuity ledgers are not current delivery authority.
+[sources.ledgers]
+enabled = false
+
+[sources.loose_docs]
+enabled = true
+globs = ["README.md", "product-spec/*.md", "wiki/**/*.md", "docs/**/*.md", "vizzer/README.md"]
+item_role = "reference"
+
+[sources.todos]
+enabled = false
+
+[render]
+output_dir = "vizzer/views"
+title = "Vizzer for Vizzer"
+recommended = ["story:cross-project-change-intake", "story:dashboard-empty-state-guidance"]
+releases = ["R0", "R1", "R2", "R3"]
+
+[developer_flow]
+enabled = true
+
+[assessment]
+enabled = true

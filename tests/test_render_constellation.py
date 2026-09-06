@@ -417,7 +417,7 @@ def test_constellation_preserves_group_hierarchy_for_structure_navigation(tmp_pa
     assert "let capFocus = null, groupFocus = null" in html
     assert "function renderCapabilityAccordions()" in html
     assert "nodeBelongsToGroup" in html
-    assert "grid-template-rows:32px 28px 28px" in html
+    assert "grid-template-rows:32px 28px auto" in html
     assert "#meter{grid-column:1 / -1;grid-row:2" in html
     assert "#chips{grid-column:1 / -1;grid-row:3" in html
 
@@ -1031,7 +1031,7 @@ def test_constellation_measures_top_chrome_before_positioning_search_and_rail(tm
     assert "--rail-top',`${metrics.railTop}px`" in html
     assert "new ResizeObserver(syncChromeMetrics)" in html
     assert "top:var(--search-top)" in html
-    assert html.count("top:var(--rail-top)") == 2
+    assert html.count("top:var(--rail-top)") == 3
 
 
 def test_constellation_work_keyboard_navigation_executes_recency_and_focus_contract(tmp_path):
@@ -1907,7 +1907,7 @@ def test_constellation_routed_views_own_vertical_scroll_and_do_not_leave_canvas_
     assert "#bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}" in html
     assert "viewBackdrop.hidden=currentView!=='constellation'" in html
     assert "#top{position:fixed;top:0;left:0;right:0;display:grid" in html
-    assert "#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:nowrap" in html
+    assert "#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:wrap" in html
     assert "overflow-x:auto" in html
 
 

@@ -38,7 +38,7 @@
 #viewempty{position:fixed;left:50%;top:50%;z-index:3;display:none;transform:translate(-50%,-50%);max-width:320px;
   color:var(--mut);font:12px/1.45 ui-monospace,"SF Mono",Menlo,monospace;text-align:center;pointer-events:none}
 #viewempty.show{display:block}
-#viewpanel{position:fixed;left:var(--rail-width);right:0;top:110px;bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
+#viewpanel{position:fixed;left:var(--rail-width);right:0;top:var(--rail-top);bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
 #viewpanel[hidden]{display:none;pointer-events:none}
 .viewhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.viewhead h1{font:700 22px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}.viewhead p{max-width:620px;color:var(--mut);font-size:12px}
 .viewgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.viewsection{margin:0 0 24px}.viewsection h2{font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0 0 9px}.viewsection h2 span{color:var(--ink)}

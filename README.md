@@ -16,6 +16,12 @@ model, or a human-facing client all read the same open-question packet and write
 the same validated, repo-local answer overlay. The provider is not part of the
 decision identity or authority; the durable repo-local answer record is.
 
+Vizzer's own work dashboard is configured in [vizzer/README.md](vizzer/README.md).
+When working on this repository, record imports and regressions in
+`product-spec/stories/`, then run `python3 vizzer/engine refresh` and `check`.
+
+Product documentation: [specification](product-spec/README.md) · [wiki](wiki/index.md) · [docs](docs/README.md).
+
 ## Source and distributable
 
 The readable, authoritative implementation lives in [`src/vizzer/`](src/vizzer/).

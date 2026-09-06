@@ -9,7 +9,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #cv.drag{cursor:grabbing}
 #cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
-#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
+#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px auto;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
@@ -42,7 +42,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #meterlab .questioncount.on{color:var(--bg);background:var(--owner-override);text-shadow:none}
 #meterlab .questioncount:disabled{opacity:.45;cursor:default}
 #meterlab .questioncount:focus-visible{outline:2px solid var(--owner-override);outline-offset:3px;border-radius:2px}
-#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:nowrap;min-width:0;overflow-x:auto;margin-left:0;padding-bottom:2px;scrollbar-width:thin}
+#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:wrap;min-width:0;max-height:25vh;overflow:auto;margin-left:0;padding-bottom:2px;scrollbar-width:thin}
 .chip{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:20px;
   border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:6px}
 .chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
@@ -145,3 +145,6 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .workcard.blocked{border-color:var(--buggap)}
 .workcard.stale{border-color:var(--mut);color:var(--mut)}
 .workcard b,.workcard small{display:block}.workcard small{color:var(--mut)}
+
+/* Keep segmented controls intact when the self-hosted app runs in a narrow panel. */
+#chips>*{flex-shrink:0}
