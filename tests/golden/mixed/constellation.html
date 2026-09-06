@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #cv.drag{cursor:grabbing}
 #cv.hover-target{cursor:pointer}
 .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
-#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px 28px;align-items:center;gap:4px 14px;padding:8px 16px 6px;
+#top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) max-content max-content max-content;grid-template-rows:32px 28px auto;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
 #title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
@@ -86,7 +86,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system
 #meterlab .questioncount.on{color:var(--bg);background:var(--owner-override);text-shadow:none}
 #meterlab .questioncount:disabled{opacity:.45;cursor:default}
 #meterlab .questioncount:focus-visible{outline:2px solid var(--owner-override);outline-offset:3px;border-radius:2px}
-#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:nowrap;min-width:0;overflow-x:auto;margin-left:0;padding-bottom:2px;scrollbar-width:thin}
+#chips{grid-column:1 / -1;grid-row:3;display:flex;gap:6px;flex-wrap:wrap;min-width:0;max-height:25vh;overflow:auto;margin-left:0;padding-bottom:2px;scrollbar-width:thin}
 .chip{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:20px;
   border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;display:flex;align-items:center;gap:6px}
 .chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
@@ -190,6 +190,9 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .workcard.stale{border-color:var(--mut);color:var(--mut)}
 .workcard b,.workcard small{display:block}.workcard small{color:var(--mut)}
 
+/* Keep segmented controls intact when the self-hosted app runs in a narrow panel. */
+#chips>*{flex-shrink:0}
+
 .questioncard{border-left:2px solid var(--owner-override);padding:7px 0 7px 9px;margin:9px 0;font-size:12px}
 .questionblocker{border:2px solid var(--owner-override);border-radius:9px;background:var(--bg2);padding:10px 11px;margin:0 0 12px;box-shadow:0 0 0 3px color-mix(in srgb,var(--owner-override) 16%,transparent)}
 .questionblocker strong{display:block;color:var(--owner-override);font:800 12px/1.2 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
@@ -230,7 +233,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #viewempty{position:fixed;left:50%;top:50%;z-index:3;display:none;transform:translate(-50%,-50%);max-width:320px;
   color:var(--mut);font:12px/1.45 ui-monospace,"SF Mono",Menlo,monospace;text-align:center;pointer-events:none}
 #viewempty.show{display:block}
-#viewpanel{position:fixed;left:var(--rail-width);right:0;top:110px;bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
+#viewpanel{position:fixed;left:var(--rail-width);right:0;top:var(--rail-top);bottom:0;z-index:3;min-height:0;overflow-x:auto;overflow-y:scroll;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-gutter:stable;padding:16px 28px 48px;background:linear-gradient(110deg,var(--bg) 0%,color-mix(in srgb,var(--bg2) 54%,var(--bg)) 100%)}
 #viewpanel[hidden]{display:none;pointer-events:none}
 .viewhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}.viewhead h1{font:700 22px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.03em}.viewhead p{max-width:620px;color:var(--mut);font-size:12px}
 .viewgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.viewsection{margin:0 0 24px}.viewsection h2{font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);margin:0 0 9px}.viewsection h2 span{color:var(--ink)}
@@ -260,6 +263,14 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
   font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;white-space:pre-wrap}
 #boot.error{border-color:var(--buggap);color:var(--ink)}
 @media (max-width:760px){#rail,#railresize{display:none}#dossier{width:100%;min-width:0;max-width:none;border-left:0}#dossierresize{display:none}html.dossier-open #viewpanel{right:0}#viewpanel{left:0;right:0;padding:14px}}
+.testreviews{margin:0 0 12px}.testreviews>h3{margin:0 0 6px;color:var(--mut);font:700 10px/1.2 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.testreviewcard{margin:0 0 8px;border:1px solid var(--line);border-left:3px solid var(--owner-override);border-radius:8px;background:var(--bg2);overflow:hidden}.testreviewcard.risk-c{border-left-width:6px}
+.testreviewcard.outcome-pass{border-left-color:var(--shipped)}.testreviewcard.outcome-expected-red{border-left-color:var(--ready)}.testreviewcard.outcome-unexpected-fail,.testreviewcard.outcome-invalidated{border-left-color:var(--buggap)}.testreviewcard.outcome-partial{border-left-color:var(--active)}.testreviewcard.outcome-inconclusive{border-left-color:var(--specced)}.testreviewcard.outcome-cancelled{border-left-color:var(--faint)}.testreviewcard.outcome-infrastructure-failure{border-left-color:var(--conflict)}
+.testreviewcard>summary{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;cursor:pointer;font:11px/1.3 ui-monospace,"SF Mono",Menlo,monospace}.testreviewcard>summary span{color:var(--mut);text-align:right}.testreviewcard>.storymd,.testreviewcard>small,.testreviewcard>.testsnag{display:block;margin:0;padding:8px 10px;border-top:1px solid var(--line)}.testreviewcard>small{color:var(--mut);font:10px/1.4 ui-monospace,"SF Mono",Menlo,monospace}.testsnag{color:var(--buggap)}
+.testownergate{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:8px 10px;border-top:1px solid var(--line);color:var(--owner-override);font:11px/1.35 ui-monospace,"SF Mono",Menlo,monospace}.testownergate button{margin-left:auto;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;padding:5px 8px;font:inherit;cursor:pointer}.testownergate.approved{color:var(--ready)}
+.testreviewfacts{display:grid;grid-template-columns:max-content 1fr;gap:5px 10px;margin:0;padding:10px;border-top:1px solid var(--line);font-size:11px}.testreviewfacts dt{color:var(--mut);font-weight:700}.testreviewfacts dd{margin:0;overflow-wrap:anywhere}
+.createtestcallout{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;margin:0 0 10px;padding:10px;border:1px solid var(--owner-override);border-radius:8px;background:color-mix(in srgb,var(--owner-override) 8%,var(--panel))}.createtestcallout b,.createtestcallout span{grid-column:1}.createtestcallout span{color:var(--mut);font-size:11px}.createtestcallout button{grid-column:2;grid-row:1/3;border:1px solid var(--owner-override);border-radius:6px;background:transparent;color:var(--owner-override);padding:6px 9px;cursor:pointer;font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.createtestcallout button:hover{background:var(--owner-override);color:var(--bg)}
+@media (max-width:560px){.createtestcallout{display:block}.createtestcallout span{display:block;margin:4px 0 8px}.createtestcallout button{width:100%}}
 @media (prefers-reduced-motion:reduce){.storyaccordion button::after{transition:none}}
 
 /* Evidence needs reviewable reading width, not ornamental thumbnails. */
@@ -293,7 +304,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 <canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
-  <div id="title"><b>project — constellation</b><small>v0.8.36</small></div>
+  <div id="title"><b>project — constellation</b><small>v0.8.37</small></div>
   <div id="sidebartype" class="seg typeseg" role="group" aria-label="Sidebar text size">
     <button type="button" data-sidebar-size="14" aria-label="14 point sidebar text">A</button>
     <button type="button" data-sidebar-size="18" aria-label="18 point sidebar text">A</button>
@@ -404,7 +415,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"engineVersion":"0.8.36","renderId":"ef72ee8fb3caac0c","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.37","renderId":"dfddfc0f3a660b13","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -842,6 +853,11 @@ function viewCard(index,detail=''){
 const emptyPanel=message=>`<div class="viewemptycopy">${esc(message)}</div>`;
 const panelHead=(title,copy)=>`<header class="viewhead"><div><h1>${esc(title)}</h1><p>${esc(copy)}</p></div></header>`;
 function renderDashboard(entries){
+  // Project navigation is persistent, independently of delivery/search filters.
+  const documents=(DATA.projectDocuments||[]).map(id=>nodeById.get(id))
+    .filter(index=>index!==undefined);
+  const projectHome=documents.length?`<section class="viewsection"><h2>Project library</h2><p>Product specification, change history, wiki and documentation. These shortcuts stay available while you filter work.</p><div class="viewgrid">${documents.map(index=>viewCard(index,'Open project document')).join('')}</div></section>`:'';
+  const register=documents.length?`<section class="viewsection"><h2>Work register</h2><p>Tracked work under the current filters. Completion counts these Stories, not the whole product.</p><div class="viewgrid">${entries.filter(({node})=>(node.role||'delivery')==='delivery').map(({index})=>viewCard(index)).join('')||emptyPanel('No delivery Stories match the current filters.')}</div></section>`:'';
   const available=new Set(entries.map(({node})=>node.id));
   const portfolio=DATA.assessment?.portfolio||{};
   const lanes=[
@@ -859,8 +875,8 @@ function renderDashboard(entries){
     return `<section class="viewsection"><h2>${esc(label)} <span>${indexes.length}</span></h2><div class="viewgrid">${indexes.map(index=>viewCard(index)).join('')}</div></section>`;
   }).join('');
   const fallback=entries.filter(({node})=>(node.role||'delivery')==='delivery'&&node.rec).map(({index})=>viewCard(index)).join('');
-  return panelHead('Dashboard','Impact-ranked delivery candidates, blockers, defects, and active ownership under the current filters.')+
-    (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'));
+  return panelHead('Dashboard','Project documents, recommended next actions, and tracked work.')+projectHome+
+    (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'))+register;
 }
 const roadmapParams=requestedViewParams();
 const roadmapQuery={
@@ -2095,6 +2111,65 @@ addEventListener('keydown',event=>{
 function refreshDossier(){
   if(sel>=0)openNode(sel,{inPlace:true});
 }
+function nodeTestReviews(i){
+  return (DATA.nodes[i].tr||[]).map(ref=>(DATA.testReviews||[])[ref]).filter(Boolean);
+}
+function testReviewMarkup(i){
+  const packets=nodeTestReviews(i);if(!packets.length)return'';
+  const cards=packets.slice().reverse().map(packet=>{
+    const snag=packet.snag?`<p class="testsnag"><b>Snag</b> ${esc(packet.snag)}</p>`:'';
+    const designGate=packet.risk==='A'?''
+      :packet.verdict==='PASS'
+        ?`<p class="testownergate approved"><b>Independent design review</b> PASS for this exact bounded packet.</p>`
+        :`<p class="testownergate rejected"><b>Independent design review required</b> Risk ${esc(packet.risk)} must not run until a separate testing agent returns PASS.<button type="button" data-review-test>Discuss</button></p>`;
+    const facts=[["Goal",packet.goal],["Selectors",packet.selectors],["Bounds",packet.bounds],
+      ["Evidence",packet.evidence],["Defect",packet.defect],["Challenge",packet.challenge],
+      ["Opportunity",packet.opportunity],["Source boundary",packet.sourceBoundary],
+      ["Falsifiers",packet.falsifiers],["Environment",packet.environment],
+      ["Executor",packet.executor],["Current phase",packet.phase],["Elapsed",packet.elapsed],
+      ["Reviewer",packet.reviewer],["Reviewer session",packet.reviewerSession],
+      ["Reviewed at",packet.reviewedAt]].filter(([,value])=>value);
+    const factsMarkup=facts.length?`<dl class="testreviewfacts">${facts.map(([label,value])=>`<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`:'';
+    return `<details class="testreviewcard risk-${esc(packet.risk.toLowerCase())} outcome-${esc(packet.outcome)} state-${esc(packet.state)}" open><summary><b>Test Risk ${esc(packet.risk)}</b><span>${esc(packet.state)} · ${esc(packet.verdict)} · ${esc(packet.outcome)}</span></summary>${designGate}${snag}${factsMarkup}<div class="storymd">${renderStoryMarkdown(packet.body)}</div><small>${esc(packet.author||'unknown author')} · ${esc(packet.createdAt||'undated')} · ${esc(packet.workstreamId)}</small></details>`;
+  }).join('');
+  return `<section class="testreviews"><h3>Test reviews</h3>${cards}</section>`;
+}
+function storyNeedsTestReview(n){
+  return ['in review','in-review','review'].includes(String(n.st||'').toLowerCase())||n.g==='inreview';
+}
+function testDesignRequest(n){
+  return (`Create a bounded adversarial test plan for ${n.id} — ${n.t}. `
+    +`Start from every acceptance criterion and Definition of Done clause, map each to its production route and observable oracle, and attack blind spots. `
+    +`Use attributable competitor evidence where relevant, and ask the owner when intended behavior is ambiguous. `
+    +`Define one falsifiable goal, classify risk A/B/C, name exact selectors, fixtures, resources, time bounds, evidence gaps, snag handling, source boundary, executor, and falsifiers. `
+    +`Risk B/C requires a separate testing-agent PASS for the exact packet before execution. `
+    +`Canonical Story: ${n.p||'unknown'}. Acceptance criteria:\n${n.acx||'not authored'}\nDefinition of Done:\n${n.dod||'not authored'}`).slice(0,9800);
+}
+function activeTestDesignRequest(storyId,queue){
+  const activeProvider=Object.entries(queue?.queues||{}).find(([,stories])=>stories.includes(storyId))?.[0];
+  return (queue?.requests||[]).slice().reverse().find(request=>request.kind==='test-design'&&request.storyId===storyId&&request.state==='queued'&&request.provider===activeProvider);
+}
+function createTestActionMarkup(i){
+  const n=DATA.nodes[i];if(!storyNeedsTestReview(n)||nodeTestReviews(i).length)return'';
+  const queued=activeTestDesignRequest(n.id,discussionContext?.queue);
+  if(queued)return `<section class="createtestcallout queued"><b>Test design queued</b><span>${esc(queued.provider)} · fingerprint ${esc(queued.fingerprint.slice(0,12))}</span></section>`;
+  return `<section class="createtestcallout"><b>Review needs stronger evidence</b><span>No bounded test-review packet is recorded.</span><button type="button" data-create-test="${i}">Create bounded test</button></section>`;
+}
+async function queueTestDesignRequest(i,button){
+  const n=DATA.nodes[i];if(!n)return;
+  const prompt=testDesignRequest(n);
+  try{
+    button.disabled=true;button.textContent='Queuing…';const authority=await preflightDiscussionAuthority();
+    const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id).map(question=>({id:question.id,fingerprint:question.fingerprint}));
+    const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({expectedRevision:discussionContext.queue.revision,provider:'codex',storyId:n.id,questions:liveQuestions,request:{kind:'test-design',prompt}})});
+    const body=await response.json();if(!response.ok)throw new Error(body.error||'test-design queue failed');discussionContext.queue=body.queue;
+    button.textContent=body.changed?'Test review queued':'Already queued';refreshDossier();
+  }catch(error){button.disabled=false;button.textContent='Queue test review';if(typeof toast==='function')toast(error.message||'Could not queue test review',true);}
+  if(activeTestDesignRequest(n.id,discussionContext?.queue)){
+    try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(prompt);}
+    catch(error){if(typeof toast==='function')toast('Test review was queued, but the prompt could not be copied.',true);}
+  }
+}
 function openNode(i,{inPlace=false}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
@@ -2174,11 +2249,22 @@ function openNode(i,{inPlace=false}={}){
     ${REPO&&n.p?`<a class="story" href="${esc(REPO+n.p)}" target="_blank" rel="noopener">source ${icon('arrow-up-right')}</a>`:''}
     <div id="deps">${lens.structure?dep(nbr[i].up,'depends on')+dep(nbr[i].dn,'unblocks')+
       rel(relNbr[i].out,'lineage')+rel(relNbr[i].inc,'reverse lineage',true):''}</div>`;
-  dossierFooter.innerHTML=storyActions;
+  dbody.innerHTML=createTestActionMarkup(i)+testReviewMarkup(i)+dbody.innerHTML;
+  if(n.role==='reference'){
+    dbody.innerHTML=storyFullBodyMarkup(n)+storyDeepLinkMarkup(n)
+      +(n.h?`<a class="story" href="${esc(n.h)}" target="_blank" rel="noopener">Open source document</a>`:'');
+  }
+  dossierFooter.innerHTML=n.role==='reference'?'':storyActions;
   if(SERVED&&n.id?.startsWith('story:')){
     const edit=document.createElement('button');edit.type='button';edit.className='story';edit.dataset.editStory=n.id;edit.textContent='Edit story';edit.onclick=()=>openStoryEditor(n);
     dbody.prepend(edit);
   }
+
+  dbody.querySelectorAll('[data-create-test]').forEach(button=>
+    button.addEventListener('click',()=>queueTestDesignRequest(Number(button.dataset.createTest),button)));
+  dbody.querySelectorAll('[data-review-test]').forEach(button=>button.addEventListener('click',()=>{
+    dossierFooter.querySelector('[data-chat-primary]')?.click();
+  }));
 
   dbody.querySelectorAll('#deps button').forEach(b=> b.onclick = ()=> openNode(+b.dataset.j));
   dbody.querySelectorAll('[data-open-item]').forEach(b=> b.onclick = async ()=>{
@@ -2194,6 +2280,10 @@ function openNode(i,{inPlace=false}={}){
   bindQuestionControls(n);
   bindPlanControls(n);
   bindStorySidebar(dbody);
+  if(n.role==='reference'){
+    const documentToggle=dbody.querySelector('[data-story-accordion="full-story"]');
+    if(documentToggle){documentToggle.textContent='Document';documentToggle.click();}
+  }
   // Reconciliation can replace long question forms with compact answer cards.
   // Preserve the old scrollable extent until an explicit close/reopen, or the
   // browser clamps the requested scrollTop to zero and makes the drawer jump.
@@ -2305,6 +2395,19 @@ function agentTrailColor(agent){
   let hash=2166136261;
   for(const char of agent)hash=Math.imul(hash^char.codePointAt(0),16777619);
   return C.trails[Math.abs(hash)%C.trails.length]||C.active;
+}
+function latestTestReview(i){
+  const refs=DATA.nodes[i].tr||[];
+  return refs.length?(DATA.testReviews||[])[refs[refs.length-1]]:null;
+}
+function testReviewVisualState(testReview,{active=.5,slow=.5,reduced=false}={}){
+  const snag=Boolean(testReview.snag)||['snagged','unauthorized-execution'].includes(testReview.state)||testReview.outcome==='infrastructure-failure';
+  const preparing=testReview.state==='preparing',reviewing=testReview.state==='under-review',running=testReview.state==='running',moving=preparing||reviewing||running||snag;
+  const outcomeBadge={pass:'✓','expected-red':'R','unexpected-fail':'!','infrastructure-failure':'⚠',partial:'½',inconclusive:'?',cancelled:'×',invalidated:'!'};
+  return {snag,preparing,reviewing,running,moving,wave:running?active:slow,
+    dash:snag?[2,2]:(reviewing?[7,3]:(preparing?[2,4]:[])),
+    stateLabel:reduced&&moving?({preparing:'P','under-review':'U',running:'R',snagged:'S','unauthorized-execution':'!'}[testReview.state]||'•'):'',
+    outcomeBadge:outcomeBadge[testReview.outcome]||(testReview.outcome==='pending'?'':'•')};
 }
 function trailArrow(a,b,color,alpha){
   const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
@@ -2490,6 +2593,17 @@ function draw(){
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
     ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
+    const testReview=latestTestReview(i);
+    if(testReview&&!dim){
+      const isC=testReview.risk==='C',visual=testReviewVisualState(testReview,{active:activeWave,slow:xWave,reduced:reducedMotion});
+      const outcomeColor={pass:C.shipped,'expected-red':C.ready,'unexpected-fail':C.buggap,partial:C.active,inconclusive:C.specced,'infrastructure-failure':C.conflict,invalidated:C.buggap,cancelled:C.faint};
+      ctx.globalAlpha=(visual.moving?(reducedMotion?.92:.42+.58*visual.wave):.86)*fog;
+      ctx.strokeStyle=visual.snag?C.buggap:(visual.reviewing?C.owner:(outcomeColor[testReview.outcome]||C.active));ctx.lineWidth=visual.snag?4:(isC?3:1.7);ctx.setLineDash(visual.dash);
+      const radius=rr*((isC?2.12:1.82)+(visual.preparing?.16:visual.reviewing?.08:visual.running?.24:0)*visual.wave);
+      ctx.beginPath();ctx.arc(p.x,p.y,radius,0,7);ctx.stroke();ctx.setLineDash([]);
+      if(testReview.outcome!=='pending'){ctx.globalAlpha=.96*fog;ctx.fillStyle=outcomeColor[testReview.outcome]||C.owner;ctx.font=`700 ${Math.max(8,rr*.72)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.outcomeBadge,p.x+rr*1.7,p.y-rr*1.7);}
+      if(reducedMotion&&visual.moving){ctx.globalAlpha=.98*fog;ctx.fillStyle=visual.snag?C.buggap:C.owner;ctx.font=`700 ${Math.max(8,rr*.68)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.stateLabel,p.x-rr*1.7,p.y-rr*1.7);}
+    }
     // Unknown assessed size gets a neutral dashed ring. It must not look like
     // XS merely because both are visually compact.
     if(sizeMode==='delivery'&&n.assess&&n.assess.band==null&&!dim){

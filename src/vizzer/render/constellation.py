@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import hashlib
 import json
 import re
 from importlib.resources import files
@@ -301,7 +302,183 @@ def _question_search_text(entry) -> str:
         entry.falsifier,
         *entry.evidence,
     ))
+def _test_review_packets(workstreams: object, node_indexes: dict[str, int]) -> list[dict]:
+    """Project explicit test-review discussions onto their owning Stories.
 
+    Test packets are coordination records, not Story lifecycle.  The compact
+    parser deliberately recognizes only the durable marker and bounded fields
+    written by the testing-agent policy; ordinary proposals remain ordinary
+    workstream discussion.
+    """
+    if not isinstance(workstreams, dict):
+        return []
+    streams = workstreams.get("workstreams", [])
+    discussions = workstreams.get("discussions", [])
+    if not isinstance(streams, list) or not isinstance(discussions, list):
+        return []
+    stories_by_stream = {
+        stream.get("id"): stream.get("storyIds", [])
+        for stream in streams
+        if isinstance(stream, dict) and isinstance(stream.get("id"), str)
+        and isinstance(stream.get("storyIds"), list)
+    }
+    def field(body: str, label: str, default: str = "") -> str:
+        match = re.search(rf"(?:^|\n){re.escape(label)}:[ \t]*([^\r\n]+)", body,
+                          flags=re.IGNORECASE)
+        return match.group(1).strip() if match else default
+
+    ordered = sorted(
+        (entry for entry in discussions if isinstance(entry, dict)),
+        key=lambda entry: (str(entry.get("createdAt", "")), str(entry.get("id", ""))),
+    )
+    fingerprint_labels = (
+        "Proposal ID", "Story", "Test Risk", "Goal",
+        "Selectors", "Bounds", "Evidence", "Defect", "Challenge", "Opportunity",
+        "Source boundary", "Falsifiers", "Environment", "Executor",
+    )
+    canonical_labels = (*fingerprint_labels, "State", "Outcome", "Phase", "Elapsed")
+
+    def packet_fingerprint(body: str) -> str:
+        canonical = {label: field(body, label) for label in fingerprint_labels}
+        return hashlib.sha256(json.dumps(
+            canonical, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+
+    proposal_keys: dict[str, tuple[str, str, str]] = {}
+    for discussion in ordered:
+        body = discussion.get("body")
+        if isinstance(body, str) and re.match(
+            r"\A\s*TEST REVIEW PACKET(?:\s|\n|$)", body, flags=re.IGNORECASE
+        ):
+            proposal_keys[str(discussion.get("id", ""))] = (
+                field(body, "Proposal ID"), field(body, "Story"), packet_fingerprint(body)
+            )
+
+    verdicts: dict[tuple[str, str, str], list[dict]] = {}
+    for discussion in ordered:
+        body = discussion.get("body")
+        if not isinstance(body, str) or not re.match(
+            r"\A\s*TEST REVIEW VERDICT(?:\s|\n|$)", body, flags=re.IGNORECASE
+        ):
+            continue
+        proposal = field(body, "Proposal ID")
+        story_id = field(body, "Story")
+        fingerprint = field(body, "Packet fingerprint").lower()
+        reviewer_session = field(body, "Reviewer session")
+        verdict = field(body, "Verdict").upper()
+        required = ("Proposal ID", "Story", "Packet fingerprint", "Reviewer session", "Verdict")
+        unique = all(len(re.findall(
+            rf"(?:^|\n){re.escape(label)}:[ \t]*[^\r\n]+", body, flags=re.IGNORECASE
+        )) == 1 for label in required)
+        reply_to = str(discussion.get("replyTo", ""))
+        key = (proposal, story_id, fingerprint)
+        if (unique and proposal and story_id and reviewer_session
+                and re.fullmatch(r"[0-9a-f]{64}", fingerprint)
+                and verdict in {"PASS", "REPAIR", "RESTRICTED"}
+                and proposal_keys.get(reply_to) == key):
+            verdicts.setdefault(key, []).append({
+                "verdict": verdict,
+                "reviewer": str(discussion.get("author", ""))[:300],
+                "reviewerSession": reviewer_session[:300],
+                "reviewedAt": str(discussion.get("createdAt", ""))[:40],
+            })
+    packets = []
+    for discussion in ordered:
+        body = discussion.get("body")
+        if not isinstance(body, str) or not re.match(
+            r"\A\s*TEST REVIEW PACKET(?:\s|\n|$)", body, flags=re.IGNORECASE
+        ):
+            continue
+        workstream_id = discussion.get("workstreamId")
+        story_ids = stories_by_stream.get(workstream_id, [])
+        proposal = field(body, "Proposal ID")
+        story_id = field(body, "Story")
+        supplied_fingerprint = field(body, "Packet fingerprint").lower()
+        computed_fingerprint = packet_fingerprint(body)
+        identity_valid = bool(
+            proposal and story_id and story_id in story_ids
+            and supplied_fingerprint == computed_fingerprint
+            and all(field(body, label) for label in fingerprint_labels)
+        )
+        # A malformed packet in a single-Story lane is still visible as
+        # invalid evidence. Multi-Story packets must name their target; guessing
+        # there would recreate the old fan-out bug.
+        if not story_id and len(story_ids) == 1:
+            story_id = story_ids[0]
+        if story_id not in story_ids:
+            continue
+        node_index = node_indexes.get(story_id)
+        if node_index is None:
+            continue
+        required_labels = (*canonical_labels, "Packet fingerprint")
+        duplicate_field = any(len(re.findall(
+            rf"(?:^|\n){re.escape(label)}:[ \t]*[^\r\n]+", body, flags=re.IGNORECASE
+        )) != 1 for label in required_labels)
+        risk_value = field(body, "Test Risk").upper()
+        risk_valid = risk_value in {"A", "B", "C"}
+        risk = risk_value if risk_valid else "C"
+        design_state = field(body, "State", "under-review").lower()
+        outcome = field(body, "Outcome", "pending").lower()
+        proposal_author = str(discussion.get("author", "")).strip().casefold()
+        executor_identity = field(body, "Executor").strip().casefold()
+        matching_verdicts = [value for value in verdicts.get(
+            (proposal, story_id, computed_fingerprint), []
+        ) if proposal_author and executor_identity and value["reviewer"].strip().casefold()
+             and value["reviewer"].strip().casefold() != proposal_author
+             and value["reviewer"].strip().casefold() != executor_identity]
+        review = matching_verdicts[-1] if matching_verdicts else None
+        verdict_value = review["verdict"] if review else "PENDING"
+        effective_state = design_state
+        valid_states = {"preparing", "under-review", "ready", "running", "finished",
+                        "snagged", "invalidated"}
+        valid_outcomes = {"pending", "pass", "expected-red", "unexpected-fail",
+                          "partial", "inconclusive", "infrastructure-failure",
+                          "cancelled", "invalidated"}
+        if (not identity_valid or duplicate_field or not risk_valid
+                or design_state not in valid_states or outcome not in valid_outcomes):
+            effective_state = "invalidated"
+            outcome = "invalidated"
+        elif risk in {"B", "C"} and verdict_value != "PASS":
+            effective_state = (
+                "unauthorized-execution"
+                if design_state in {"running", "finished"}
+                else "under-review" if design_state == "ready" else design_state
+            )
+        packets.append({
+                "id": str(discussion.get("id", ""))[:300],
+                "proposal": proposal[:200],
+                "fingerprint": computed_fingerprint,
+                "n": node_index,
+                "storyId": story_id,
+                "workstreamId": str(workstream_id or "")[:300],
+                "risk": risk,
+                "verdict": verdict_value,
+                "state": effective_state,
+                "designState": design_state,
+                "outcome": outcome,
+                "snag": field(body, "Snag")[:1000],
+                "goal": field(body, "Goal"),
+                "selectors": field(body, "Selectors"),
+                "bounds": field(body, "Bounds"),
+                "evidence": field(body, "Evidence"),
+                "defect": field(body, "Defect"),
+                "challenge": field(body, "Challenge"),
+                "opportunity": field(body, "Opportunity"),
+                "author": str(discussion.get("author", ""))[:300],
+                "reviewer": review["reviewer"] if review else "",
+                "reviewerSession": review["reviewerSession"] if review else "",
+                "reviewedAt": review["reviewedAt"] if review else "",
+                "executor": field(body, "Executor"),
+                "sourceBoundary": field(body, "Source boundary"),
+                "falsifiers": field(body, "Falsifiers"),
+                "environment": field(body, "Environment"),
+                "phase": field(body, "Phase"),
+                "elapsed": field(body, "Elapsed"),
+                "createdAt": str(discussion.get("createdAt", ""))[:40],
+                "body": body[:20000],
+                "bodyTruncated": len(body) > 20000,
+            })
+    return packets
 
 def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     # Manual highlights remain supported; deterministic recommendations augment
@@ -543,6 +720,16 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         if len(checkpoints) >= 2:
             agent_trails.append({"agent": agent, "points": checkpoints})
 
+    test_reviews = _test_review_packets(graph.workstreams, idx)
+    for packet_index, packet in enumerate(test_reviews):
+        node = nodes[packet["n"]]
+        node.setdefault("tr", []).append(packet_index)
+        node["q"] += " " + " ".join(filter(None, (
+            "test review", packet["proposal"], packet["risk"],
+            packet["verdict"], packet["state"], packet["outcome"],
+            packet["snag"], packet["goal"], packet["selectors"], packet["defect"],
+        )))
+
     # Questions are explicit researched decisions, not a spelling of "blocked".
     # Keeping them separate lets a question survive stale/completed work and lets
     # operational blockers remain honest.
@@ -640,6 +827,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         "work": work,
         "workLinks": work_links,
         "agentTrails": agent_trails,
+        "testReviews": test_reviews,
         "questions": questions,
         "decisions": decisions,
         # Accepted owner planning course is inspectable in static mode. Writes

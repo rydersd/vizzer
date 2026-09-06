@@ -15,6 +15,7 @@ _BLOCK_BEGIN = "<!-- vizzer:begin"
 _CONTEXT_DOCS = (
     "story-sizing-and-portfolio-selection.md",
     "prds-and-living-product-specs.md",
+    "adversarial-test-design.md",
 )
 _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` rewrites this block) -->
 ## Vizzer — project work-graph views
@@ -59,6 +60,12 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
   provider lane top-first. A queued Story requests general discussion and includes
   its current open questions when present; it is not an accepted answer and does not target a prior chat session.
   Keep the question/answer/application gates separate.
+- Every test needs one bounded, falsifiable goal. Read
+  `vizzer/docs/adversarial-test-design.md` before proposing integration, UI,
+  performance, mutation, profiling, shared-runner, or other high-impact tests.
+  Risk B/C execution requires a separate testing-agent PASS on the exact packet;
+  this is an independent design gate, not an owner approval gate. Record state,
+  outcome, snags, evidence, and improvement opportunities separately.
 - If `planning.enabled` is true, the accepted planning overlay composes over the
   target manifest. Use the refreshed graph's ranked recommendations for next-task
   selection. Analyze tradeoffs before applying a course change; never rewrite story
@@ -111,6 +118,12 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
 - At session start, read `vizzer/views/discussion-queue.md` and take the first
   Story in your provider lane before inventing unrelated work. Queued
   means discuss; it does not mean answered or applied.
+- Give every test one bounded, falsifiable goal. Before integration, UI,
+  performance, mutation, profiling, shared-runner, or other high-impact tests,
+  read `vizzer/docs/adversarial-test-design.md`. Risk B/C requires a distinct
+  testing-agent PASS for the exact packet before execution; it does not create
+  an owner approval gate. Keep execution state, outcome, snags, and evidence
+  explicit.
 - When assessment is enabled, use `graph.assessment.items` and its portfolio;
   keep size, impact, uncertainty, and parallel safety separate. Never invent a
   universal AI speed multiplier. Read `vizzer/docs/story-sizing-and-portfolio-selection.md`
