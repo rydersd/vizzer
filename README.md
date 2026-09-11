@@ -112,6 +112,20 @@ snapshots for review, archives, and model context—not a second user interface.
 | `manifest.json` | Machine-readable index of docs represented by enabled adapters (titles, statuses, git dates). It is not a whole-repository corpus manifest unless the configured adapters cover that corpus. |
 | `constellation.html#constellation` | Interactive 3D dependency map using the same search, filters, dossier, and owner-decision queue as every other route. <!-- codex-sequence-2026-08-08 --> |
 
+When `[session_history] enabled = true`, the served constellation overlays the
+last 72 hours of explicit Story references from local Claude and Codex public
+messages. Older trail segments fade; provider, session, and time-range controls
+remain on the constellation; double-click isolates one session; and the existing
+Story sidebar shows a filterable work log, including a dedicated “invoked exec”
+filter. Model colors distinguish recorded model identities. The index never
+imports hidden reasoning, tool arguments, or tool output, and never invents a
+Story hop for a message that names multiple Stories. Generated Markdown/JSONL
+archives live in Vizzer's machine-local cache outside the checkout and preserve
+public records even when the current 72-hour view rolls forward. Live Git
+worktrees are admitted only when their resolved Git common directory matches the
+served checkout. Removed worktrees require an explicit
+`session_history.checkout_roots` entry; directory-name prefixes are never trusted.
+
 Developer Flow view state is encoded in bounded query parameters, so an ordinary browser bookmark
 and **Share link** restore the semantic scope, filters, selected object, relationship filter, and
 layout direction. While served, named views—including view notes, anchored note cards, and
@@ -223,6 +237,8 @@ The one file you edit. Keys and defaults:
 | `workstreams.definitions_path` | `"vizzer/workstreams.json"` | Repo-local, reviewed workstream definitions, path scopes, discussions, and audit revisions. |
 | `workstreams.runtime_path` | `".vizzer/runtime/sessions.json"` | Machine-local live session leases; generated views never expose absolute worktree paths. |
 | `workstreams.lease_minutes` | `30` | Time without heartbeat before a session becomes stale and stops claiming work. |
+| `session_history.enabled` | `false` | Opt in to a machine-local rolling 72-hour Claude/Codex public-activity index, snail trails, and filtered work logs. |
+| `session_history.checkout_roots` | `[]` | Explicit absolute checkout paths whose historical transcripts may be retained after the checkout is removed. Live linked worktrees are discovered by Git identity instead. |
 | `reviews.enabled` | `false` | Enable DoD-derived review plans, agent evidence runs, and served owner validation. |
 | `reviews.plans_dir` | `"vizzer/reviews/plans"` | Directly contains bounded schema-1 authored plan JSON files. |
 | `reviews.runs_dir` | `"vizzer/reviews/runs"` | Append-only CAS ledger per plan fingerprint; revised plans start a new epoch without rewriting history. |
@@ -616,7 +632,11 @@ after completion, issue discovery, status changes, or dependency changes.
 ## Safety
 
 Vizzer never executes project code. It reads files and git history, and writes
-only inside `vizzer/` plus the managed doc block and one `.gitignore` line.
+only inside `vizzer/` plus the managed doc block and one `.gitignore` line. The
+optional session-history service additionally reads local Claude/Codex transcript
+files, but retains only public messages and tool names in a machine-local SQLite
+index and cache-owned work-history archive; reasoning, command arguments, and tool output
+are excluded.
 
 ## License
 

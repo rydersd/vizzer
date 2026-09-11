@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 
-__version__ = "0.8.37"
+__version__ = "0.8.38"
 RENDER_ID_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 MARKER_RELPATH = Path("vizzer/RENDER_ID")
 RENDER_SOURCE_SUFFIXES = frozenset({".py", ".js", ".css", ".html", ".md", ".txt"})

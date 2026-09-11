@@ -157,6 +157,9 @@ function draw(){
       }
     }
   }
+  // Rolling session history is a separate, time-bounded overlay. It never
+  // changes graph topology or Story lifecycle state.
+  if(typeof drawSessionHistory==='function')drawSessionHistory();
   // Explicit agent-work linkage pulses. It is not silently inferred from a hard
   // dependency or typed relation, so the overlay never claims evidence it lacks.
   if (lens.activity){
@@ -460,9 +463,18 @@ function updatePointerState(x,y){
   hover=questionCenterBest>=0?questionCenterBest:
     (questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best));
 }
-let presentedHover=-1;
+let downHistoryTarget=null,presentedHover=-1;
 function presentPointerState(x,y){
   const best=hover,tip=document.getElementById('tip');
+  const workTrail=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(x,y,best):null;
+  if(workTrail){
+    const s=historySession(workTrail.session);
+    tip.innerHTML=esc(s?.provider+' · '+s?.title)+
+      `<small>${esc(historyDate(workTrail.timestamp))} · click for work, rationale and challenges</small>`;
+    tip.style.display='block';tip.style.left=(x+14)+'px';tip.style.top=(y+10)+'px';
+    cv.classList.add('hover-target');presentedHover=-1;return;
+  }
   if(best>=0){
     if(presentedHover!==best){
       const n=DATA.nodes[best];
@@ -497,6 +509,9 @@ cv.addEventListener('pointerdown',e=>{
   if(advertisedTarget>=0)hover=advertisedTarget;
   presentPointerState(e.clientX,e.clientY);
   pointerDown=true;orbiting=false;downTarget=advertisedTarget>=0?advertisedTarget:hover;
+  downHistoryTarget=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(e.clientX,e.clientY,downTarget):null;
+  if(downHistoryTarget)downTarget=-1;
   downX=lx=e.clientX;downY=ly=e.clientY;
   publishHitDebug('down',e,{advertised:advertisedTarget,geometric:geometricTarget,chosen:downTarget,
     pointerType:e.pointerType||'unknown'});
@@ -530,7 +545,13 @@ cv.addEventListener('pointerup',e=>{
     // Visibility was already proven when downTarget was captured. Requiring it
     // again after projection lets easing or a chrome boundary cancel a valid
     // press between pointer-down and pointer-up.
-    if(target>=0)openNode(target);
+    if(downHistoryTarget){
+      historyQueueClick(downHistoryTarget,e.clientX,e.clientY);downHistoryTarget=null;
+    }else if(target>=0)openNode(target);
+    else if(typeof hitSessionHistory==='function'){
+      const segment=hitSessionHistory(e.clientX,e.clientY);
+      if(segment)historyQueueClick(segment,e.clientX,e.clientY);
+    }
     publishHitDebug('up',e,{opened:target,pointerType:e.pointerType||'unknown'});
   }else{
     project();updatePointerAt(e.clientX,e.clientY);
@@ -539,8 +560,14 @@ cv.addEventListener('pointerup',e=>{
   downTarget=-1;
 });
 cv.addEventListener('pointercancel',e=>{
-  pointerDown=false;orbiting=false;downTarget=-1;cv.classList.remove('drag');clearPointerState();
+  pointerDown=false;orbiting=false;downTarget=-1;downHistoryTarget=null;cv.classList.remove('drag');clearPointerState();
   releasePointer(e);
+});
+cv.addEventListener('dblclick',e=>{
+  updatePointerState(e.clientX,e.clientY);
+  if(typeof historyDoubleClick==='function'&&historyDoubleClick(e.clientX,e.clientY,hover)){
+    e.preventDefault();
+  }
 });
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   if (e.ctrlKey){ // trackpad pinch arrives as ctrl+wheel

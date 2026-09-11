@@ -295,6 +295,20 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 .markdownsurface{min-height:240px}.questioneditor .milkdown{--crepe-color-background:var(--panel);--crepe-color-on-background:var(--ink);--crepe-color-surface:var(--bg2);--crepe-color-on-surface:var(--ink);--crepe-color-on-surface-variant:var(--mut);--crepe-font-default:system-ui,sans-serif;--crepe-font-title:system-ui,sans-serif;background:var(--panel);color:var(--ink)}
 .questioneditor .milkdown .ProseMirror{padding:16px 8px 60px;min-height:240px;font-size:var(--sidebar-type-size);line-height:1.5}.questioneditor .milkdown button{font:inherit;padding:4px;background:transparent;color:inherit;border:0}.questioneditor .milkdown .ProseMirror p{margin:8px 0}.questioneditor .milkdown .ProseMirror h1{font-size:1.6em}.questioneditor .milkdown .ProseMirror h2{font-size:1.35em}.questioneditor .milkdown .ProseMirror h3{font-size:1.15em}.questioneditor .milkdown .ProseMirror strong{font:inherit;font-weight:700;display:inline;text-transform:none;letter-spacing:normal}
 
+#historydock{position:fixed;left:calc(var(--rail-width) + 12px);right:16px;bottom:28px;z-index:var(--z-topbar);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font:12px/1.4 var(--sans)}
+html.dossier-open #historydock{right:calc(var(--dossier-width) + 12px)}
+html:not([data-view="constellation"]) #historydock{display:none}
+#historydock header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}#historydock strong{color:var(--ink)}
+.historylength{display:flex;align-items:center;gap:6px}.historylength input{width:110px;accent-color:var(--accent)}.historylength output{min-width:40px}#historylegend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:11px;color:var(--mut)}#historylegend span{display:inline-flex;align-items:center;gap:5px}#historylegend i{width:16px;height:3px;border-radius:2px}#historydock button:disabled{opacity:.4;cursor:default}
+.historyfilterbar{position:sticky;top:-12px;z-index:2;background:var(--panel);border-bottom:1px solid var(--line);margin:0 -16px 12px;padding:12px 16px;box-shadow:0 6px 12px color-mix(in srgb,var(--bg) 25%,transparent)}.historyfilterbar h3{margin:0 0 10px}.historyfilterbar label{display:flex;flex-direction:column;gap:4px;max-width:100%}.historyfilterbar select,.historyfilterbar input{background:var(--bg2);color:var(--ink);border:1px solid var(--line);padding:6px;max-width:100%;min-width:0}#historylogfilters{display:flex;flex-wrap:wrap;gap:10px}
+.historyinsights .mdh{margin-top:20px}.historyinsights .mdlist li{margin:8px 0;line-height:1.55}.historyoriginal{margin:18px 0;padding:12px;border:1px solid var(--line);border-radius:8px}.historyoriginal summary{cursor:pointer;color:var(--accent);font-weight:600}.historyoriginal .storymd{margin-top:12px}
+#historyisolation{position:fixed;top:var(--search-top);left:calc(var(--rail-width) + 12px);right:16px;z-index:var(--z-topbar);pointer-events:none}#historyisolation[hidden],html:not([data-view="constellation"]) #historyisolation{display:none}html.dossier-open #historyisolation{right:calc(var(--dossier-width) + 12px)}#historyall{pointer-events:auto;display:flex;align-items:center;gap:16px;max-width:100%;padding:8px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--panel);color:var(--ink);font:12px/1.4 var(--sans);cursor:pointer}#historyisolatedlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#historyall strong{white-space:nowrap;color:var(--accent)}#historyall:hover,#historyall:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#historydock select,#historydock button{font:inherit;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:4px 6px;cursor:pointer}#historydock select{max-width:260px;min-width:0}#historydock button:hover{border-color:var(--accent)}
+#historystatus{color:var(--mut);margin-top:6px;font-size:11px}.historyaxis{display:flex;justify-content:space-between;padding-left:185px;color:var(--mut);font-size:10px;margin-top:8px}
+#historylanes{max-height:135px;overflow:auto}.historylane{display:grid;grid-template-columns:175px 1fr;gap:10px;align-items:center;min-height:28px}.historylane>button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;border:0!important;background:transparent!important}.historytrack{position:relative;height:22px;border-bottom:1px solid var(--line)}.historytick{position:absolute;top:5px;height:12px;min-width:5px;padding:0!important;background:var(--agent-trail-1)!important;border:0!important}.historytick.claude{background:var(--agent-trail-3)!important}.historytick:hover,.historytick:focus-visible{top:2px;height:18px;outline:1px solid var(--ink)}
+#historydock.compact #historylanes,#historydock.compact .historyaxis{display:none}.historymeta{color:var(--mut);font-size:12px;overflow-wrap:anywhere}.historyevent{display:block;width:100%;text-align:left;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px;margin:8px 0}.historyevent small{display:block;color:var(--mut);margin-bottom:4px}.historyevent .excerpt{display:block;white-space:pre-wrap;max-height:4.2em;overflow:hidden}.historynote{border-left:2px solid var(--accent);padding-left:10px}.historylog{font-size:var(--reading-size);overflow-wrap:anywhere}.historylog div{white-space:pre-wrap}#historydrawercontrols{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+@media(max-width:760px){#historydock{left:8px;right:8px;bottom:24px}html.dossier-open #historydock{display:none}.historylane{grid-template-columns:115px 1fr}.historyaxis{padding-left:125px}#historydock select{max-width:170px}}
+
 </style>
 <svg class="symbol-defs" aria-hidden="true">
   <symbol id="sym-xmark" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9m0-9-9 9"/></symbol>
@@ -304,7 +318,7 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 <canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
-  <div id="title"><b>project — constellation</b><small>v0.8.37</small></div>
+  <div id="title"><b>project — constellation</b><small>v0.8.38</small></div>
   <div id="sidebartype" class="seg typeseg" role="group" aria-label="Sidebar text size">
     <button type="button" data-sidebar-size="14" aria-label="14 point sidebar text">A</button>
     <button type="button" data-sidebar-size="18" aria-label="18 point sidebar text">A</button>
@@ -354,6 +368,17 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
   <div id="dossierfooter"></div>
 </div>
 <div id="tip" role="tooltip"></div>
+<div id="historyisolation" hidden><button id="historyall" type="button"><span id="historyisolatedlabel">Path isolated</span><strong>Show all paths ×</strong></button></div>
+<section id="historydock" hidden aria-label="Rolling three-day agent history">
+  <header><strong>Snail trails · 3 days</strong>
+    <label>Provider <select id="historyprovider"><option value="">Claude + Codex</option><option>Claude</option><option>Codex</option></select></label>
+    <label>Session <select id="historysession"><option value="">All sessions</option></select></label>
+    <label class="historylength">Trail length <input id="historylength" type="range" min="1" max="72" value="72" step="1" aria-label="Trail length in hours"><output id="historylengthvalue" for="historylength">3 days</output></label>
+    <button id="historyrefresh" type="button">Refresh</button><button id="historydetails" type="button">Work log</button>
+  </header>
+  <div id="historystatus" role="status">Loading recorded activity…</div>
+  <div id="historylegend" aria-label="Colors by latest recorded session model" title="Latest recorded session model; per-event model switches are not inferred."></div>
+</section>
 <div id="viewempty" role="status" aria-live="polite"></div>
 <div id="hint"><span>drag orbit</span><span>two-finger orbit</span><span><kbd>&#8984;</kbd> + two-finger pan</span><span>pinch zoom</span><span>click node opens story + dependencies</span></div>
 <div id="boot" role="status">loading constellation…</div>
@@ -415,7 +440,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"engineVersion":"0.8.37","renderId":"dfddfc0f3a660b13","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
+const DATA={"engineVersion":"0.8.38","renderId":"2c03774eea9a2bae","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"docs/design","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"docs","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"Widget Refactor","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"TODO.md","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -830,6 +855,9 @@ function renderStoryMarkdown(text){
     const buffer=[];
     while(i<lines.length&&lines[i].trim()&&!/^\s*(#{1,6}\s|>|```)/.test(lines[i])
         &&!listItemRe.test(lines[i])&&!isTableRow(lines[i])){buffer.push(lines[i].trim());i++;}
+    // A pipe-delimited log line without a separator is ordinary text. Always
+    // advance; otherwise malformed or pasted transcript rows loop forever.
+    if(!buffer.length){buffer.push(lines[i]);i++;}
     out.push(`<p class="mdp">${mdInline(buffer.join(' '))}</p>`);
   }
   return out.join('');
@@ -2505,6 +2533,9 @@ function draw(){
       }
     }
   }
+  // Rolling session history is a separate, time-bounded overlay. It never
+  // changes graph topology or Story lifecycle state.
+  if(typeof drawSessionHistory==='function')drawSessionHistory();
   // Explicit agent-work linkage pulses. It is not silently inferred from a hard
   // dependency or typed relation, so the overlay never claims evidence it lacks.
   if (lens.activity){
@@ -2808,9 +2839,18 @@ function updatePointerState(x,y){
   hover=questionCenterBest>=0?questionCenterBest:
     (questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best));
 }
-let presentedHover=-1;
+let downHistoryTarget=null,presentedHover=-1;
 function presentPointerState(x,y){
   const best=hover,tip=document.getElementById('tip');
+  const workTrail=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(x,y,best):null;
+  if(workTrail){
+    const s=historySession(workTrail.session);
+    tip.innerHTML=esc(s?.provider+' · '+s?.title)+
+      `<small>${esc(historyDate(workTrail.timestamp))} · click for work, rationale and challenges</small>`;
+    tip.style.display='block';tip.style.left=(x+14)+'px';tip.style.top=(y+10)+'px';
+    cv.classList.add('hover-target');presentedHover=-1;return;
+  }
   if(best>=0){
     if(presentedHover!==best){
       const n=DATA.nodes[best];
@@ -2845,6 +2885,9 @@ cv.addEventListener('pointerdown',e=>{
   if(advertisedTarget>=0)hover=advertisedTarget;
   presentPointerState(e.clientX,e.clientY);
   pointerDown=true;orbiting=false;downTarget=advertisedTarget>=0?advertisedTarget:hover;
+  downHistoryTarget=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(e.clientX,e.clientY,downTarget):null;
+  if(downHistoryTarget)downTarget=-1;
   downX=lx=e.clientX;downY=ly=e.clientY;
   publishHitDebug('down',e,{advertised:advertisedTarget,geometric:geometricTarget,chosen:downTarget,
     pointerType:e.pointerType||'unknown'});
@@ -2878,7 +2921,13 @@ cv.addEventListener('pointerup',e=>{
     // Visibility was already proven when downTarget was captured. Requiring it
     // again after projection lets easing or a chrome boundary cancel a valid
     // press between pointer-down and pointer-up.
-    if(target>=0)openNode(target);
+    if(downHistoryTarget){
+      historyQueueClick(downHistoryTarget,e.clientX,e.clientY);downHistoryTarget=null;
+    }else if(target>=0)openNode(target);
+    else if(typeof hitSessionHistory==='function'){
+      const segment=hitSessionHistory(e.clientX,e.clientY);
+      if(segment)historyQueueClick(segment,e.clientX,e.clientY);
+    }
     publishHitDebug('up',e,{opened:target,pointerType:e.pointerType||'unknown'});
   }else{
     project();updatePointerAt(e.clientX,e.clientY);
@@ -2887,8 +2936,14 @@ cv.addEventListener('pointerup',e=>{
   downTarget=-1;
 });
 cv.addEventListener('pointercancel',e=>{
-  pointerDown=false;orbiting=false;downTarget=-1;cv.classList.remove('drag');clearPointerState();
+  pointerDown=false;orbiting=false;downTarget=-1;downHistoryTarget=null;cv.classList.remove('drag');clearPointerState();
   releasePointer(e);
+});
+cv.addEventListener('dblclick',e=>{
+  updatePointerState(e.clientX,e.clientY);
+  if(typeof historyDoubleClick==='function'&&historyDoubleClick(e.clientX,e.clientY,hover)){
+    e.preventDefault();
+  }
 });
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   if (e.ctrlKey){ // trackpad pinch arrives as ctrl+wheel
@@ -2900,6 +2955,206 @@ cv.addEventListener('wheel',e=>{ e.preventDefault();
   }
   project();updatePointerAt(e.clientX,e.clientY);
 },{passive:false});
+
+// Rolling session history is fetched separately; it never enlarges DATA or
+// participates in Story, answer, or lifecycle writes.
+const sessionHistory={payload:null,provider:'',session:'',hours:72,segments:[],points:[],busy:false,drawer:null,offset:null,events:[],hour:null,kind:'progress',generation:0,clickTimer:null,lastClick:null};
+const historyDock=document.getElementById('historydock');
+const historyLogFilter={kind:'',tool:'',q:''};
+let historyLogSession='',historyLogOffset=0;
+const historyDate=t=>new Date(t*1000).toLocaleString();
+const historySetTimeout=typeof globalThis.setTimeout==='function'?globalThis.setTimeout.bind(globalThis):null;
+const historyClearTimeout=typeof globalThis.clearTimeout==='function'?globalThis.clearTimeout.bind(globalThis):()=>{};
+const historyShortId=id=>id.includes(':agent:')?id.split(':agent:')[1].slice(-12):(id.split(':')[1]||id).slice(0,8)+'…'+id.slice(-4);
+function historySession(id){return sessionHistory.payload?.sessions.find(s=>s.id===id)}
+function historyVisibleSessions(){return (sessionHistory.payload?.sessions||[]).filter(s=>!sessionHistory.provider||s.provider===sessionHistory.provider)}
+function historyModel(s){return !s?.model||s.model.startsWith('<')?'Model unrecorded':s.model;}
+function historyColor(id){
+ const model=historyModel(historySession(id)),known={'gpt-6-astra':'#5ad4ff','gpt-5.6-sol':'#ffc857','gpt-5.6-terra':'#65dd9c','gpt-5.6-luna':'#bb9aff','claude-opus-5':'#ff8c78','claude-fable-5-1':'#f381cf','Model unrecorded':'#a0a8b6'};
+ if(known[model])return known[model];let hash=0;for(const char of model)hash=(hash*31+char.charCodeAt(0))|0;return `hsl(${Math.abs(hash)%360} 72% 68%)`;
+}
+function historyOpacity(timestamp,now=Date.now()/1000){return Math.max(0,1-Math.max(0,now-timestamp)/(sessionHistory.hours*3600));}
+function historyIsolate(id){if(!historySession(id))return;sessionHistory.session=id;historyRenderDock();}
+function historyExitIsolation(){if(!sessionHistory.session)return false;sessionHistory.session='';historyRenderDock();return true;}
+function historyQueueClick(target,x,y){
+ historyClearTimeout(sessionHistory.clickTimer);sessionHistory.lastClick={target,x,y,time:Date.now()};
+ if(historySetTimeout)sessionHistory.clickTimer=historySetTimeout(()=>historyOpenEvent(target.event,target.session),350);
+}
+function historyDoubleClick(x,y,node=-1){
+ const last=sessionHistory.lastClick;
+ const target=last&&Date.now()-last.time<650&&Math.hypot(x-last.x,y-last.y)<12?last.target:historyTrailAtPointer(x,y,node);
+ if(!target)return false;historyClearTimeout(sessionHistory.clickTimer);sessionHistory.generation++;historyIsolate(target.session);sessionHistory.lastClick=null;return true;
+}
+function historyRenderDock(){
+ const p=sessionHistory.payload;if(!p)return;
+ const sessions=historyVisibleSessions(), select=document.getElementById('historysession');
+ select.innerHTML='<option value="">All sessions</option>'+sessions.map(s=>`<option value="${esc(s.id)}">${esc(s.title)} · ${esc(historyShortId(s.id))}</option>`).join('');select.value=sessionHistory.session;
+ const shown=sessionHistory.session?sessions.filter(s=>s.id===sessionHistory.session):sessions;
+ const allowed=new Set(shown.map(s=>s.id)), bySession=new Map();
+ for(const ref of p.references||[]){if(!allowed.has(ref.session)||!historyOpacity(ref.timestamp))continue;const n=nodeById.get(ref.storyId);if(n===undefined)continue;if(!bySession.has(ref.session))bySession.set(ref.session,[]);bySession.get(ref.session).push({...ref,n});}
+ sessionHistory.segments=[];sessionHistory.points=[];
+ for(const [sid,points] of bySession){
+  points.forEach((p,i)=>{p.step=i;p.head=i===points.length-1;sessionHistory.points.push(p);
+   // A multi-Story handoff is not an ordered trip through those Stories.
+   // Keep its markers but break the path on both sides of ambiguous batches.
+   if(i&&p.eventStoryCount===1&&points[i-1].eventStoryCount===1&&p.timestamp>points[i-1].timestamp)sessionHistory.segments.push({session:sid,a:points[i-1],b:p,event:p.event,timestamp:p.timestamp});
+  });
+ }
+ document.getElementById('historylengthvalue').textContent=sessionHistory.hours===72?'3 days':sessionHistory.hours+' h';
+ document.getElementById('historyall').disabled=!sessionHistory.session;
+ const isolated=historySession(sessionHistory.session),banner=document.getElementById('historyisolation');
+ banner.hidden=!isolated;document.getElementById('historyisolatedlabel').textContent=isolated?`Path isolated · ${isolated.provider} · ${historyShortId(isolated.id)}`:'';
+ banner.title=isolated?isolated.title+' — click Show all paths to exit isolation':'';
+ const models=new Map(shown.map(s=>[historyModel(s),s.id]));
+ document.getElementById('historylegend').innerHTML=[...models].sort((a,b)=>a[0].localeCompare(b[0])).map(([model,id])=>`<span><i style="background:${historyColor(id)}"></i>${esc(model)}</span>`).join('');
+ document.getElementById('historystatus').textContent=`${shown.length} sessions · ${bySession.size} with Story touches in last ${sessionHistory.hours} h · ${p.refreshing?'updating':p.lastScan?'checked '+new Date(p.lastScan).toLocaleTimeString():'indexing'}${p.error?' · '+p.error:''} · old trails fade out · ${sessionHistory.session?'Path isolated · use top banner to exit':'double-click path to isolate'}`;
+}
+async function historyRefresh(){
+ if(!SERVED||sessionHistory.busy)return;sessionHistory.busy=true;
+ try{const r=await fetch('/api/work-history?summary=1',{cache:'no-store'});if(!r.ok)throw Error('history unavailable '+r.status);sessionHistory.payload=await r.json();historyRenderDock();}
+ catch(e){document.getElementById('historystatus').textContent=e.message+' · original records remain preserved';}
+ finally{sessionHistory.busy=false;}
+}
+function historyPoint(p){
+ const n=P[p.n];if(!n)return null;
+ // Historical touches remain locatable even when today's lifecycle filters
+ // hide the Story. These small hollow ghosts do not change Story visibility.
+ const angle=-1.5+p.step*.85,r=18+(p.step%5)*2;
+ return {x:n.x+Math.cos(angle)*r,y:n.y+Math.sin(angle)*r};
+}
+function historyCurve(s){
+ const a=historyPoint(s.a),b=historyPoint(s.b);if(!a||!b)return null;
+ const dx=b.x-a.x,dy=b.y-a.y,bend=s.a.n===s.b.n?.6:.12;
+ return {a,b,c:{x:(a.x+b.x)/2-dy*bend,y:(a.y+b.y)/2+dx*bend}};
+}
+function historyCurveAt(curve,t){const u=1-t;return{x:u*u*curve.a.x+2*u*t*curve.c.x+t*t*curve.b.x,y:u*u*curve.a.y+2*u*t*curve.c.y+t*t*curve.b.y}}
+function drawSessionHistory(){
+ if(!lens.activity||!sessionHistory.payload)return;
+ const now=Date.now()/1000;ctx.save();ctx.setLineDash([]);
+ for(const s of sessionHistory.segments){const q=historyCurve(s);if(!q||!historyOpacity(s.a.timestamp,now))continue;
+  ctx.strokeStyle=historyColor(s.session);ctx.globalAlpha=(sessionHistory.session?.95:.65)*historyOpacity(s.timestamp,now);ctx.lineWidth=sessionHistory.session?2.5:1.5;ctx.beginPath();ctx.moveTo(q.a.x,q.a.y);ctx.quadraticCurveTo(q.c.x,q.c.y,q.b.x,q.b.y);ctx.stroke();
+ }
+ for(const p of sessionHistory.points){const q=historyPoint(p);if(!q||!historyOpacity(p.timestamp,now))continue;
+  ctx.globalAlpha=(sessionHistory.session?1:.8)*historyOpacity(p.timestamp,now);ctx.fillStyle=historyColor(p.session);ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=p.head?2:1;
+  ctx.beginPath();ctx.arc(q.x,q.y,p.head?5:2.6,0,Math.PI*2);p.head?ctx.stroke():ctx.fill();
+  if(p.head&&sessionHistory.session){ctx.font='11px sans-serif';ctx.fillText(historySession(p.session)?.provider+' · latest mapped',q.x+9,q.y-7);}
+ }
+ ctx.restore();
+}
+function hitSessionHistory(x,y){
+ if(!lens.activity)return null;let found=null,best=6;
+ for(const s of sessionHistory.segments){const q=historyCurve(s);if(!q||!historyOpacity(s.a.timestamp))continue;for(let t=0;t<=1;t+=.05){const p=historyCurveAt(q,t),d=Math.hypot(x-p.x,y-p.y);if(d<best){best=d;found=s;}}}
+ for(const p of sessionHistory.points){const q=historyPoint(p);if(!q||!historyOpacity(p.timestamp))continue;const d=Math.hypot(x-q.x,y-q.y);if(d<best+2){best=d;found=p;}}
+ return found;
+}
+function historyTrailAtPointer(x,y,node=-1){
+ // Actual Story paint keeps priority; a large invisible node halo must not
+ // swallow a trail dot beside it.
+ if(node>=0&&Math.hypot(x-P[node].x,y-P[node].y)<=nodeRadius(node)+3)return null;
+ return hitSessionHistory(x,y);
+}
+function historySidebar(title,body){
+ if(sel>=0&&typeof storyDraftDirty==='function'&&storyDraftDirty(sel)){
+  if(!guardNavigationAway(()=>{dismissDossier({focusCanvas:false,skipGuard:true});historySidebar(title,body)}))return false;
+ }
+ if(sel>=0&&!dismissDossier({focusCanvas:false}))return false;
+ document.getElementById('dossieridentity').innerHTML=`<h2>${esc(title)}</h2><p class="historymeta">Session history · previous 3 days</p>`;
+ dbody.innerHTML=body;document.getElementById('dossierfooter').innerHTML='';dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');document.documentElement.classList.add('dossier-open');return true;
+}
+function historySessionMarkup(s){
+ const span=s.observedSpanSeconds<3600?Math.round(s.observedSpanSeconds/60)+' min':(s.observedSpanSeconds/3600).toFixed(1)+' h';
+ return `<p class="historymeta">${esc(s.provider)} · ${esc(s.model||'model unrecorded')}<br>${esc(s.id)}</p><p><b>Recorded worktree</b><br>${esc(s.cwd||'Unrecorded')}</p><p><b>Recorded branch</b><br>${esc(s.branch||'Unrecorded')}</p><p>${s.updates} public updates · ${s.actions} tool invocations<br>${span} observed span, including gaps.</p><p class="historymeta">Last record ${historyDate(s.last)}. This is not measured working time.</p><div id="historydrawercontrols"><button data-hlog="${esc(s.id)}">Open work log</button><button data-hsession="${esc(s.id)}">Recent progress</button></div>`;
+}
+async function historyOpenSession(id,hour=null,append=false){
+ const s=historySession(id);if(!s)return;
+ const gen=++sessionHistory.generation;
+ if(!append){if(!historySidebar(s.title,historySessionMarkup(s)+'<p>Loading recorded progress…</p>'))return;sessionHistory.events=[];sessionHistory.hour=hour;sessionHistory.session=id;sessionHistory.drawer='session';historyRenderDock();}
+ const query=new URLSearchParams({session:id,kind:sessionHistory.kind,hour:hour===null?'':String(hour),offset:append?String(sessionHistory.offset):'0'});
+ try{const r=await fetch('/api/work-history?'+query);if(!r.ok)throw Error('Could not load session');const p=await r.json();if(gen!==sessionHistory.generation||sel>=0)return;sessionHistory.events=append?sessionHistory.events.concat(p.events):p.events;sessionHistory.offset=p.nextOffset;
+ historySidebar(s.title,`<div class="historyfilterbar" role="region" aria-label="Work progress filters"><h3>${hour===null?'Recent progress':`${72-hour} hours ago`}</h3><label>Activity <select id="historykind"><option value="progress">Progress and explanations</option><option value="guidance">User / team guidance</option><option value="action">Tool invocations</option><option value="">All activity</option></select></label></div>`+historySessionMarkup(s)+`<p class="historymeta">${p.total} matching records · agent reports, not independently verified results.</p>`+sessionHistory.events.map(e=>`<button class="historyevent" data-hevent="${e.id}"><small>${historyDate(e.timestamp)} · ${esc(e.kind)}</small><span class="excerpt">${esc(e.text.slice(0,380))}</span></button>`).join('')+(p.nextOffset!==null?'<button id="historyolder">Load older records</button>':''));
+ document.getElementById('historykind').value=sessionHistory.kind;
+ }catch(e){if(gen===sessionHistory.generation)historySidebar(s.title,historySessionMarkup(s)+'<p>'+esc(e.message)+'</p>');}
+}
+function historyInsights(text){
+ // An extractive reading aid, not an autonomous review or a finding generator.
+ // Keep requested checks separate from reported outcomes; preserve the source.
+ const sentences=String(text).split(/(?<=[.!?])\s+|\n+/).map(s=>s.replace(/^\s*[-*#]+\s*/,'').trim()).filter(Boolean);
+ const out={risks:[],checks:[],challenges:[],rationale:[],opportunities:[],suggestions:[],evidence:[]};
+ const clip=s=>s.length>650?s.slice(0,647)+'…':s;
+ for(const sentence of sentences){
+  if(/^(?:Evidence(?: directory)?|Receipts?|Result bundles?)\b/i.test(sentence)){out.evidence.push(clip(sentence));continue;}
+  if(/^(?:Main )?risks?:/i.test(sentence)){out.risks.push(clip(sentence.replace(/^(?:Main )?risks?:\s*/i,'')));continue;}
+  if(/^(?:Attack|Review targets?|Check for)\b/i.test(sentence)){
+   out.checks.push(...sentence.replace(/^(?:Attack|Review targets?:?|Check for)\s*/i,'').replace(/[.]$/,'').split(/,\s+(?![^()]*\))/).map(s=>clip(s.replace(/^and\s+/i,''))));continue;
+  }
+  if(/^(?:(?:Please|Independently)\s+)?(?:perform|conduct|return|inspect|verify|distinguish|run|review|do not|check|test|ensure|confirm)\b/i.test(sentence))continue;
+  if(/\b(?:opportunit(?:y|ies)|could improve|next step|follow-up|recommend(?:ed)?|suggest(?:ed)?|we should)\b/i.test(sentence))out.opportunities.push(clip(sentence));
+  if(/\b(?:because|reason|chose|decided|so that|therefore|instead)\b|, so\b/i.test(sentence))out.rationale.push(clip(sentence));
+  // Match reported states, not "attack stale IDs", "no failures", or the
+  // word "repair" in a task title. Heuristics remain attributed excerpts.
+  if(/\b(?:failed|failure|blocked|blocking|missing|stale|conflict|slow|quota|overloaded|timed out|remaining|cannot|can't|disappeared|vanished)\b/i.test(sentence)&&!/\b(?:no|zero|without)\s+(?:\w+\s+)?(?:failures?|blockers?|conflicts?|missing|stale)\b/i.test(sentence))out.challenges.push(clip(sentence));
+ }
+ const requested=out.checks.join(' '),reported=out.challenges.join(' ');
+ if(/\b(?:IDs?|selection|channel|filtering|locked|lifetime)\b/i.test(requested))out.suggestions.push('**Coverage:** turn the requested membership, filtering, and lifetime edge cases into a small regression matrix, with the expected outcome for each case.');
+ if(/tautolog|negative control|mutation/i.test(requested))out.suggestions.push('**Test strength:** add a negative control or targeted mutation that must fail; a green test alone does not prove it detects the defect.');
+ if(/evidence|attribution|source ordering/i.test(requested))out.suggestions.push('**Evidence clarity:** bind each claim to its exact source snapshot and result record; keep failed methods, assertion occurrences, and deduplicated issues distinct.');
+ if(/\b(?:slow|latency|stall|timed out)\b/i.test(reported))out.suggestions.push('**Performance follow-up:** investigate the remaining slow stage separately, retaining its measured baseline and a clear boundary between this repair and later optimization.');
+ if(/\b(?:worktree|checkout)\b/i.test(reported)&&/\b(?:disappeared|vanished|missing)\b/i.test(reported))out.suggestions.push('**Continuity:** verify the branch, commit, and recovery path before recreating or cleaning the missing checkout; record the result in the handoff.');
+ if(/\b(?:quota|overloaded)\b/i.test(reported))out.suggestions.push('**Review availability:** record provider failures as no verdict, then seek an authorized independent fallback rather than repeatedly retrying an unavailable reviewer.');
+ const section=(heading,items,empty)=>`### ${heading}\n\n`+(items.length?[...new Set(items)].slice(0,12).map(s=>'- '+s).join('\n'):empty)+'\n\n';
+ out.markdown='### Challenges and context\n\nExtracted from this public record; these are attributed statements, not independently verified findings.\n\n';
+ out.markdown+=section('Reported challenges / remaining gaps',out.challenges,'No explicit obstacle was identified in this record. A review request is not itself a finding.');
+ if(out.risks.length)out.markdown+=section('Stated risks — not confirmed defects',out.risks,'');
+ if(out.checks.length)out.markdown+=section('Requested review checks — not findings',out.checks,'');
+ out.markdown+=section('Recorded rationale',out.rationale,'No explicit rationale was identified. See the original record and surrounding work log.');
+ out.markdown+=section('Opportunities to improve — recorded',out.opportunities,'No explicit improvement proposal was identified in this record.');
+ out.markdown+=section('Opportunities to improve — suggested follow-ups',out.suggestions,'No additional suggestion derived from this record.');
+ if(out.suggestions.length)out.markdown+='These are UI-generated suggestions based on the topics above, not agent commitments, approved work, or completed actions.\n\n';
+ if(out.evidence.length)out.markdown+=section('Evidence referenced — not a current finding',out.evidence,'');
+ return out;
+}
+async function historyOpenEvent(id,sid){
+ const s=historySession(sid);if(!s)return;const gen=++sessionHistory.generation;
+ try{const r=await fetch('/api/work-history/event?id='+encodeURIComponent(id));if(!r.ok)throw Error('Event unavailable');const e=await r.json();if(gen!==sessionHistory.generation)return;
+ const insights=historyInsights(e.text);
+ sessionHistory.drawer='event';historySidebar(s.title,`<h3>${historyDate(e.timestamp)} · ${esc(e.kind)}</h3><div class="storymd historyinsights">${renderStoryMarkdown(insights.markdown)}</div><details class="historyoriginal"><summary>Original recorded message</summary><div class="storymd">${renderStoryMarkdown(e.text)}</div></details><p class="historymeta">Extractive grouping may miss nuance; the original record is preserved. No private reasoning is inferred.<br>Event ${esc(e.id)}<br>${esc(s.sourceName)} · record ${e.line}</p>`+historySessionMarkup(s));
+ }catch(e){document.getElementById('historystatus').textContent=e.message;}
+}
+async function historyOpenLog(sid,offset=0){
+ const s=historySession(sid);if(!s)return;const gen=++sessionHistory.generation;
+ try{const query=new URLSearchParams({session:sid,...historyLogFilter,offset:String(offset)});const r=await fetch('/api/work-history/log?'+query);if(!r.ok)throw Error('Log unavailable');const p=await r.json();if(gen!==sessionHistory.generation)return;
+ const controls=`<form id="historylogfilters" class="historyfilterbar" aria-label="Work log filters"><label>Activity <select id="historylogkind"><option value="">All activity</option><option value="progress">Progress</option><option value="guidance">User / team guidance</option><option value="action">Tool invocations</option></select></label><label>Tool <select id="historylogtool"><option value="">All tools</option><option value="@exec">Invoked exec (all variants)</option>${p.tools.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select></label><label>Search public log <input id="historylogsearch" type="search" maxlength="200" value="${esc(historyLogFilter.q)}"></label><button type="submit">Apply filters</button><button id="historylogclear" type="button">Clear filters</button></form>`;
+ sessionHistory.drawer='log';if(!historySidebar(s.title,`<button data-hsession="${esc(sid)}">Back to session</button><h3>Work log</h3>${controls}<p class="historymeta">${p.matchingEvents} matching of ${p.totalEvents} records in the last 3 days · showing ${p.eventCount?offset+1:0}–${offset+p.eventCount}, newest page first (chronological within page). Filters do not alter the archive.<br>${esc(p.path)}<br>Tool names only; command arguments and output are not collected.</p><div class="storymd historylog">${renderStoryMarkdown(p.markdown)}</div>${offset?'<button id="historylognewer">Newer records</button>':''}${p.nextOffset!==null?'<button id="historylogolder">Older records</button>':''}`))return;
+ historyLogSession=sid;historyLogOffset=offset;
+ document.getElementById('historylogkind').value=historyLogFilter.kind;document.getElementById('historylogtool').value=historyLogFilter.tool;
+ document.getElementById('historylogfilters').onsubmit=e=>{e.preventDefault();historyLogFilter.kind=document.getElementById('historylogkind').value;historyLogFilter.tool=document.getElementById('historylogtool').value;historyLogFilter.q=document.getElementById('historylogsearch').value;historyOpenLog(sid)};
+ document.getElementById('historylogclear').onclick=()=>{Object.assign(historyLogFilter,{kind:'',tool:'',q:''});historyOpenLog(sid)};
+ document.getElementById('historylogkind').onchange=document.getElementById('historylogtool').onchange=()=>document.getElementById('historylogfilters').requestSubmit();
+ if(offset)document.getElementById('historylognewer').onclick=()=>historyOpenLog(sid,Math.max(0,offset-300));
+ if(p.nextOffset!==null)document.getElementById('historylogolder').onclick=()=>historyOpenLog(sid,p.nextOffset);
+ }catch(e){document.getElementById('historystatus').textContent=e.message;}
+}
+function historyHandleClick(e){
+ const s=e.target.closest('[data-hsession]');if(s){historyOpenSession(s.dataset.hsession,s.dataset.hhour===undefined?null:Number(s.dataset.hhour));return;}
+ const event=e.target.closest('[data-hevent]');if(event){historyOpenEvent(event.dataset.hevent,sessionHistory.session);return;}
+ const log=e.target.closest('[data-hlog]');if(log){historyOpenLog(log.dataset.hlog);return;}
+ if(e.target.id==='historyolder')historyOpenSession(sessionHistory.session,sessionHistory.hour,true);
+}
+if(historyDock){
+ historyDock.addEventListener('click',historyHandleClick);
+ dbody.addEventListener('click',historyHandleClick);
+ dbody.addEventListener('change',e=>{if(e.target.id==='historykind'){sessionHistory.kind=e.target.value;historyOpenSession(sessionHistory.session,sessionHistory.hour)}});
+ document.getElementById('historyprovider').onchange=e=>{sessionHistory.provider=e.target.value;sessionHistory.session='';historyRenderDock()};
+ document.getElementById('historysession').onchange=e=>{sessionHistory.session=e.target.value;historyRenderDock()};
+ document.getElementById('historylength').oninput=e=>{sessionHistory.hours=Math.max(1,Math.min(72,Number(e.target.value)||72));historyRenderDock()};
+ document.getElementById('historyall').onclick=historyExitIsolation;
+ document.getElementById('historydetails').onclick=()=>{if(sessionHistory.session)historyOpenLog(sessionHistory.session);else historySidebar('Session work logs','<p>Select a session to isolate its snail trail, or open its log below. A session without an explicit Story reference has a log but no invented map position.</p>'+historyVisibleSessions().map(s=>`<button class="historyevent" data-hsession="${esc(s.id)}">${esc(s.provider+' · '+s.title)}<small>${esc(s.id)}</small></button>`).join(''))};
+ document.getElementById('historyrefresh').onclick=historyRefresh;
+ if(SERVED){
+  if(historySetTimeout)historySetTimeout(historyRefresh,0);else historyRefresh();
+  if(typeof globalThis.setInterval==='function')globalThis.setInterval(()=>{if(!document.hidden)historyRefresh()},30000);
+ }else{document.getElementById('historystatus').textContent='Open the locally served Vizzer to see session history.'}
+}
 
 if(SERVED){
   fetch('/api/plan').then(async response=>{

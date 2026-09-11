@@ -5,6 +5,7 @@
 __VIZZER_TOKENS_CSS__
 __VIZZER_LAYOUT_CSS__
 __VIZZER_VIEWS_CSS__
+__VIZZER_SESSION_HISTORY_CSS__
 </style>
 <svg class="symbol-defs" aria-hidden="true">
   <symbol id="sym-xmark" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9m0-9-9 9"/></symbol>
@@ -64,6 +65,17 @@ __VIZZER_DEVELOPER_FLOW_LINK__
   <div id="dossierfooter"></div>
 </div>
 <div id="tip" role="tooltip"></div>
+<div id="historyisolation" hidden><button id="historyall" type="button"><span id="historyisolatedlabel">Path isolated</span><strong>Show all paths ×</strong></button></div>
+<section id="historydock" __VIZZER_SESSION_HISTORY_HIDDEN__ aria-label="Rolling three-day agent history">
+  <header><strong>Snail trails · 3 days</strong>
+    <label>Provider <select id="historyprovider"><option value="">Claude + Codex</option><option>Claude</option><option>Codex</option></select></label>
+    <label>Session <select id="historysession"><option value="">All sessions</option></select></label>
+    <label class="historylength">Trail length <input id="historylength" type="range" min="1" max="72" value="72" step="1" aria-label="Trail length in hours"><output id="historylengthvalue" for="historylength">3 days</output></label>
+    <button id="historyrefresh" type="button">Refresh</button><button id="historydetails" type="button">Work log</button>
+  </header>
+  <div id="historystatus" role="status">Loading recorded activity…</div>
+  <div id="historylegend" aria-label="Colors by latest recorded session model" title="Latest recorded session model; per-event model switches are not inferred."></div>
+</section>
 <div id="viewempty" role="status" aria-live="polite"></div>
 <div id="hint"><span>drag orbit</span><span>two-finger orbit</span><span><kbd>&#8984;</kbd> + two-finger pan</span><span>pinch zoom</span><span>click node opens story + dependencies</span></div>
 <div id="boot" role="status">loading constellation…</div>
@@ -85,5 +97,6 @@ __VIZZER_PLANNING_JS__
 __VIZZER_DOSSIER_JS__
 __VIZZER_WORK_NAVIGATION_JS__
 __VIZZER_CANVAS_JS__
+__VIZZER_SESSION_HISTORY_JS__
 __VIZZER_BOOTSTRAP_JS__
 </script>
