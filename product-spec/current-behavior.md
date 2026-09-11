@@ -1,5 +1,19 @@
 # Current product behavior
 
+## Rolling agent-session history
+
+Projects can opt into a rolling three-day Claude and Codex history directly on
+the constellation. Explicit Story touches form fading, model-colored trails;
+provider, session, and length filters constrain the view, and double-clicking a
+trail isolates it until the visible banner is dismissed. The existing dossier
+shows attributed Markdown event context and a sticky, filterable work log.
+
+Session discovery is local and privacy-bounded. Live linked worktrees must share
+the served checkout's resolved Git common directory; removed checkouts require
+an explicit configured path. The SQLite index and generated public archives live
+in Vizzer's cache outside the repository, and no hidden reasoning, command
+arguments, command output, or ambient app context is imported.
+
 ## Purpose and users
 
 Vizzer gives project owners and collaborating coding agents one navigable view

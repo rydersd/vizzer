@@ -118,6 +118,10 @@ DEFAULTS = {
         "runtime_path": ".vizzer/runtime/sessions.json",
         "lease_minutes": 30,
     },
+    # Local public-session excerpts are opt-in because transcript discovery is
+    # machine-local even though reasoning, tool arguments, and outputs are not
+    # imported. Generated archives stay below vizzer/.
+    "session_history": {"enabled": False, "checkout_roots": []},
     # Review plans are authored acceptance instructions. Agent and owner runs
     # are append-only evidence in separate per-plan ledgers.
     "reviews": {
@@ -462,6 +466,16 @@ class Config:
                 )
         if not isinstance(self.get("workstreams.enabled"), bool):
             raise ConfigError("workstreams.enabled must be true or false")
+        if not isinstance(self.get("session_history.enabled"), bool):
+            raise ConfigError("session_history.enabled must be true or false")
+        checkout_roots = self.get("session_history.checkout_roots")
+        if not isinstance(checkout_roots, list) or not all(
+            isinstance(value, str) and value.strip() and Path(value).is_absolute()
+            for value in checkout_roots
+        ):
+            raise ConfigError(
+                "session_history.checkout_roots must be an array of absolute paths"
+            )
         for field in ("definitions_path", "runtime_path"):
             value = self.get(f"workstreams.{field}")
             if not isinstance(value, str) or not value.strip():

@@ -48,5 +48,8 @@ releases = ["R0", "R1", "R2", "R3"]
 [developer_flow]
 enabled = true
 
+[session_history]
+enabled = true
+
 [assessment]
 enabled = true

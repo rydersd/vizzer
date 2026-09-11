@@ -17,6 +17,7 @@ from .common import priority_items, source_link_prefix
 
 FRONTEND_DIR = "constellation"
 FRONTEND_RESOURCES = (
+    ("__VIZZER_SESSION_HISTORY_CSS__", "session_history.css"),
     ("__VIZZER_TOKENS_CSS__", "tokens.css"),
     ("__VIZZER_LAYOUT_CSS__", "layout.css"),
     ("__VIZZER_VIEWS_CSS__", "views.css"),
@@ -34,6 +35,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_DOSSIER_JS__", "dossier.js"),
     ("__VIZZER_WORK_NAVIGATION_JS__", "work_navigation.js"),
     ("__VIZZER_CANVAS_JS__", "canvas.js"),
+    ("__VIZZER_SESSION_HISTORY_JS__", "session_history.js"),
     ("__VIZZER_BOOTSTRAP_JS__", "bootstrap.js"),
 )
 
@@ -57,6 +59,10 @@ def _template_text(cfg: Config) -> str:
         shell,
     )
     composed = composed.replace("__ENGINE_VERSION__", html.escape(__version__))
+    composed = composed.replace(
+        "__VIZZER_SESSION_HISTORY_HIDDEN__",
+        "" if cfg.get("session_history.enabled", False) else "hidden",
+    )
     composed = composed.replace(
         "__VIZZER_DEVELOPER_FLOW_LINK__",
         '    <a href="developer-flow.html">Developer Flow</a>\n'
