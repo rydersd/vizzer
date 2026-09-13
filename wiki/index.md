@@ -9,10 +9,13 @@ receipts and historical execution plans. Everything is versioned in this repo.
 
 - [Installation and configuration](../README.md): main operating reference.
 - [Vizzer's own dashboard and login service](../vizzer/README.md).
+- [Cross-project change radar](guides/change-radar.md): local discovery, patch provenance and adoption.
 - [Stable per-project addresses](guides/configured-serve-port.md).
 - [Active/recent work keyboard navigation](guides/active-recent-keyboard-navigation.md).
 - [Progress pathing, playback and owner Markdown editing](guides/progress-pathing.md).
 - [Repeatable review workflows](guides/review-workflows.md): plans, evidence, agent runs and owner verification.
+
+- [Ideas and article material](ideas/README.md): original intent, rationale, attribution and lessons.
 
 ## Product and architecture
 
@@ -37,3 +40,5 @@ Supporting material in `goals/materials/` remains attached to its original goal.
 [Migration inventory](documentation-map.md) records where every former docs
 page belongs. Wiki pages appear as references in Vizzer; the dashboard's
 **Vizzer wiki** shortcut is the entry point.
+
+- [Planning research](planning/README.md) and [desktop planning inbox](../product-spec/planning/README.md).

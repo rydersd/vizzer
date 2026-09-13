@@ -23,7 +23,7 @@ const ids=new Map(),desc=r=>r.children.flatMap(c=>[c,...desc(c)]);
 class Element{constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.children=[];this.parent=null;this.listeners={};this.attributes={};this.style={setProperty(k,v){this[k]=v}};this.classList=new ClassList(this);this._className='';this._innerHTML='';this.textContent='';this.value='';this.disabled=false;this.hidden=false;this.capturedPointers=new Set();if(id)ids.set(id,this)}set className(v){this.classList.replaceFrom(v)}get className(){return this._className}set innerHTML(v){this._innerHTML=String(v);if(this.id==='meterlab'){for(const id of ['shippedcount','defectcount','questionfilter','completioncount'])this.appendChild(new Element(id==='questionfilter'?'button':'span',id));const q=ids.get('questionfilter');q.className='questioncount';q.setAttribute('aria-pressed','false')}if(this._innerHTML.includes('class="caphead"')){const head=new Element('span');head.className='caphead';const count=new Element('span');count.className='capcount';head.appendChild(count);const bar=new Element('span');bar.className='capbar';bar.appendChild(new Element('i'));bar.appendChild(new Element('b'));this.appendChild(head);this.appendChild(bar)}}get innerHTML(){return this._innerHTML}setAttribute(k,v){this.attributes[k]=String(v)}getAttribute(k){return this.attributes[k]??null}removeAttribute(k){delete this.attributes[k]}addEventListener(k,f){(this.listeners[k]??=[]).push(f)}dispatch(k,e={}){if(this.disabled&&(k==='click'||k==='pointerup'))return;e.currentTarget=this;e.target=this;e.preventDefault??=()=>{};(this.listeners[k]||[]).forEach(f=>f(e));if(k==='click'&&this.onclick)this.onclick(e)}click(){this.dispatch('click')}appendChild(e){e.parent=this;this.children.push(e);return e}replaceChildren(...elements){this.children=[];elements.forEach(e=>this.appendChild(e))}cloneNode(){const e=new Element(this.tagName);e.className=this.className;return e}querySelector(s){if(s==='i'){let e=this.children.find(x=>x.tagName==='I');if(!e){e=new Element('i');this.appendChild(e)}return e}if(s==='.capcount')return desc(this).find(e=>e.classList.contains('capcount'))||null;if(s==='.caphead>span')return desc(this).find(e=>e.parent?.classList.contains('caphead')&&e.tagName==='SPAN')||null;if(s==='.capbar i')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='I')||null;if(s==='.capbar b')return desc(this).find(e=>e.parent?.classList.contains('capbar')&&e.tagName==='B')||null;return null}querySelectorAll(s){return s==='.cap'?desc(this).filter(e=>e.classList.contains('cap')):[]}contains(e){for(let p=e;p;p=p.parent)if(p===this)return true;return false}focus(){document.activeElement=this}getContext(){return ctx}getBoundingClientRect(){return this.id==='dossier'?{left:880,right:1200,top:106,bottom:800,width:320,height:694}:{left:0,right:0,top:0,bottom:0,width:0,height:0}}setPointerCapture(id){this.capturedPointers.add(id)}hasPointerCapture(id){return this.capturedPointers.has(id)}releasePointerCapture(id){this.capturedPointers.delete(id)}}
 for(const id of ['meterfill','meterlab','search','searchinput','searchclear','searchcount','viewempty','viewpanel','viewmenu','exportmenu','chips','rail','dossier','dossierresize','dossieridentity','dbody','dossierfooter','close','tip','hint','bgcv','cv'])new Element(id==='cv'||id==='bgcv'?'canvas':'div',id);
 const document={title:'fixture',documentElement:new Element('html'),activeElement:null,getElementById:id=>ids.get(id)||null,createElement:t=>new Element(t)};
-const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)}),windowListeners={};
+const ctx=new Proxy({createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)}),windowListeners={};
 const sandbox={console,document,location:{protocol:'file:',hash:''},sessionStorage:{getItem(){return null},setItem(){}},window:null,innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},Date,Math,JSON,Map,Set,Boolean,String,Number,Object,Array,Promise,URL,Error,setTimeout,clearTimeout,addEventListener(k,f){(windowListeners[k]??=[]).push(f)},getComputedStyle(){return{getPropertyValue:()=>'#808080'}},matchMedia(){return{matches:true,addEventListener(){}}},requestAnimationFrame(f){sandbox.nextFrame=f},fetch(){throw new Error('unexpected fetch')}};sandbox.window=sandbox;sandbox.window.__vizzerBoot={ready(){}};sandbox.globalThis=sandbox;
 const html=fs.readFileSync(0,'utf8'),scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]);if(scripts.length!==2)throw new Error(`expected 2 scripts, got ${scripts.length}`);const cx=vm.createContext(sandbox);vm.runInContext(scripts[1],cx,{filename:'constellation.js',timeout:2000});const ev=s=>vm.runInContext(s,cx,{timeout:1000});
 const dispatchWindow=(kind,event={})=>{event.target??=document.activeElement;event.defaultPrevented??=false;event.preventDefault??=()=>{event.defaultPrevented=true};(windowListeners[kind]||[]).forEach(listener=>listener(event));return event};
@@ -579,10 +579,10 @@ def test_title_bar_controls_sidebar_reading_size_and_left_rail_width(tmp_path):
     type_control = html.index('<div id="sidebartype"')
     view_menu = html.index('<details id="viewmenu">')
     assert title < type_control < view_menu
-    assert [f'data-sidebar-size="{size}"' in html for size in (14, 18, 22)] == [
+    assert [f'data-sidebar-size="{size}"' in html for size in (12, 14, 16)] == [
         True, True, True,
     ]
-    assert "--sidebar-type-size',`${size}pt`" in html
+    assert "--sidebar-type-size',`${size}px`" in html
     assert ".chip,.pill,#top button:not([data-sidebar-size]){font-size:11px}" in html
     assert '<button id="railresize" type="button" role="separator"' in html
     assert "--rail-width',`${railWidth}px`" in html
@@ -1136,7 +1136,7 @@ def test_constellation_agent_trails_follow_only_recent_explicit_checkpoints(tmp_
     }]
     assert "Straight agent trails connect only explicit chronological checkpoints" in html
     assert "const recency=step/Math.max(1,points.length-1)" in html
-    assert "trailArrow(P[a],P[b],color,alpha)" in html
+    assert "trailArrow(P[a],P[b],color,alpha*(searchEdgeDim?.16:1))" in html
 
 
 def test_constellation_uses_lightweight_outline_glyphs_and_strong_activity_pulse(tmp_path):
@@ -1157,7 +1157,7 @@ def test_constellation_excludes_interactive_chrome_from_canvas_targets(tmp_path)
     assert "function canvasInteractionBounds()" in html
     assert "return {left:compact?0:236,top:106" in html
     assert "right:drawerOpen?(compact?0:Math.max(236,dossier.getBoundingClientRect().left)):W" in html
-    assert "p.on = visible(n)&&insideCanvasInteractionBounds" in html
+    assert "p.on = canvasVisible(n)&&insideCanvasInteractionBounds" in html
     assert "context.rect(bounds.left,bounds.top" in html
     assert "for(const context of [bgctx,nodeCtx])context.restore()" in html
     assert "if(target>=0)openNode(target)" in html
@@ -1933,8 +1933,8 @@ def test_constellation_marks_owner_overrides_and_traces_punt_effects_on_real_edg
     assert data["planning"]["author"] == "owner"
     assert data["planning"]["promote"] == ["story:a"]
     assert data["planning"]["defer"] == ["story:b"]
-    assert "--owner-override:#E879F9" in html
-    assert "--owner-override:#B832B8" in html
+    assert "--owner-override:#f5b0f5" in html
+    assert "--owner-override:#872c7c" in html
     assert "const ownerPromoted=new Set" in html
     assert "const ownerDeferred=new Set" in html
     assert "const ownerOrdered=new Map" in html

@@ -74,9 +74,19 @@ forwarding pages are excluded from the graph. See the
 
 ## Limits and open work
 
-Self-hosting does not automatically pull projects, watch repositories or prove
-fork parity. [Intake](stories/cross-project-change-intake.md) must compare exact
+The opt-in [change radar](../wiki/guides/change-radar.md) watches registered local
+engine copies, records content-addressed differences, and exports reviewable patches.
+It does not pull projects or prove semantic fork parity. [Intake](stories/cross-project-change-intake.md) must compare exact
 origin commits with upstream. Historical wiki goals predate some integrations.
 [Empty-state guidance](stories/dashboard-empty-state-guidance.md) is a proposed
 product improvement; configuring recommendations fixes this installation's
 empty dashboard but does not change the generic UI behavior.
+
+## Capability planning chat — local candidate, 2026-09-13
+
+Configured planning areas open Overview & plans and Chat in the constellation
+sidebar. Authored area purpose/plans and attributed messages live under
+`product-spec/planning/areas/`; model work is picked up by the configured Codex
+desktop timer, not the Vizzer server. See
+[capability planning chat](stories/capability-planning-chat.md) for scope and evidence.
+IllTool Foundation is explicitly staged locally until canonical coordination clears.

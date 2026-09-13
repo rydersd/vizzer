@@ -119,6 +119,7 @@ addEventListener('resize',()=>{
 function dismissDossier({focusCanvas=true}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
+  activePlanningArea=null;areaRequest++;
   dossier.classList.remove('open');
   dossier.setAttribute('aria-hidden','true');
   document.documentElement.classList.remove('dossier-open');
@@ -134,6 +135,7 @@ function refreshDossier(){
   if(sel>=0)openNode(sel,{inPlace:true});
 }
 function openNode(i,{inPlace=false}={}){
+  activePlanningArea=null;areaRequest++;
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   if(!Number.isInteger(i)||i<0||i>=DATA.nodes.length)return;
   const previousScroll=inPlace&&sel===i?dbody.scrollTop:0;
@@ -253,3 +255,77 @@ function openNode(i,{inPlace=false}={}){
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
   document.documentElement.classList.add('dossier-open');
 }
+
+// Product-area discussions use repository files, read by the desktop timer.
+let planningAreas=[], activePlanningArea=null, areaRequest=0;
+const areaDrafts=new Map();
+function planningAreaFor(capability,groupId){
+  return planningAreas.find(area=>area.capability===capability&&(!groupId||area.groupId===groupId));
+}
+async function loadPlanningAreas(){
+  if(!SERVED)return;
+  try{
+    const response=await fetch('/api/area-chat');
+    if(!response.ok)return;
+    planningAreas=(await response.json()).areas||[];
+    renderPlanningAreaLinks();
+  }catch(_){}
+}
+function renderPlanningAreaLinks(){
+  document.getElementById('planningareas')?.remove();
+  if(!planningAreas.length)return;
+  const section=document.createElement('section');section.id='planningareas';
+  section.innerHTML='<h2 class="railhead">Planning areas</h2>';
+  planningAreas.forEach(area=>{
+    const button=document.createElement('button');button.type='button';button.className='cap';
+    button.textContent=area.title;button.onclick=()=>openPlanningArea(area.id);section.appendChild(button);
+  });rail.appendChild(section);
+}
+async function openPlanningArea(id){
+  const ticket=++areaRequest;activePlanningArea=id;sel=-1;
+  dossierIdentity.innerHTML='<h2>Capability planning</h2>';
+  dossierFooter.innerHTML='';dbody.innerHTML='<p>Loading purpose, plans and discussion…</p>';
+  dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');document.documentElement.classList.add('dossier-open');
+  try{
+    const response=await fetch('/api/area-chat/'+encodeURIComponent(id));
+    const area=await response.json();if(!response.ok)throw new Error(area.error||'Could not load discussion');
+    if(ticket!==areaRequest||activePlanningArea!==id||!dossier.classList.contains('open'))return;
+    dossierIdentity.innerHTML=`<h2>${esc(area.title)}</h2><p class="dossiersummary">${esc(area.project)} · Capability planning</p>`;
+    dbody.innerHTML=`<div class="seg areatabs" role="group" aria-label="Capability view"><button type="button" data-area-view="overview" aria-pressed="true" class="on">Overview & plans</button><button type="button" data-area-view="chat" aria-pressed="false">Chat</button></div><div data-area-overview><section class="areapurpose storymd"><h3>Purpose</h3>${renderStoryMarkdown(area.purpose||'Purpose has not been recorded.')}</section>
+      <details class="structuregroup" open><summary><span><b>Plans</b></span></summary><div class="structurebody storymd">${renderStoryMarkdown(area.plans||'No plans recorded yet.')}</div></details>
+      </div><section class="areachat" hidden><h3>Discussion</h3><p>${esc(area.storageNote||'Saved in this project’s product spec.')}</p>
+      <p>Codex checks on a 15-minute desktop timer when available. Replies appear here automatically.</p>
+      <div class="areamessages" aria-label="Planning messages"></div>
+      <p class="areastatus" role="status"></p>
+      <form><label for="areaquestion">Ask about this capability</label><textarea id="areaquestion" rows="4" maxlength="16000" placeholder="Ask a question, explore alternatives, or propose a plan…"></textarea><button type="submit">Send to planning</button></form></section>`;
+    const messages=dbody.querySelector('.areamessages'),status=dbody.querySelector('.areastatus'),form=dbody.querySelector('form'),input=form.querySelector('textarea'),send=form.querySelector('button');
+    dbody.querySelectorAll('[data-area-view]').forEach(button=>button.onclick=()=>{
+      const chat=button.dataset.areaView==='chat';dbody.querySelector('[data-area-overview]').hidden=chat;dbody.querySelector('.areachat').hidden=!chat;
+      dbody.querySelectorAll('[data-area-view]').forEach(tab=>{const on=tab===button;tab.classList.toggle('on',on);tab.setAttribute('aria-pressed',String(on));});
+    });
+    input.value=areaDrafts.get(id)||'';input.oninput=()=>areaDrafts.set(id,input.value);
+    let signature='';
+    const update=data=>{
+      const next=JSON.stringify(data.messages);if(next===signature)return;signature=next;
+      messages.innerHTML=data.messages.map(message=>`<article><b>${esc(message.author)}</b><time>${esc(new Date(message.createdAt).toLocaleString())}</time><div class="areamessagebody">${esc(message.text)}</div></article>`).join('')||'<p>No messages yet. Start the discussion below.</p>';
+      status.textContent=!data.messages.length?'Ready for your first question':data.pending?`${data.pending} question${data.pending===1?'':'s'} saved · awaiting desktop response`:'All saved questions answered';
+    };update(area);
+    let pendingId=null,pendingText=null;
+    form.onsubmit=async event=>{
+      event.preventDefault();const text=input.value.trim();if(!text)return;
+      if(pendingText!==text){pendingText=text;pendingId=crypto.randomUUID();}
+      send.disabled=true;status.textContent='Saving…';
+      try{
+        const result=await fetch('/api/area-chat/'+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':area.csrfToken},body:JSON.stringify({id:pendingId,text})});
+        const data=await result.json();if(!result.ok)throw new Error(data.error||'Could not save message');
+        if(input.value.trim()===text){input.value='';areaDrafts.delete(id);}pendingId=null;pendingText=null;update(data);
+      }catch(error){status.textContent=error.message+' · Your draft is retained.';}finally{send.disabled=false;}
+    };
+    const poll=async()=>{
+      if(ticket!==areaRequest||!form.isConnected||!dossier.classList.contains('open'))return;
+      try{const response=await fetch('/api/area-chat/'+encodeURIComponent(id));if(response.ok)update(await response.json());}catch(_){}
+      if(ticket===areaRequest&&form.isConnected)setTimeout(poll,5000);
+    };setTimeout(poll,5000);
+  }catch(error){if(ticket===areaRequest)dbody.textContent=error.message;}
+}
+if(SERVED)setTimeout(loadPlanningAreas,0);

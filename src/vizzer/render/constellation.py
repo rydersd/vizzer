@@ -61,6 +61,9 @@ def _template_text(cfg: Config) -> str:
         '    <a href="developer-flow.html">Developer Flow</a>\n'
         if cfg.get("developer_flow.enabled", False) else "",
     )
+    composed = composed.replace("__VIZZER_RADAR_LINK__",
+                                '<a href="radar.html">Change radar</a>'
+                                if cfg.get("radar.enabled", False) else "")
     unresolved = re.findall(r"__(?:VIZZER|ENGINE)_[A-Z_]+__", composed)
     if unresolved:
         raise RuntimeError(f"constellation shell has unresolved resources: {unresolved}")
@@ -423,6 +426,10 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         key=lambda group: group.id,
     )
     for group in foundations:
+        if isinstance(group.meta, dict) and (group.meta.get("foundational") is True
+                or any(str(tag).lower() in {"foundation", "foundational"}
+                       for tag in (group.meta.get("tags") if isinstance(group.meta.get("tags"), list) else []))):
+            entry["foundational"] = True
         source = group.meta.get("source", {}) if isinstance(group.meta, dict) else {}
         source_path = source.get("path", "") if isinstance(source, dict) else ""
         summary = group.meta.get("summary", "") if isinstance(group.meta, dict) else ""
@@ -614,6 +621,10 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "title": group.title,
             "parent": group.parent or "",
         }
+        if isinstance(group.meta, dict) and (group.meta.get("foundational") is True
+                or any(str(tag).lower() in {"foundation", "foundational"}
+                       for tag in (group.meta.get("tags") if isinstance(group.meta.get("tags"), list) else []))):
+            entry["foundational"] = True
         source = group.meta.get("source", {}) if isinstance(group.meta, dict) else {}
         source_path = source.get("path", "") if isinstance(source, dict) else ""
         if source_path:
@@ -652,6 +663,9 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         # deterministic "now": the newest activity in the graph, never wall clock
         "now": max((n["ts"] for n in nodes), default=0),
     }
+    if cfg.get("radar.enabled", False):
+        from .radar import summary
+        data["radar"] = summary(root)
     if graph.assessment:
         data["assessment"] = {
             "schema": graph.assessment.get("schema"),

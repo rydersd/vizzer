@@ -629,11 +629,30 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             except (OSError, UnicodeError) as exc:
                 self._send_json(500, {"error": f"Could not access story revision: {exc}"})
 
+        def _area_chat(self, area=None, writing=False):
+            from .area_chat import catalog, read_area, append_message
+            if writing and not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                if writing:
+                    body = self._read_json_body("area chat", maximum=20000)
+                    append_message(root, area, body.get("id"), body.get("text"))
+                result = read_area(root, area) if area is not None else {"areas": catalog(root)}
+                self._send_json(200, {**result, "csrfToken": csrf_token})
+            except (ValueError, QuestionAnswerError) as exc:
+                self._send_json(400, {"error": str(exc)})
+            except (OSError, UnicodeError) as exc:
+                self._send_json(500, {"error": "Could not access planning conversation"})
+
         def do_POST(self):
             if not self._loopback_host():
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path.startswith("/api/area-chat/"):
+                self._area_chat(unquote(parsed.path[len("/api/area-chat/"):]), writing=True)
+                return
             if not parsed.query and parsed.path == "/api/story-edits":
                 self._story_edit()
                 return
@@ -688,6 +707,22 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path == "/api/area-chat":
+                self._area_chat()
+                return
+            if not parsed.query and parsed.path.startswith("/api/area-chat/"):
+                self._area_chat(unquote(parsed.path[len("/api/area-chat/"):]))
+                return
+            if parsed.path == "/api/radar/status" and not parsed.query:
+                if not cfg.get("radar.enabled", False):
+                    self._send_json(404, {"error": "radar disabled"})
+                    return
+                from .radar import status, RadarError
+                try:
+                    self._send_json(200, status(root))
+                except (RadarError, OSError, ValueError, KeyError) as exc:
+                    self._send_json(500, {"error": str(exc)})
+                return
             if not parsed.query and parsed.path.startswith("/api/story-edits/"):
                 self._story_edit(unquote(parsed.path[len("/api/story-edits/"):]))
                 return
@@ -1949,6 +1984,31 @@ def _configure(root: Path, args: argparse.Namespace) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="vizzer")
     subparsers = parser.add_subparsers(dest="command")
+
+    radar = subparsers.add_parser("radar", help="compare registered local Vizzer engines without modifying them")
+    radar_commands = radar.add_subparsers(dest="radar_action", required=True)
+    for action in ("register", "scan", "show", "annotate", "watch"):
+        command = radar_commands.add_parser(action)
+        command.add_argument("--root", default=".")
+        if action == "register":
+            command.add_argument("--id", required=True)
+            command.add_argument("--project", required=True)
+            command.add_argument("--engine", default="vizzer/engine/vizzer")
+            command.add_argument("--baseline", required=True,
+                                 help="upstream comparison commit/ref; not assumed fork ancestry")
+        elif action == "annotate":
+            command.add_argument("--id", required=True, help="full content fingerprint")
+            command.add_argument("--title")
+            command.add_argument("--summary")
+            command.add_argument("--evidence", action="append")
+            command.add_argument("--brief", help="capture a repository Markdown brief with Intent, Rationale and Sources headings")
+            command.add_argument("--review", help="review note bound to this exact change")
+        elif action == "watch":
+            command.add_argument("--interval", type=int, default=30)
+        def radar_handler(args):
+            from .radar import cli
+            return cli(Path(args.root).resolve(), args)
+        command.set_defaults(handler=radar_handler)
 
     sync = subparsers.add_parser("sync")
     sync.add_argument("--root", default=".")

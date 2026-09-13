@@ -32,7 +32,7 @@ enabled = false
 
 [sources.loose_docs]
 enabled = true
-globs = ["README.md", "product-spec/*.md", "wiki/**/*.md", "docs/README.md", "docs/reviews/*.md", "docs/fix*.md", "docs/superpowers/plans/*.md", "vizzer/README.md"]
+globs = ["README.md", "product-spec/*.md", "product-spec/planning/**/*.md", "wiki/**/*.md", "docs/README.md", "docs/reviews/*.md", "docs/fix*.md", "docs/superpowers/plans/*.md", "vizzer/README.md"]
 item_role = "reference"
 
 [sources.todos]
@@ -41,7 +41,7 @@ enabled = false
 [render]
 output_dir = "vizzer/views"
 title = "Vizzer for Vizzer"
-project_documents = ["product-spec/README.md", "product-spec/current-behavior.md", "product-spec/changes.md", "wiki/index.md", "docs/README.md", "vizzer/README.md"]
+project_documents = ["product-spec/planning/README.md", "product-spec/README.md", "product-spec/current-behavior.md", "product-spec/changes.md", "wiki/index.md", "docs/README.md", "vizzer/README.md"]
 recommended = ["story:cross-project-change-intake", "story:dashboard-empty-state-guidance"]
 releases = ["R0", "R1", "R2", "R3"]
 
@@ -49,4 +49,7 @@ releases = ["R0", "R1", "R2", "R3"]
 enabled = true
 
 [assessment]
+enabled = true
+
+[radar]
 enabled = true

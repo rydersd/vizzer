@@ -12,3 +12,7 @@ dist/*
 vizzer/views/
 vizzer/vizzer-graph.json
 vizzer/RENDER_ID
+
+# Transient locks for authored planning conversations.
+product-spec/planning/areas/*/.messages.lock
+product-spec/planning/areas/*/.messages-*

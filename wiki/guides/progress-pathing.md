@@ -2,6 +2,15 @@
 
 **Progress pathing** is the public name for Vizzer's recorded work paths and their evolution over time. The existing renderer connects explicit chronological checkpoints and fades older paths. It does not infer a journey from unrelated Story mentions. Internal `agentTrails` fields remain compatible.
 
+## Trail visibility and fade
+
+Orbiting may move a checkpoint offscreen or behind the sidebar; the visible
+portion of its connecting trail remains clipped to the canvas. Explicitly
+filtering out a checkpoint still removes its adjoining segments, without
+bridging across hidden work. Trails fade continuously from older to newer
+checkpoints, from 12% to 88% opacity across the retained path, with matching
+arrow opacity. Search dimming remains independent.
+
 ## Record and replay
 
 With the current engine installed in a project, run:

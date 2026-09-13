@@ -1,10 +1,28 @@
+// Theme belongs to the local UI, not to a project or its delivery state.
+const themeStorageKey='vizzer:color-mode';
+const themeChoice=document.getElementById('themechoice');
+function applyColorMode(mode,{persist=false}={}){
+  mode=['light','dark','system'].includes(mode)?mode:'system';
+  if(mode==='system')document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',mode);
+  themeChoice?.querySelectorAll('[data-theme-choice]').forEach(button=>{
+    const active=button.dataset.themeChoice===mode;
+    button.setAttribute('aria-pressed',String(active));button.classList.toggle('on',active);
+  });
+  recolor();
+  if(persist){try{localStorage.setItem(themeStorageKey,mode);}catch(_){}}
+}
+let storedColorMode='system';try{storedColorMode=localStorage.getItem(themeStorageKey)||'system';}catch(_){}
+applyColorMode(storedColorMode);
+themeChoice?.querySelectorAll('[data-theme-choice]').forEach(button=>button.addEventListener('click',()=>applyColorMode(button.dataset.themeChoice,{persist:true})));
+
 // ---- title-bar reading preferences and left-sidebar geometry ----
 const sidebarTypeControl=document.getElementById('sidebartype');
-const sidebarTypeSizes=[14,18,22];
-const sidebarTypeStorageKey=`vizzer:sidebar-type:${document.title}`;
+const sidebarTypeSizes=[12,14,16];
+const sidebarTypeStorageKey=`vizzer:sidebar-type-px:${document.title}`;
 function applySidebarTypeSize(value,{persist=false}={}){
-  const parsed=Number(value),size=sidebarTypeSizes.includes(parsed)?parsed:14;
-  document.documentElement.style.setProperty('--sidebar-type-size',`${size}pt`);
+  const parsed=Number(value),size=sidebarTypeSizes.includes(parsed)?parsed:12;
+  document.documentElement.style.setProperty('--sidebar-type-size',`${size}px`);
   sidebarTypeControl?.querySelectorAll('[data-sidebar-size]').forEach(button=>{
     const active=Number(button.dataset.sidebarSize)===size;
     button.classList.toggle('on',active);button.setAttribute('aria-pressed',String(active));

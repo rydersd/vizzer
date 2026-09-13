@@ -28,3 +28,7 @@ For each import record origin repository/commit, upstream comparison, generic
 behavior, acceptance evidence and integration PR. Update the current behavior
 contract in the same change. A historical proposal or passing fork test alone
 is not an upstream integration receipt.
+
+## Local implementation pending commit
+
+- [Cross-project change radar](stories/cross-project-change-radar.md): opt-in local watcher, reviewable patches and adoption observations.
