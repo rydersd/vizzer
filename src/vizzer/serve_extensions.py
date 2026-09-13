@@ -27,6 +27,7 @@ from .review_service import (
     ReviewServiceError, append_review_event, resolve_evidence, review_state,
 )
 from .story_sidebar import object_detail_providers
+from .session_history import instance as session_history
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,44 @@ class ReviewHttpExtension:
         except (OSError, UnicodeError) as exc:
             ctx.send_json(500, {"error": f"could not persist review run: {exc}"})
         return True
+
+
+class SessionHistoryHttpExtension:
+    """Expose the bounded public-session index to the served constellation."""
+
+    def get(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        if parsed.path not in {
+            "/api/work-history", "/api/work-history/log",
+            "/api/work-history/event",
+        }:
+            return False
+        if not ctx.current_engine():
+            return True
+        if not ctx.cfg.get("session_history.enabled", False):
+            ctx.send_json(404, {"error": "session history is disabled"})
+            return True
+        history = session_history(
+            ctx.root, ctx.cfg.get('session_history.checkout_roots', [])
+        )
+        history.start()
+        if parsed.path == "/api/work-history/event":
+            event_id = parse_qs(parsed.query).get("id", [""])[0]
+            body = history.event(event_id)
+            ctx.send_json(200 if body else 404, body or {
+                "error": "Unknown recorded event",
+            })
+        elif parsed.path == "/api/work-history/log":
+            session_id = parse_qs(parsed.query).get("session", [""])[0]
+            body = history.log(session_id, parsed.query)
+            ctx.send_json(200 if body else 404, body or {
+                "error": "Unknown recorded session",
+            })
+        else:
+            ctx.send_json(200, history.payload(parsed.query))
+        return True
+
+    def post(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        return False
 
 
 class DeveloperFlowHttpExtension:
@@ -293,4 +332,7 @@ class DeveloperFlowHttpExtension:
         return True
 
 
-SERVE_EXTENSIONS = (DeveloperFlowHttpExtension(), ReviewHttpExtension())
+SERVE_EXTENSIONS = (
+    SessionHistoryHttpExtension(), DeveloperFlowHttpExtension(),
+    ReviewHttpExtension(),
+)

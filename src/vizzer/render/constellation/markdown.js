@@ -99,6 +99,9 @@ function renderStoryMarkdown(text){
     const buffer=[];
     while(i<lines.length&&lines[i].trim()&&!/^\s*(#{1,6}\s|>|```)/.test(lines[i])
         &&!listItemRe.test(lines[i])&&!isTableRow(lines[i])){buffer.push(lines[i].trim());i++;}
+    // A pipe-delimited log line without a separator is ordinary text. Always
+    // advance; otherwise malformed or pasted transcript rows loop forever.
+    if(!buffer.length){buffer.push(lines[i]);i++;}
     out.push(`<p class="mdp">${mdInline(buffer.join(' '))}</p>`);
   }
   return out.join('');

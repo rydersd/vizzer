@@ -48,6 +48,19 @@ function agentTrailColor(agent){
   for(const char of agent)hash=Math.imul(hash^char.codePointAt(0),16777619);
   return C.trails[Math.abs(hash)%C.trails.length]||C.active;
 }
+function latestTestReview(i){
+  const refs=DATA.nodes[i].tr||[];
+  return refs.length?(DATA.testReviews||[])[refs[refs.length-1]]:null;
+}
+function testReviewVisualState(testReview,{active=.5,slow=.5,reduced=false}={}){
+  const snag=Boolean(testReview.snag)||['snagged','unauthorized-execution'].includes(testReview.state)||testReview.outcome==='infrastructure-failure';
+  const preparing=testReview.state==='preparing',reviewing=testReview.state==='under-review',running=testReview.state==='running',moving=preparing||reviewing||running||snag;
+  const outcomeBadge={pass:'✓','expected-red':'R','unexpected-fail':'!','infrastructure-failure':'⚠',partial:'½',inconclusive:'?',cancelled:'×',invalidated:'!'};
+  return {snag,preparing,reviewing,running,moving,wave:running?active:slow,
+    dash:snag?[2,2]:(reviewing?[7,3]:(preparing?[2,4]:[])),
+    stateLabel:reduced&&moving?({preparing:'P','under-review':'U',running:'R',snagged:'S','unauthorized-execution':'!'}[testReview.state]||'•'):'',
+    outcomeBadge:outcomeBadge[testReview.outcome]||(testReview.outcome==='pending'?'':'•')};
+}
 function trailArrow(a,b,color,alpha){
   const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
   if(length<8)return;
@@ -153,6 +166,9 @@ function draw(){
       }
     }
   }
+  // Rolling session history is a separate, time-bounded overlay. It never
+  // changes graph topology or Story lifecycle state.
+  if(typeof drawSessionHistory==='function')drawSessionHistory();
   // Explicit agent-work linkage pulses. It is not silently inferred from a hard
   // dependency or typed relation, so the overlay never claims evidence it lacks.
   if (lens.activity){
@@ -250,6 +266,17 @@ function draw(){
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
     ctx.lineWidth=1;
     ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
+    const testReview=latestTestReview(i);
+    if(testReview&&!dim){
+      const isC=testReview.risk==='C',visual=testReviewVisualState(testReview,{active:activeWave,slow:xWave,reduced:reducedMotion});
+      const outcomeColor={pass:C.shipped,'expected-red':C.ready,'unexpected-fail':C.buggap,partial:C.active,inconclusive:C.specced,'infrastructure-failure':C.conflict,invalidated:C.buggap,cancelled:C.faint};
+      ctx.globalAlpha=(visual.moving?(reducedMotion?.92:.42+.58*visual.wave):.86)*fog;
+      ctx.strokeStyle=visual.snag?C.buggap:(visual.reviewing?C.owner:(outcomeColor[testReview.outcome]||C.active));ctx.lineWidth=visual.snag?4:(isC?3:1.7);ctx.setLineDash(visual.dash);
+      const radius=rr*((isC?2.12:1.82)+(visual.preparing?.16:visual.reviewing?.08:visual.running?.24:0)*visual.wave);
+      ctx.beginPath();ctx.arc(p.x,p.y,radius,0,7);ctx.stroke();ctx.setLineDash([]);
+      if(testReview.outcome!=='pending'){ctx.globalAlpha=.96*fog;ctx.fillStyle=outcomeColor[testReview.outcome]||C.owner;ctx.font=`700 ${Math.max(8,rr*.72)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.outcomeBadge,p.x+rr*1.7,p.y-rr*1.7);}
+      if(reducedMotion&&visual.moving){ctx.globalAlpha=.98*fog;ctx.fillStyle=visual.snag?C.buggap:C.owner;ctx.font=`700 ${Math.max(8,rr*.68)}px ui-monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(visual.stateLabel,p.x-rr*1.7,p.y-rr*1.7);}
+    }
     // Unknown assessed size gets a neutral dashed ring. It must not look like
     // XS merely because both are visually compact.
     if(sizeMode==='delivery'&&n.assess&&n.assess.band==null&&!dim){
@@ -454,9 +481,18 @@ function updatePointerState(x,y){
   hover=questionCenterBest>=0?questionCenterBest:
     (questionGlyphBest>=0?questionGlyphBest:(paintBest>=0?paintBest:best));
 }
-let presentedHover=-1;
+let downHistoryTarget=null,presentedHover=-1;
 function presentPointerState(x,y){
   const best=hover,tip=document.getElementById('tip');
+  const workTrail=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(x,y,best):null;
+  if(workTrail){
+    const s=historySession(workTrail.session);
+    tip.innerHTML=esc(s?.provider+' · '+s?.title)+
+      `<small>${esc(historyDate(workTrail.timestamp))} · click for work, rationale and challenges</small>`;
+    tip.style.display='block';tip.style.left=(x+14)+'px';tip.style.top=(y+10)+'px';
+    cv.classList.add('hover-target');presentedHover=-1;return;
+  }
   if(best>=0){
     if(presentedHover!==best){
       const n=DATA.nodes[best];
@@ -491,6 +527,9 @@ cv.addEventListener('pointerdown',e=>{
   if(advertisedTarget>=0)hover=advertisedTarget;
   presentPointerState(e.clientX,e.clientY);
   pointerDown=true;orbiting=false;downTarget=advertisedTarget>=0?advertisedTarget:hover;
+  downHistoryTarget=typeof historyTrailAtPointer==='function'
+    ?historyTrailAtPointer(e.clientX,e.clientY,downTarget):null;
+  if(downHistoryTarget)downTarget=-1;
   downX=lx=e.clientX;downY=ly=e.clientY;
   publishHitDebug('down',e,{advertised:advertisedTarget,geometric:geometricTarget,chosen:downTarget,
     pointerType:e.pointerType||'unknown'});
@@ -524,7 +563,13 @@ cv.addEventListener('pointerup',e=>{
     // Visibility was already proven when downTarget was captured. Requiring it
     // again after projection lets easing or a chrome boundary cancel a valid
     // press between pointer-down and pointer-up.
-    if(target>=0)openNode(target);
+    if(downHistoryTarget){
+      historyQueueClick(downHistoryTarget,e.clientX,e.clientY);downHistoryTarget=null;
+    }else if(target>=0)openNode(target);
+    else if(typeof hitSessionHistory==='function'){
+      const segment=hitSessionHistory(e.clientX,e.clientY);
+      if(segment)historyQueueClick(segment,e.clientX,e.clientY);
+    }
     publishHitDebug('up',e,{opened:target,pointerType:e.pointerType||'unknown'});
   }else{
     project();updatePointerAt(e.clientX,e.clientY);
@@ -533,8 +578,14 @@ cv.addEventListener('pointerup',e=>{
   downTarget=-1;
 });
 cv.addEventListener('pointercancel',e=>{
-  pointerDown=false;orbiting=false;downTarget=-1;cv.classList.remove('drag');clearPointerState();
+  pointerDown=false;orbiting=false;downTarget=-1;downHistoryTarget=null;cv.classList.remove('drag');clearPointerState();
   releasePointer(e);
+});
+cv.addEventListener('dblclick',e=>{
+  updatePointerState(e.clientX,e.clientY);
+  if(typeof historyDoubleClick==='function'&&historyDoubleClick(e.clientX,e.clientY,hover)){
+    e.preventDefault();
+  }
 });
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   if (e.ctrlKey){ // trackpad pinch arrives as ctrl+wheel

@@ -36,8 +36,15 @@ def test_install_vendors_and_registers(tmp_path, make_repo):
             "story-sizing-and-portfolio-selection.md").is_file()
     assert (repo / "vizzer" / "docs" /
             "prds-and-living-product-specs.md").is_file()
-    assert "model-neutral" in (repo / "vizzer" / "docs" /
-                               "story-sizing-and-portfolio-selection.md").read_text().casefold()
+    test_contract = repo / "vizzer" / "docs" / "adversarial-test-design.md"
+    assert test_contract.is_file()
+    assert "risk b" in test_contract.read_text().casefold()
+    assert "adversarial-test-design.md" in agents
+    assert "separate testing-agent pass" in agents.casefold()
+    context_stub = (repo / "vizzer" / "docs" /
+                    "story-sizing-and-portfolio-selection.md").read_text().casefold()
+    assert "story sizing and portfolio selection" in context_stub
+    assert "maintained location" in context_stub
 
     # vendored engine runs standalone via `python3 vizzer/engine`
     r = subprocess.run([sys.executable, "vizzer/engine", "check", "--structural"],

@@ -57,6 +57,7 @@ def test_build_pyz(tmp_path):
     assert "vizzer/developer_store.py" in names
     assert "vizzer/context/story-sizing-and-portfolio-selection.md" in names
     assert "vizzer/context/prds-and-living-product-specs.md" in names
+    assert "vizzer/context/adversarial-test-design.md" in names
     assert FRONTEND_RESOURCES <= set(names)
     assert DEVELOPER_FLOW_RESOURCES <= set(names)
     assert not any(
@@ -101,6 +102,8 @@ def test_install_from_pyz(tmp_path):
             "story-sizing-and-portfolio-selection.md").exists()
     assert (project / "vizzer" / "docs" /
             "prds-and-living-product-specs.md").exists()
+    assert (project / "vizzer" / "docs" /
+            "adversarial-test-design.md").exists()
     config = (project / "vizzer" / "vizzer.toml").read_text()
     assert "[assessment]" in config and "enabled = true" in config
     assert "[discussions]" in config and 'queue_path = "vizzer/discussion-queue.json"' in config

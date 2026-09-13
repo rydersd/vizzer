@@ -26,7 +26,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     if queue is None:
         lines.extend([f"> {warning}" for warning in warnings])
         lines.append("")
-        queue = {"revision": 0, "updatedAt": None, "queues": {p: [] for p in PROVIDERS}}
+        queue = {"revision": 0, "updatedAt": None, "queues": {p: [] for p in PROVIDERS}, "requests": []}
     lines.append(
         f"Queue revision: **{queue['revision']}** · updated: `{queue.get('updatedAt') or 'never'}`"
     )
@@ -44,6 +44,13 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             if not current:
                 state = "general Story discussion · no open owner questions"
             lines.append(f"{position}. {item_link(item, prefix)} — **{state}**")
+            requests = [request for request in queue.get("requests", [])
+                        if request["provider"] == provider and request["storyId"] == story_id]
+            for request in requests[-3:]:
+                lines.extend([
+                    f"   - **Bounded test-design request** `{request['fingerprint'][:12]}` ({request['state']})",
+                    f"     {request['prompt']}",
+                ])
             for question in current:
                 lines.append(
                     f"   - `{question.id}` — {question.prompt} "

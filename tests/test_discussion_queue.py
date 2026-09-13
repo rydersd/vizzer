@@ -1,10 +1,11 @@
+import hashlib
 import json
 
 import pytest
 
 from vizzer.config import Config, DEFAULTS, deep_merge
 from vizzer.discussion_queue import (
-    DiscussionQueueConflict, DiscussionQueueError, enqueue_discussion,
+    MAX_HISTORY, DiscussionQueueConflict, DiscussionQueueError, enqueue_discussion,
     discussion_queue_snapshot, read_discussion_queue, restore_discussion_queue,
 )
 from vizzer.model import (
@@ -147,3 +148,60 @@ def test_discussion_markdown_is_llm_readable_and_never_claims_answer_authority(t
     persisted, warnings = read_discussion_queue(cfg, tmp_path, graph)
     assert warnings == [] and persisted["revision"] == 1
     assert json.loads((tmp_path / "vizzer/discussion-queue.json").read_text()) == persisted
+
+
+def test_schema_one_queue_loads_as_schema_two_without_losing_history(tmp_path):
+    graph, cfg = _graph(with_question=False), _cfg()
+    path = tmp_path / "vizzer/discussion-queue.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({
+        "schema": 1, "revision": 1, "updatedAt": "2026-08-11T20:00:00Z",
+        "queues": {"codex": ["story:a"], "claude": []},
+        "history": [{
+            "revision": 1, "provider": "codex", "storyId": "story:a",
+            "questionIds": [], "queuedAt": "2026-08-11T20:00:00Z",
+        }],
+    }))
+    queue, warnings = read_discussion_queue(cfg, tmp_path, graph)
+    assert warnings == []
+    assert queue["schema"] == 2 and queue["requests"] == []
+    assert queue["history"][0]["storyId"] == "story:a"
+
+
+def test_test_design_request_moves_append_only_between_providers(tmp_path):
+    graph, cfg = _graph(with_question=False), _cfg()
+    request = {"kind": "test-design", "prompt": "One bounded test with one goal."}
+    queue, _ = enqueue_discussion(cfg, tmp_path, graph, provider="codex",
+                                  story_id="story:a", questions=[], request=request,
+                                  expected_revision=0, now="2026-09-05T12:00:00Z")
+    queue, _ = enqueue_discussion(cfg, tmp_path, graph, provider="claude",
+                                  story_id="story:a", questions=[], request=request,
+                                  expected_revision=queue["revision"], now="2026-09-05T12:01:00Z")
+    queue, _ = enqueue_discussion(cfg, tmp_path, graph, provider="codex",
+                                  story_id="story:a", questions=[], request=request,
+                                  expected_revision=queue["revision"], now="2026-09-05T12:02:00Z")
+    assert [entry["state"] for entry in queue["requests"]] == ["superseded", "superseded", "queued"]
+    assert len({entry["id"] for entry in queue["requests"]}) == 3
+    loaded, warnings = read_discussion_queue(cfg, tmp_path, graph)
+    assert warnings == [] and loaded == queue
+
+
+def test_request_retention_never_evicts_unrelated_live_dispatch(tmp_path):
+    graph, cfg = _graph(with_question=False), _cfg()
+    queue, _ = enqueue_discussion(cfg, tmp_path, graph, provider="codex",
+                                  story_id="story:a", questions=[],
+                                  request={"kind": "test-design", "prompt": "Keep this live."},
+                                  expected_revision=0, now="2026-09-05T12:00:00Z")
+    provider = "codex"
+    for index in range(MAX_HISTORY + 1):
+        provider = "claude" if provider == "codex" else "codex"
+        queue, _ = enqueue_discussion(cfg, tmp_path, graph, provider=provider,
+                                      story_id="story:b", questions=[],
+                                      request={"kind": "test-design", "prompt": "Move this."},
+                                      expected_revision=queue["revision"],
+                                      now=f"2026-09-06T12:{index // 60 % 60:02d}:{index % 60:02d}Z")
+    assert len(queue["requests"]) == MAX_HISTORY
+    assert len([entry for entry in queue["requests"] if entry["storyId"] == "story:a"
+                and entry["state"] == "queued"]) == 1
+    loaded, warnings = read_discussion_queue(cfg, tmp_path, graph)
+    assert warnings == [] and loaded == queue

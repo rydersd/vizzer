@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import tempfile
@@ -14,7 +15,7 @@ import tempfile
 from .model import Graph, owner_question_fingerprint
 
 
-SCHEMA = 1
+SCHEMA = 2
 PROVIDERS = ("codex", "claude")
 MAX_QUEUE_ITEMS = 500
 MAX_HISTORY = 1000
@@ -26,7 +27,6 @@ class DiscussionQueueError(ValueError):
 
 class DiscussionQueueConflict(DiscussionQueueError):
     pass
-
 
 def _now(value: str | None = None) -> str:
     raw = value or datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -67,7 +67,20 @@ def empty_queue() -> dict:
         "updatedAt": None,
         "queues": {provider: [] for provider in PROVIDERS},
         "history": [],
+        "requests": [],
     }
+
+
+def _bounded_requests(requests: list[dict]) -> list[dict]:
+    """Keep every live dispatch and bound only superseded audit history."""
+    queued = [value for value in requests if value["state"] == "queued"]
+    superseded = [value for value in requests if value["state"] == "superseded"]
+    remaining = MAX_HISTORY - len(queued)
+    if remaining < 0:
+        raise DiscussionQueueError("active discussion requests exceed the retention limit")
+    retained_superseded = superseded[-remaining:] if remaining else []
+    retained_ids = {value["id"] for value in queued + retained_superseded}
+    return [value for value in requests if value["id"] in retained_ids]
 
 
 def _story_ids(value: object, provider: str, known: set[str] | None) -> list[str]:
@@ -87,9 +100,9 @@ def _story_ids(value: object, provider: str, known: set[str] | None) -> list[str
 
 
 def _validate(data: object, graph: Graph | None = None) -> dict:
-    expected = {"schema", "revision", "updatedAt", "queues", "history"}
+    expected = {"schema", "revision", "updatedAt", "queues", "history", "requests"}
     if not isinstance(data, dict) or set(data) != expected or data.get("schema") != SCHEMA:
-        raise DiscussionQueueError("discussion queue must be a schema-1 JSON object")
+        raise DiscussionQueueError("discussion queue must be a schema-2 JSON object")
     revision = data.get("revision")
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
         raise DiscussionQueueError("discussion queue revision must be non-negative")
@@ -127,27 +140,74 @@ def _validate(data: object, graph: Graph | None = None) -> dict:
                 or entry_revision <= previous or entry_revision > revision):
             raise DiscussionQueueError("discussion queue history revisions must increase")
         previous = entry_revision
-        provider = entry["provider"]
-        if provider not in PROVIDERS:
-            raise DiscussionQueueError(f"unsupported discussion provider {provider!r}")
         story_id = entry["storyId"]
         if not isinstance(story_id, str) or not story_id:
             raise DiscussionQueueError("discussion history requires a Story id")
+        provider = entry["provider"]
+        if provider not in PROVIDERS:
+            raise DiscussionQueueError(f"unsupported discussion provider {provider!r}")
         question_ids = entry["questionIds"]
         if (not isinstance(question_ids, list)
                 or not all(isinstance(value, str) and value for value in question_ids)
                 or len(set(question_ids)) != len(question_ids)):
             raise DiscussionQueueError("discussion history requires unique question ids")
         normalized_history.append({
-            **entry,
-            "queuedAt": _now(entry["queuedAt"]),
+            **entry, "queuedAt": _now(entry["queuedAt"]),
             "questionIds": list(question_ids),
         })
     if revision == 0 and history:
         raise DiscussionQueueError("revision-zero discussion queue cannot have history")
     if revision and (not history or history[-1]["revision"] != revision):
         raise DiscussionQueueError("discussion queue history must end at current revision")
-    return {**data, "queues": normalized, "history": normalized_history}
+    requests = data.get("requests")
+    if not isinstance(requests, list) or len(requests) > MAX_HISTORY:
+        raise DiscussionQueueError("discussion queue requests must be a bounded array")
+    normalized_requests = []
+    request_fields = {"id", "kind", "provider", "storyId", "prompt", "fingerprint", "createdAt", "state"}
+    for index, request in enumerate(requests, 1):
+        if not isinstance(request, dict) or set(request) != request_fields:
+            raise DiscussionQueueError(f"discussion request #{index} is malformed")
+        prompt = request["prompt"]
+        fingerprint = request["fingerprint"]
+        if request["kind"] != "test-design" or request["state"] not in {"queued", "superseded"}:
+            raise DiscussionQueueError("discussion request kind/state is unsupported")
+        if request["provider"] not in PROVIDERS or not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 10000:
+            raise DiscussionQueueError("discussion request provider/prompt is invalid")
+        if not isinstance(request["storyId"], str) or not request["storyId"]:
+            raise DiscussionQueueError("discussion request needs a Story id")
+        if known is not None and request["storyId"] not in known:
+            raise DiscussionQueueError(
+                f"discussion request references unknown Story {request['storyId']}"
+            )
+        expected_fingerprint = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        legacy_id = f"test-design:{request['provider']}:{fingerprint}"
+        event_prefix = f"{legacy_id}:"
+        event_suffix = request["id"][len(event_prefix):] if request["id"].startswith(event_prefix) else ""
+        valid_id = request["id"] == legacy_id or (event_suffix.isdigit() and int(event_suffix) > 0)
+        if fingerprint != expected_fingerprint or not valid_id:
+            raise DiscussionQueueError("discussion request fingerprint does not match its prompt")
+        normalized_requests.append({**request, "createdAt": _now(request["createdAt"])})
+    active_provider = {
+        story_id: provider
+        for provider, story_ids in normalized.items()
+        for story_id in story_ids
+    }
+    live_request_stories: set[str] = set()
+    for request in normalized_requests:
+        if request["state"] != "queued":
+            continue
+        story_id = request["storyId"]
+        if story_id in live_request_stories:
+            raise DiscussionQueueError(
+                f"discussion requests contain multiple live dispatches for {story_id}"
+            )
+        live_request_stories.add(story_id)
+        if active_provider.get(story_id) != request["provider"]:
+            raise DiscussionQueueError(
+                f"live discussion request for {story_id} does not match its active provider"
+            )
+    return {**data, "queues": normalized, "history": normalized_history,
+            "requests": normalized_requests}
 
 
 def read_discussion_queue(cfg, root: Path, graph: Graph | None = None, *, strict=True):
@@ -157,7 +217,10 @@ def read_discussion_queue(cfg, root: Path, graph: Graph | None = None, *, strict
             return empty_queue(), []
         if not path.is_file() or path.is_symlink():
             raise DiscussionQueueError("discussion queue must be a regular file")
-        return _validate(json.loads(path.read_text(encoding="utf-8")), graph), []
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("schema") == 1:
+            data = {**data, "schema": SCHEMA, "requests": []}
+        return _validate(data, graph), []
     except (OSError, UnicodeError, json.JSONDecodeError, DiscussionQueueError) as exc:
         error = exc if isinstance(exc, DiscussionQueueError) else DiscussionQueueError(str(exc))
         if strict:
@@ -211,6 +274,7 @@ def enqueue_discussion(
     provider: str,
     story_id: str,
     questions: object,
+    request: object = None,
     expected_revision: int,
     now: str | None = None,
 ) -> tuple[dict, bool]:
@@ -244,12 +308,45 @@ def enqueue_discussion(
         raise DiscussionQueueConflict(
             "open questions changed while this Story was being queued; reload and try again"
         )
+    normalized_request = None
+    if request is not None:
+        if not isinstance(request, dict) or set(request) != {"kind", "prompt"}:
+            raise DiscussionQueueError("discussion request needs kind and prompt")
+        prompt = request["prompt"]
+        if request["kind"] != "test-design" or not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 10000:
+            raise DiscussionQueueError("test-design request prompt is invalid")
+        fingerprint = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+        if not any(value["kind"] == "test-design" and value["storyId"] == story_id
+                   and value["provider"] == provider and value["fingerprint"] == fingerprint
+                   and value["state"] == "queued" for value in current["requests"]):
+            normalized_request = {
+                "id": f"test-design:{provider}:{fingerprint}:{current['revision'] + 1}",
+                "kind": "test-design", "provider": provider, "storyId": story_id,
+                "prompt": prompt, "fingerprint": fingerprint,
+                "createdAt": _now(now), "state": "queued",
+            }
     queues = {
         lane: [value for value in current["queues"][lane] if value != story_id]
         for lane in PROVIDERS
     }
     queues[provider].insert(0, story_id)
-    if queues == current["queues"]:
+    # Moving a Story between providers must leave an audit trail without
+    # leaving two apparently-live dispatches.  The old request stays durable,
+    # but is explicitly superseded before the new lane becomes authoritative.
+    requests = [
+        {**value, "state": "superseded"}
+        if (value["kind"] == "test-design" and value["storyId"] == story_id
+            and value["state"] == "queued" and value["provider"] != provider)
+        else value
+        for value in current["requests"]
+    ]
+    if normalized_request and not any(
+        value["id"] == normalized_request["id"] and value["storyId"] == story_id
+        for value in requests
+    ):
+        requests.append(normalized_request)
+    requests = _bounded_requests(requests)
+    if queues == current["queues"] and requests == current["requests"]:
         return current, False
     revision = current["revision"] + 1
     timestamp = _now(now)
@@ -266,6 +363,7 @@ def enqueue_discussion(
         "updatedAt": timestamp,
         "queues": queues,
         "history": history,
+        "requests": requests,
     }
     updated = _validate(updated, graph)
     _write(_queue_path(cfg, root), updated)

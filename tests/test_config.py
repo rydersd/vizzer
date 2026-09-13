@@ -272,3 +272,10 @@ def test_review_storage_directories_must_be_contained_and_non_overlapping(
     (tmp_path / "vizzer/vizzer.toml").write_text("[reviews]\n" + body)
     with pytest.raises(ConfigError, match="stay inside|must not overlap"):
         Config.load(tmp_path)
+
+
+def test_session_history_removed_checkout_allowlist_requires_absolute_paths():
+    with pytest.raises(ConfigError, match="array of absolute paths"):
+        Config(data=deep_merge(DEFAULTS, {
+            "session_history": {"checkout_roots": ["removed-worktree"]},
+        })).validate()
