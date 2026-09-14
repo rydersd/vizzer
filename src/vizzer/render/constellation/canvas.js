@@ -8,7 +8,7 @@ let W,H,DPR; function size(){ DPR=Math.min(devicePixelRatio,2); W=innerWidth; H=
   ctx=nodeCtx;} size(); addEventListener('resize',size);
 let rx=-.35, ry=.6, zoom=1, panX=0, panY=0, vx=0, vy=0;
 const P = DATA.nodes.map(()=>({x:0,y:0,s:0,d:0,on:true,near:0}));
-const nodeRadius = i => P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1));
+const nodeRadius = i => Math.max(3,P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1)));
 // Canvas nodes are intentionally tiny, but their pointer target must not be.
 // Fourteen screen pixels keeps adjacent nodes distinguishable while making a
 // normal mouse click survive sub-pixel projection and hand jitter.
@@ -97,7 +97,7 @@ function project(){
     p.s = Math.max(1.6, 4.6*w*zoom);
     // Never advertise a canvas target underneath interactive HTML chrome. A
     // visible-but-unclickable node is worse than a clipped node: it lies.
-    p.on = visible(n)&&insideCanvasInteractionBounds(p.x,p.y,bounds);
+    p.on = canvasVisible(n)&&insideCanvasInteractionBounds(p.x,p.y,bounds);
   });
 }
 function draw(){
@@ -147,13 +147,22 @@ function draw(){
       const color=agentTrailColor(trail.agent),points=trail.points||[];
       for(let step=1;step<points.length;step++){
         const a=points[step-1].n,b=points[step].n;
-        if(a==null||b==null||!P[a].on||!P[b].on)continue;
+        // Offscreen endpoints are not filtered endpoints. The canvas clip keeps
+        // crossing segments visible as orbiting moves their nodes behind chrome.
+        if(a==null||b==null||!P[a]||!P[b]||!visible(DATA.nodes[a])||!visible(DATA.nodes[b]))continue;
+        if(![P[a].x,P[a].y,P[b].x,P[b].y].every(Number.isFinite))continue;
         const recency=step/Math.max(1,points.length-1);
+        const previous=(step-1)/Math.max(1,points.length-1);
         const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
-        const alpha=(.14+.5*recency)*(searchEdgeDim?.16:1);
-        ctx.strokeStyle=color;ctx.lineWidth=1.15;ctx.globalAlpha=alpha;
+        const alpha=.12+.76*recency*recency;
+        const startAlpha=.12+.76*previous*previous;
+        const gradient=ctx.createLinearGradient(P[a].x,P[a].y,P[b].x,P[b].y);
+        const rgb=rgbOf(color).join(',');
+        gradient.addColorStop(0,`rgba(${rgb},${startAlpha})`);
+        gradient.addColorStop(1,`rgba(${rgb},${alpha})`);
+        ctx.strokeStyle=gradient;ctx.lineWidth=1.4;ctx.globalAlpha=searchEdgeDim?.16:1;
         ctx.beginPath();ctx.moveTo(P[a].x,P[a].y);ctx.lineTo(P[b].x,P[b].y);ctx.stroke();
-        trailArrow(P[a],P[b],color,alpha);
+        trailArrow(P[a],P[b],color,alpha*(searchEdgeDim?.16:1));
       }
     }
   }
@@ -194,7 +203,7 @@ function draw(){
   for(const i of order){
     const p=P[i],n=DATA.nodes[i],rr=nodeRadius(i);
     const searchDim=searchTerms.length>0&&!searchMatches[i];
-    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i]);
     const rgb=nodeColor(n),rec=lens.delivery&&n.rec&&!dim;
     if(rec){
       ctx.globalAlpha=.16;ctx.fillStyle=rgbCss(mixA(rgb,[255,255,255],.5));
@@ -223,10 +232,12 @@ function draw(){
     const i=order[position],p=P[i];
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
-    const dim = (sel>=0 && !selSet.has(i)) || searchDim;
+    const dim = (sel>=0 && !selSet.has(i)) || searchDim || outsideCluster(n);
     let rgb = nodeColor(n);
     const rec = lens.delivery && n.rec && !dim;
     if (rec) rgb = mixA(rgb, [255,255,255], .55); // ★ next: brighter lightness
+    const clusterActive=Boolean(capFocus||groupFocus)&&!outsideCluster(n);
+    rgb=contrastNodeColor(dim?RGB.fade:rgb,dim?3.1:(clusterActive?7:4.5));
     const col = rgbCss(rgb);
     const focusAlpha=dim?.18:1;
     ctx.globalAlpha = progressOpacity(n)*focusAlpha;
@@ -243,6 +254,13 @@ function draw(){
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,7); ctx.fill();
     }
+    // Essential glyph outline stays at non-text AA contrast even when its
+    // fill or ambient halo is subdued. Shape retains the lifecycle meaning.
+    ctx.globalAlpha=1;ctx.strokeStyle=col;ctx.lineWidth=clusterActive&&!dim?3:2.5;
+    if(n.g==='shipped')trianglePath(p.x,p.y,rr);
+    else if(n.g==='buggap')xPath(p.x,p.y,rr*.7);
+    else {ctx.beginPath();ctx.arc(p.x,p.y,n.g==='specced'?rr*.85:rr,0,7);}
+    ctx.stroke();
     // Release/version is a separate outer-ring channel; blending it into fill
     // would make progress versus horizon impossible to decode.
     ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
@@ -288,7 +306,7 @@ function draw(){
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*(1.45+.7*p.near),0,7); ctx.fill();
     }
     if(i===hover&&!dim){
-      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,[255,255,255],.8)); ctx.lineWidth=1.25;
+      ctx.globalAlpha=.9; ctx.strokeStyle=rgbCss(mixA(rgb,RGB.ink,.8)); ctx.lineWidth=1.25;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.38,0,7); ctx.stroke();
     }
     if(i===sel){
@@ -297,7 +315,7 @@ function draw(){
     }
     if (rec){ // recommended-next: bright ring over its background glow
       ctx.globalAlpha = 1;
-      ctx.strokeStyle = rgbCss(mixA(rgb,[255,255,255],.7)); ctx.lineWidth = 1;
+      ctx.strokeStyle = rgbCss(mixA(rgb,RGB.ink,.7)); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.5,0,7); ctx.stroke();
     }
     if (activeNode(i) && !dim){
@@ -345,7 +363,7 @@ function draw(){
   for(const i of order){
     const p=P[i],rr=nodeRadius(i),unresolved=ownerQuestions(i);
     const searchDim=searchTerms.length>0&&!searchMatches[i];
-    const dim=(sel>=0&&!selSet.has(i))||searchDim;
+    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i]);
     if(!unresolved.length||dim)continue;
     ctx.globalAlpha=.95;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
     xPath(p.x,p.y,Math.max(4,rr*.72));ctx.stroke();

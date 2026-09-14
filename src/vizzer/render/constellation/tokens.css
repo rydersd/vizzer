@@ -1,39 +1,106 @@
+:root{--font-mono:"Berkeley Mono",ui-monospace,"SF Mono",Menlo,monospace;--reading-size:14px;color-scheme:dark}
 :root{
-  /* Shared visual contract for Constellation and optional views. */
-  --font-mono:"Berkeley Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  --reading-size:14px;
-  --bg:#0B0D12; --bg2:#12151D; --panel:#131720; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
-  --shipped:#D6C29A; --active:#4F9FE8; --ready:#74C98B; --buggap:#C27B6E;
-  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;
-  --owner-override:#E879F9; --conflict:#F0871F;
-  --lens-low:#3A3F4E; --lens-mid:#C9A96A; --lens-high:#C27B6E;
-  --agent-trail-1:#67B7FF; --agent-trail-2:#8BD49C; --agent-trail-3:#E4B86B;
-  --agent-trail-4:#D88CE8; --agent-trail-5:#77D2C8; --agent-trail-6:#F08C86;
+  --bg:#10112e;
+  --bg2:#191b3c;
+  --panel:#191b3c;
+  --ink:#f2f4ff;
+  --mut:#b6bfdf;
+  --line:#747eaa;
+  --shipped:#f0d5a0;
+  --progress-track:#354267;
+  --progress-fill:#f0d5a0;
+  --active:#90caff;
+  --ready:#a0e2b0;
+  --buggap:#ffb1a5;
+  --specced:#b8bfea;
+  --faint:#a4afd7;
+  --parked:#a0abcf;
+  --foundation:#d1b9ff;
+  --accent:#f0cf8e;
+  --owner-override:#f5b0f5;
+  --conflict:#ffc08a;
+  --lens-low:#a4afd7;
+  --lens-mid:#f0cf8e;
+  --lens-high:#ffb1a5;
+  --sky-top:#10112e;
+  --sky-mid:#191844;
+  --sky-bottom:#641447;
+  --agent-trail-1:#90caff;
+  --agent-trail-2:#a0e2b0;
+  --agent-trail-3:#f0d5a0;
+  --agent-trail-4:#e2b4f2;
+  --agent-trail-5:#99e1d8;
+  --agent-trail-6:#ffb1a5;
+  --sky-gradient:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 89%,var(--sky-bottom) 100%);
 }
-@media (prefers-color-scheme:light){:root{
-  --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FEFEFE; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
-  --shipped:#8A6F3F; --active:#296EA8; --ready:#347A4A; --buggap:#A6594E;
-  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;
-  --owner-override:#B832B8; --conflict:#B4560A;
-  --lens-low:#BFC2CC; --lens-mid:#9C7C45; --lens-high:#A6594E;
-  --agent-trail-1:#246CA7; --agent-trail-2:#347A4A; --agent-trail-3:#8A6326;
-  --agent-trail-4:#8A3D96; --agent-trail-5:#287A72; --agent-trail-6:#A64D48;
-}}
-:root[data-theme="dark"]{
-  --bg:#0B0D12; --bg2:#12151D; --panel:#131720; --ink:#E6E7EC; --mut:#8B90A0; --line:#242938;
-  --shipped:#D6C29A; --active:#4F9FE8; --ready:#74C98B; --buggap:#C27B6E;
-  --specced:#5A6378; --faint:#3A3F4E; --parked:#2D313D; --foundation:#8E7CC3; --accent:#C9A96A;
-  --owner-override:#E879F9; --conflict:#F0871F;
-  --lens-low:#3A3F4E; --lens-mid:#C9A96A; --lens-high:#C27B6E;
-  --agent-trail-1:#67B7FF; --agent-trail-2:#8BD49C; --agent-trail-3:#E4B86B;
-  --agent-trail-4:#D88CE8; --agent-trail-5:#77D2C8; --agent-trail-6:#F08C86;
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --bg:#e3e9f6;
+  --bg2:#eef3fb;
+  --panel:#f7f9ff;
+  --ink:#18223e;
+  --mut:#465578;
+  --line:#737f9b;
+  --shipped:#66501c;
+  --progress-track:#20365c;
+  --progress-fill:#ff941f;
+  --active:#164f85;
+  --ready:#205d3a;
+  --buggap:#8c303b;
+  --specced:#4b4975;
+  --faint:#4c5978;
+  --parked:#505a75;
+  --foundation:#60428a;
+  --accent:#72501c;
+  --owner-override:#872c7c;
+  --conflict:#894312;
+  --lens-low:#4c5978;
+  --lens-mid:#72501c;
+  --lens-high:#8c303b;
+  --sky-top:#c5d8ee;
+  --sky-mid:#e5ecf3;
+  --sky-bottom:#efd6e5;
+  --agent-trail-1:#164f85;
+  --agent-trail-2:#205d3a;
+  --agent-trail-3:#66501c;
+  --agent-trail-4:#734083;
+  --agent-trail-5:#245e59;
+  --agent-trail-6:#8c303b;
+  --sky-gradient:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 89%,var(--sky-bottom) 100%);
+}
 }
 :root[data-theme="light"]{
-  --bg:#F4F3EF; --bg2:#EAE8E1; --panel:#FEFEFE; --ink:#1A1D26; --mut:#5D6372; --line:#D8D5CC;
-  --shipped:#8A6F3F; --active:#296EA8; --ready:#347A4A; --buggap:#A6594E;
-  --specced:#848CA0; --faint:#BFC2CC; --parked:#D2D4DA; --foundation:#705DA3; --accent:#9C7C45;
-  --owner-override:#B832B8; --conflict:#B4560A;
-  --lens-low:#BFC2CC; --lens-mid:#9C7C45; --lens-high:#A6594E;
-  --agent-trail-1:#246CA7; --agent-trail-2:#347A4A; --agent-trail-3:#8A6326;
-  --agent-trail-4:#8A3D96; --agent-trail-5:#287A72; --agent-trail-6:#A64D48;
+  --bg:#e3e9f6;
+  --bg2:#eef3fb;
+  --panel:#f7f9ff;
+  --ink:#18223e;
+  --mut:#465578;
+  --line:#737f9b;
+  --shipped:#66501c;
+  --progress-track:#20365c;
+  --progress-fill:#ff941f;
+  --active:#164f85;
+  --ready:#205d3a;
+  --buggap:#8c303b;
+  --specced:#4b4975;
+  --faint:#4c5978;
+  --parked:#505a75;
+  --foundation:#60428a;
+  --accent:#72501c;
+  --owner-override:#872c7c;
+  --conflict:#894312;
+  --lens-low:#4c5978;
+  --lens-mid:#72501c;
+  --lens-high:#8c303b;
+  --sky-top:#c5d8ee;
+  --sky-mid:#e5ecf3;
+  --sky-bottom:#efd6e5;
+  --agent-trail-1:#164f85;
+  --agent-trail-2:#205d3a;
+  --agent-trail-3:#66501c;
+  --agent-trail-4:#734083;
+  --agent-trail-5:#245e59;
+  --agent-trail-6:#8c303b;
+  --sky-gradient:linear-gradient(180deg,var(--sky-top) 0%,var(--sky-mid) 89%,var(--sky-bottom) 100%);
 }
+:root[data-theme="light"]{color-scheme:light}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light}}

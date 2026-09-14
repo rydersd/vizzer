@@ -108,3 +108,10 @@ Maintained guides, concepts and design lessons live in [the wiki](../wiki/index.
 The [migration inventory](../wiki/documentation-map.md) maps former docs paths.
 `docs/` retains evidence and historical execution plans; forwarding pages stay
 available for old links but are excluded from the graph to avoid duplicates.
+
+## Change radar
+
+Open [the local radar](http://127.0.0.1:8480/radar.html) for differences across
+registered Vizzer installations. Its separate login watcher refreshes changed
+inputs every 30 seconds. See the [operating guide](../wiki/guides/change-radar.md)
+for registration, review, limits and service controls.

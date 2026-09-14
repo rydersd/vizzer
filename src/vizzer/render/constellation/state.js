@@ -11,15 +11,18 @@ const ACCEPTED_PLAN=DATA.planning||{};
 const GLAB = {shipped:'done', active:'active', ready:'ready', buggap:'regression', specced:'specced', faint:'backlog/idea', parked:'parked', foundation:'foundation'};
 const css = k => getComputedStyle(document.documentElement).getPropertyValue('--'+k).trim();
 let C = {}, RGB = {};
+const contrastColors=new Map();
 function rgbOf(col){ col=col.trim(); const m=col.match(/^#([0-9a-f]{6})\b/i);
   if (m){ const v=parseInt(m[1],16); return [v>>16&255,(v>>8)&255,v&255]; }
   const mm=col.match(/(\d+)[, ]+(\d+)[, ]+(\d+)/); return mm?[+mm[1],+mm[2],+mm[3]]:[128,128,128]; }
 const mixA = (a,b,t)=> a.map((v,i)=>Math.round(v+(b[i]-v)*t));
 const rgbCss = a => 'rgb('+a.join(',')+')';
-function recolor(){ for (const g of ['shipped','active','ready','buggap','specced','faint','parked','foundation']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
+function recolor(){ contrastColors.clear(); for (const g of ['shipped','active','ready','buggap','specced','faint','parked','foundation']){ C[g]=css(g); RGB[g]=rgbOf(C[g]); }
   C.owner=css('owner-override'); RGB.owner=rgbOf(C.owner);
   C.trails=Array.from({length:6},(_,i)=>css(`agent-trail-${i+1}`));
-  RGB.fade = rgbOf(css('faint')); }
+  RGB.fade = rgbOf(css('faint'));
+  RGB.ink=rgbOf(css('ink'));
+  RGB.sky=['sky-top','sky-mid','sky-bottom'].map(key=>rgbOf(css(key))); }
 recolor();
 if (typeof MutationObserver==='function')
   new MutationObserver(recolor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -237,3 +240,22 @@ function nodeColor(n){
   for(const tag of n.tags||[]){const color=(DATA.tagColors||{})[tag];if(typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color))return [1,3,5].map(i=>parseInt(color.slice(i,i+2),16));}
   return RGB[n.g];
 }
+
+// Contrast is checked against every gradient stop, including the magenta edge.
+// Cache by semantic color/state so orbiting does not recalculate the palette.
+function relativeLuminance(rgb){return rgb.reduce((sum,c,i)=>{
+  c/=255;return sum+[.2126,.7152,.0722][i]*(c<=.04045?c/12.92:((c+.055)/1.055)**2.4);
+},0);}
+function contrastRatio(a,b){const x=relativeLuminance(a),y=relativeLuminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+function contrastNodeColor(rgb,target=4.5){
+  const key=rgb.join(',')+':'+target;if(contrastColors.has(key))return contrastColors.get(key);
+  const enough=color=>RGB.sky.every(bg=>contrastRatio(color,bg)>=target);
+  let result=rgb;
+  if(!enough(result)){
+    const end=relativeLuminance(RGB.ink)>.5?[255,255,255]:[0,0,0];
+    for(let step=1;step<=100;step++){result=mixA(rgb,end,step/100);if(enough(result))break;}
+  }
+  contrastColors.set(key,result);return result;
+}
+const canvasVisible=n=>passesSharedFilters(n);
+const outsideCluster=n=>Boolean(capFocus||groupFocus)&&!passesHierarchyFocus(n);

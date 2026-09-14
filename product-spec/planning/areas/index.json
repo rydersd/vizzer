@@ -1,0 +1,4 @@
+[
+  {"id":"vizzer","title":"Vizzer · Product planning","project":"Vizzer","capability":"","storageNote":"Saved in Vizzer’s product-spec/planning/areas/vizzer. Plans remain separate from delivery Stories."},
+  {"id":"illtool-foundations","title":"IllTool · Foundation","project":"IllTool","storageNote":"Discussion is staged in Vizzer’s product spec. Publishing to IllTool’s canonical Foundation spec is blocked by its session registry; this is not yet a canonical IllTool record."}
+]

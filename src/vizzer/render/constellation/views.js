@@ -16,6 +16,7 @@ function viewCard(index,detail=''){
 const emptyPanel=message=>`<div class="viewemptycopy">${esc(message)}</div>`;
 const panelHead=(title,copy)=>`<header class="viewhead"><div><h1>${esc(title)}</h1><p>${esc(copy)}</p></div></header>`;
 function renderDashboard(entries){
+  const radar=DATA.radar?.enabled?`<section class="viewsection"><h2>Cross-project change radar</h2><p>${Object.entries(DATA.radar.counts||{}).map(([state,count])=>`${count} ${esc(state)}`).join(' · ')||'Register a project to begin'} · ${esc(DATA.radar.scannedAt||'Not scanned')}</p><a class="viewcard" href="radar.html">Open change proposals and adoption map →</a></section>`:'';
   // Project navigation is persistent, independently of delivery/search filters.
   const documents=(DATA.projectDocuments||[]).map(id=>nodeById.get(id))
     .filter(index=>index!==undefined);
@@ -38,7 +39,7 @@ function renderDashboard(entries){
     return `<section class="viewsection"><h2>${esc(label)} <span>${indexes.length}</span></h2><div class="viewgrid">${indexes.map(index=>viewCard(index)).join('')}</div></section>`;
   }).join('');
   const fallback=entries.filter(({node})=>(node.role||'delivery')==='delivery'&&node.rec).map(({index})=>viewCard(index)).join('');
-  return panelHead('Dashboard','Project documents, recommended next actions, and tracked work.')+projectHome+
+  return panelHead('Dashboard','Project documents, recommended next actions, and tracked work.')+radar+projectHome+
     (sections||fallback&&`<section class="viewsection"><h2>Recommended</h2><div class="viewgrid">${fallback}</div></section>`||emptyPanel('No dashboard candidates match the current filters.'))+register;
 }
 const roadmapParams=requestedViewParams();
@@ -135,7 +136,7 @@ function renderStructure(entries){
     const progress=delivery.length?` · ${shipped}/${delivery.length} delivery shipped`:'';
     const contract=group.p
       ?`<div class="structurecontract">${group.summary?`<p>${esc(group.summary)}</p>`:''}${group.h&&!SERVED?`<a href="${esc(group.h)}">read contract ${icon('arrow-up-right')}</a>`:`<button type="button" data-open-group="${esc(group.id)}">read contract</button>`}</div>`:'';
-    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${contract}${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
+    return `<details class="structuregroup depth-${depth}"${open}><summary><span><b>${esc(group.title)}${foundationalGroup(group,delivery.map(row=>row.node))?foundationChip():''}</b><small>${esc(group.kind)} · ${rows.length} item${rows.length===1?'':'s'}${esc(progress)}</small></span></summary><div class="structurebody">${contract}${children.map(child=>branch(child,depth+1)).join('')}${own.length?`<div class="structureitems">${own.map(({index})=>viewCard(index)).join('')}</div>`:''}</div></details>`;
   };
   const roots=[...includedGroups].map(id=>structureGroups.get(id)).filter(group=>
     group&&(!group.parent||!includedGroups.has(group.parent))).sort((a,b)=>a.title.localeCompare(b.title));

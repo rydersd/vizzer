@@ -129,8 +129,8 @@ for (const g of Object.keys(GLAB)){
   b.setAttribute('data-group',g);b.setAttribute('aria-pressed','true');
   b.title=`Click to toggle ${GLAB[g]}; hold to show only ${GLAB[g]}`;
   const dot = b.querySelector('i');
-  if (g==='specced'){ dot.style.border = '1.5px solid '+C[g]; }
-  else if(g!=='shipped'&&g!=='buggap')dot.style.background = C[g];
+  if (g==='specced'){ dot.style.border = `1.5px solid var(--${g})`; }
+  else if(g!=='shipped'&&g!=='buggap')dot.style.background = `var(--${g})`;
   lifecycleButtons[g]=b;
   bindToggleOrSolo(b,g,Object.keys(GLAB),filt,syncLifecycle);
   chips.appendChild(b);
@@ -204,8 +204,18 @@ const rail = document.getElementById('rail');
 const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
 const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
 const capTail=id=>id.includes(':')?id.slice(id.indexOf(':')+1):id;
-function meterMarkup(label,total,shipped,bugs,kind=''){
-  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}</span></span><span class="capcount">${shipped}/${total}</span></span>
+function foundationalGroup(group,nodes=[]){
+  const seen=new Set();let current=group;
+  while(current&&!seen.has(current.id)){
+    seen.add(current.id);
+    if(current.kind==='foundation'||current.foundational===true)return true;
+    current=(DATA.groups||[]).find(parent=>parent.id===current.parent);
+  }
+  return nodes.some(node=>(node.tags||[]).some(tag=>/^(foundation|foundational)$/i.test(tag)));
+}
+const foundationChip=()=>'<span class="foundationchip" title="Foundational work" aria-label="Foundational">F</span>';
+function meterMarkup(label,total,shipped,bugs,kind='',foundational=false){
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${shipped}/${total}</span></span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
 }
 function registerMeter(key,element,label,matches){
@@ -213,7 +223,8 @@ function registerMeter(key,element,label,matches){
 }
 function meterButton(key,label,matches,total,shipped,bugs,onSelect,container=rail,kind=''){
   const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
-  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind);
+  const group=(DATA.groups||[]).find(group=>group.id===key);
+  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind,foundationalGroup(group,deliveryNodes.filter(matches)));
   registerMeter(key,d,label,matches);
   d.onclick=()=>onSelect(d);container.appendChild(d);
   return d;
@@ -231,6 +242,7 @@ function selectHierarchy(button,capability,groupId=null){
   groupFocus=alreadySelected?null:groupId;
   syncRailSelection(button);
   applyViewState(button);
+  const area=planningAreaFor(capability,groupId);if(area)openPlanningArea(area.id);
 }
 function renderCapabilityAccordions(){
   const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
@@ -244,9 +256,10 @@ function renderCapabilityAccordions(){
     const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
     const details=document.createElement('details');details.className='railcapability';
     if(capFocus===capability||(!capFocus&&index===0))details.open=true;
-    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' '),summaryNodes.length,summaryShipped,summaryBugs);
+    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes));
+    summary.addEventListener('click',()=>{const area=planningAreaFor(capability);if(area)openPlanningArea(area.id);});
     details.appendChild(summary);
-    registerMeter(`capability:${capability}`,summary,root?.title||capability,summaryMatches);
+    registerMeter(`capability:${capability}`,summary,root?.title||capability||'Project',summaryMatches);
     details.addEventListener('toggle',()=>{
       if(!details.open)return;
       rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});
@@ -271,6 +284,7 @@ function renderCapabilityAccordions(){
   });
 }
 function renderRail(){
+  if(SERVED)setTimeout(()=>renderPlanningAreaLinks(),0);
   rail.replaceChildren();capabilityMeters.clear();
   if(hasAreaFacets){
     const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Areas';rail.appendChild(heading);

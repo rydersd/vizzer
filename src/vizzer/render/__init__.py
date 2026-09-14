@@ -13,6 +13,7 @@ from ..model import Graph
 # every renderer to exist during the staged build. Dict insertion order is the
 # canonical output order.
 RENDERERS = {
+    "radar": "radar",
     "roadmap": "roadmap",
     "feature_index": "feature_index",
     "lanes": "lanes",

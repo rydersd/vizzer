@@ -1,0 +1,19 @@
+[
+  {
+    "id": "2e5676ed-b9d7-4d1a-8c2e-a3c1f375a0b5",
+    "author": "Owner",
+    "text": "the capability should show the details now (overarching purpose of the capability and then any plans we've discussed. And there should be a chat view where i can ask questions and they are picked up and answered on the timer as a side process.",
+    "sha256": "629bfc7ef8b8407918755f73ba97da8b7f77b26d6c985ff2852431e54354c837",
+    "createdAt": "2026-09-13T17:55:49.236971+00:00",
+    "replyTo": null
+  },
+  {
+    "id": "codex-capability-ui-20260913",
+    "author": "Codex",
+    "text": "The local capability panel now has Overview & plans and Chat. Its purpose and plan summaries preserve our discussion; plans remain separate from delivery Stories. This request was copied verbatim from your Codex message into the area conversation.\n\nThe existing 15-minute desktop watch is updated to read these saved messages and append replies here; the open chat checks for saved replies every five seconds. This reply was written during the current task to verify the round trip, not by a scheduled wake. No model SDK or API client is involved.\n\nIllTool Foundation has its own clearly labeled staging discussion. Canonical publication remains blocked by the previously recorded IllTool session-registry issue. Claude is not connected yet.",
+    "sha256": "bf464105627ac7a7e304b2415ccecc6279d5e4a654aae7cf124f17cc43010faf",
+    "createdAt": "2026-09-13T17:56:03.047428+00:00",
+    "replyTo": "2e5676ed-b9d7-4d1a-8c2e-a3c1f375a0b5",
+    "replyToHash": "629bfc7ef8b8407918755f73ba97da8b7f77b26d6c985ff2852431e54354c837"
+  }
+]

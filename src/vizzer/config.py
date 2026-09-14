@@ -40,6 +40,7 @@ DEFAULT_STATUSES = [
 ]
 
 DEFAULTS = {
+    "radar": {"enabled": False},
     "project": {"name": "project"},
     # Zero preserves portable ephemeral binding; projects may pin a bookmarkable
     # loopback port without teaching every invocation the number.
