@@ -100,7 +100,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 .railcapability[open]{border-color:var(--line);background:color-mix(in srgb,var(--panel) 76%,transparent)}
 .railcapability>summary{position:relative;list-style:none;padding:7px 8px;cursor:pointer;min-height:44px}
 .railcapability>summary::-webkit-details-marker{display:none}
-.railcapability>summary::before{content:'';position:absolute;left:12px;top:12px;width:16px;height:16px;background:var(--ink);mask:var(--accordion-chevron) center / 12px 12px no-repeat;transform-origin:50% 50%;transition:transform .16s ease}
+.railcapability>summary::before{content:'';position:absolute;left:12px;top:calc(7px + var(--sidebar-type-size)*.625 - 8px);width:16px;height:16px;background:var(--ink);mask:var(--accordion-chevron) center / 12px 12px no-repeat;transform-origin:50% 50%;transition:transform .16s ease}
 .railcapability[open]>summary::before{transform:rotate(90deg)}
 .railcapability>summary .caphead,.railcapability>summary .capbar{margin-left:38px}
 .railcapabilitybody{display:grid;gap:1px;padding:0 5px 6px 34px;border-top:1px solid color-mix(in srgb,var(--line) 62%,transparent)}
