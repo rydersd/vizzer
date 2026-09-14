@@ -63,3 +63,10 @@ separate, larger clickable summary row. This supersedes the prior geometry.
 Text-size and theme controls share the Views control’s 24px outer height. Theme
 glyphs use a 14px box; text-size previews remain compact without changing the
 selected reading size.
+
+### Owner correction — 2026-09-13, chevron weight
+
+Replace the heavy filled accordion arrows with a shared 16px chevron using a
+2px rounded stroke. Keep the existing centered quarter-turn on expand across
+capability, hierarchy/plans and story accordions. This supersedes the filled
+polygon treatment, while preserving the requested 16px visual size.
