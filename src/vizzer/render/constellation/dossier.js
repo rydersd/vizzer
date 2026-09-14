@@ -324,7 +324,7 @@ function openNode(i,{inPlace=false}={}){
 
 // Product-area discussions use repository files, read by the desktop timer.
 let planningAreas=[], activePlanningArea=null, areaRequest=0;
-const areaDrafts=new Map();
+const areaDrafts=new Map(),areaPending=new Map();
 function planningAreaFor(capability,groupId){
   return planningAreas.find(area=>area.capability===capability&&(!groupId||area.groupId===groupId));
 }
@@ -372,19 +372,24 @@ async function openPlanningArea(id){
     input.value=areaDrafts.get(id)||'';input.oninput=()=>areaDrafts.set(id,input.value);
     let signature='';
     const update=data=>{
+      const pending=areaPending.get(id);
+      if(pending&&data.messages.some(message=>message.id===pending.id&&message.author==='Owner'&&message.text===pending.text)){
+        if((areaDrafts.get(id)||'').trim()===pending.text){areaDrafts.delete(id);input.value='';}
+        areaPending.delete(id);
+      }
       const next=JSON.stringify(data.messages);if(next===signature)return;signature=next;
       messages.innerHTML=data.messages.map(message=>`<article><b>${esc(message.author)}</b><time>${esc(new Date(message.createdAt).toLocaleString())}</time><div class="areamessagebody">${esc(message.text)}</div></article>`).join('')||'<p>No messages yet. Start the discussion below.</p>';
       status.textContent=!data.messages.length?'Ready for your first question':data.pending?`${data.pending} question${data.pending===1?'':'s'} saved · awaiting desktop response`:'All saved questions answered';
     };update(area);
-    let pendingId=null,pendingText=null;
     form.onsubmit=async event=>{
       event.preventDefault();const text=input.value.trim();if(!text)return;
-      if(pendingText!==text){pendingText=text;pendingId=crypto.randomUUID();}
+      let pending=areaPending.get(id);
+      if(!pending||pending.text!==text){pending={id:crypto.randomUUID(),text};areaPending.set(id,pending);}
       send.disabled=true;status.textContent='Saving…';
       try{
-        const result=await fetch('/api/area-chat/'+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':area.csrfToken},body:JSON.stringify({id:pendingId,text})});
+        const result=await fetch('/api/area-chat/'+encodeURIComponent(id),{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':area.csrfToken},body:JSON.stringify({id:pending.id,text})});
         const data=await result.json();if(!result.ok)throw new Error(data.error||'Could not save message');
-        if(input.value.trim()===text){input.value='';areaDrafts.delete(id);}pendingId=null;pendingText=null;update(data);
+        if((areaDrafts.get(id)||'').trim()===text){areaDrafts.delete(id);if(input.value.trim()===text)input.value='';}if(areaPending.get(id)===pending)areaPending.delete(id);update(data);
       }catch(error){status.textContent=error.message+' · Your draft is retained.';}finally{send.disabled=false;}
     };
     const poll=async()=>{

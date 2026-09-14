@@ -12,7 +12,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 #top{position:fixed;top:0;left:0;right:0;display:grid;grid-template-columns:minmax(0,1fr) repeat(4,max-content);grid-template-rows:32px 28px auto;align-items:center;gap:4px 14px;padding:8px 16px 6px;
   background:linear-gradient(to bottom,var(--bg) 30%,transparent);z-index:5;pointer-events:none}
 #top>*{pointer-events:auto}
-#title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+#title{line-height:24px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
 #title b{color:var(--ink);font-weight:600}
 #title small{margin-left:8px;color:var(--mut);font-size:9px;letter-spacing:.06em}
 #viewmenu{position:relative;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut)}
@@ -154,4 +154,4 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #top #themechoice button.on{background:var(--ink);color:var(--panel)}
 :where(button,a,input,select,summary):focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 input::placeholder{color:var(--mut);opacity:1}
-@media(max-width:760px){#themechoice{grid-row:2;grid-column:4 / -1}#top{column-gap:6px}#title{letter-spacing:0}#top #themechoice button{min-width:28px}}
+@media(max-width:760px){#top{grid-template-columns:minmax(0,1fr) repeat(2,max-content);grid-template-rows:32px 28px 28px auto;column-gap:6px}#title{grid-row:1;grid-column:1;letter-spacing:0}#viewmenu{grid-row:1;grid-column:2}#exportmenu{grid-row:1;grid-column:3}#sidebartype{grid-row:3;grid-column:1;justify-self:start}#themechoice{grid-row:3;grid-column:2 / -1;justify-self:end}#chips{grid-row:4;flex-wrap:nowrap;max-height:36px}#top #themechoice button{min-width:28px}}

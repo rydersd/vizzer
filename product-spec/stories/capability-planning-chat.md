@@ -34,3 +34,15 @@ then observed a real Codex reply appear through polling without a reload.
 That reply was written during the active task, not a scheduled wake. The existing
 15-minute desktop heartbeat was updated successfully; a future scheduled run
 against this new inbox has not yet been observed. Claude is not connected.
+
+## Repair scope — 2026-09-13
+
+Owner authorized repairing review findings before downstream integration. Preserve
+per-area pending request identity across panel reopen and reconcile saved IDs on
+GET/poll. Reply writers must supply the question-text hash they reasoned from;
+edited questions reopen until answered at that hash. Preserve prior replies.
+The added appearance controls must also fit narrow headers without covering counts.
+
+Repair validation: 636 full-suite tests and 9 subtests passed; seven focused chat
+checks cover both uncertain-save routes and revised-parent reply behavior. The
+physical Chrome dossier test also verifies narrow navigation and scrolling.

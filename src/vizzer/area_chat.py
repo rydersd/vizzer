@@ -48,13 +48,14 @@ def read_area(root: Path, area: str) -> dict:
         path = safe(root, BASE / area / name)
         return path.read_text() if path.exists() else ''
     messages = json.loads(read('messages.json') or '[]')
-    answered = {m.get('replyTo') for m in messages if m['author'] != 'Owner'}
+    answered = {(m.get('replyTo'), m.get('replyToHash')) for m in messages if m['author'] != 'Owner'}
     return {**meta, 'purpose': read('purpose.md'), 'plans': read('plans.md'),
-            'messages': messages, 'pending': sum(m['author'] == 'Owner' and m['id'] not in answered for m in messages)}
+            'messages': messages, 'pending': sum(m['author'] == 'Owner' and (m['id'], hashlib.sha256(m['text'].encode()).hexdigest()) not in answered for m in messages)}
 
 
 def append_message(root: Path, area: str, message_id: str, text: str,
-                   *, author: str = 'Owner', reply_to: str | None = None) -> dict:
+                   *, author: str = 'Owner', reply_to: str | None = None,
+                   expected_parent_hash: str | None = None) -> dict:
     directory = area_dir(root, area)
     if not isinstance(message_id, str) or not KEY.fullmatch(message_id):
         raise ValueError('invalid message ID')
@@ -69,23 +70,30 @@ def append_message(root: Path, area: str, message_id: str, text: str,
         state = read_area(root, area)
         messages = state['messages']
         digest = hashlib.sha256(text.encode()).hexdigest()
+        if author != 'Owner' and not expected_parent_hash:
+            raise ValueError('reply requires expected parent hash')
         existing = next((m for m in messages if m['id'] == message_id), None)
         if existing:
             if (existing['sha256'], existing['author'], existing.get('replyTo')) != (digest, author, reply_to):
                 raise ValueError('message ID already used for different content')
+            if author != 'Owner' and existing.get('replyToHash') != expected_parent_hash:
+                raise ValueError('message ID already used for different parent content')
             return existing
         if author != 'Owner':
             parent = next((m for m in messages if m['id'] == reply_to and m['author'] == 'Owner'), None)
             if not parent:
                 raise ValueError('reply must reference an owner message in this area')
-            if any(m.get('replyTo') == reply_to for m in messages):
+            parent_hash = hashlib.sha256(parent['text'].encode()).hexdigest()
+            if expected_parent_hash != parent_hash:
+                raise ValueError('owner message changed; reread before replying')
+            if any(m.get('replyTo') == reply_to and m.get('replyToHash') == parent_hash for m in messages):
                 raise ValueError('owner message already answered')
         elif reply_to:
             raise ValueError('owner message cannot mark another question answered')
         row = {'id': message_id, 'author': author, 'text': text, 'sha256': digest,
                'createdAt': datetime.now(timezone.utc).isoformat(), 'replyTo': reply_to}
         if author != 'Owner':
-            row['replyToHash'] = parent['sha256']
+            row['replyToHash'] = parent_hash
         messages.append(row)
         target = safe(root, BASE / area / 'messages.json')
         fd, temporary = tempfile.mkstemp(dir=directory, prefix='.messages-')

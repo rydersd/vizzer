@@ -58,10 +58,12 @@ without a reply. It can respond with the Python helper from the Vizzer checkout:
 
 ```python
 from pathlib import Path
+import hashlib
 from vizzer.area_chat import append_message
 append_message(Path('/Users/ryders/Developer/GitHub/project_vizzer'),
                area_id, reply_id, response_text,
-               author='Codex', reply_to=owner_message_id)
+               author='Codex', reply_to=owner_message_id,
+               expected_parent_hash=hashlib.sha256(owner_message_text.encode()).hexdigest())
 ```
 
 Use `PYTHONPATH=src` for the helper. Never hand-edit messages.json: the helper locks,
@@ -76,3 +78,7 @@ The Vizzer area is local. IllTool Foundation is explicitly labeled staging here:
 its session registry prevented canonical writes. Continue discussion locally without
 repeated blocker notifications; publish canonical records only after its required
 coordination succeeds. No SDK, model API client or separate model runner is used.
+
+Replies must pass the hash of the question text actually read before reasoning.
+If the question changes before saving, the helper rejects the stale reply; reread
+and reconsider it. Older answers remain attributed to their original text hash.
