@@ -70,3 +70,5 @@ Replace the heavy filled accordion arrows with a shared 16px chevron using a
 2px rounded stroke. Keep the existing centered quarter-turn on expand across
 capability, hierarchy/plans and story accordions. This supersedes the filled
 polygon treatment, while preserving the requested 16px visual size.
+
+Owner correction 2026-09-13: halve the visible chevron from 16px to 8px, retaining its centered rotation and existing click target. Port this treatment to IllTool as requested.
