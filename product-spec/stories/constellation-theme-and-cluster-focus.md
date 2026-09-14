@@ -72,3 +72,5 @@ capability, hierarchy/plans and story accordions. This supersedes the filled
 polygon treatment, while preserving the requested 16px visual size.
 
 Owner correction 2026-09-13: halve the visible chevron from 16px to 8px, retaining its centered rotation and existing click target. Port this treatment to IllTool as requested.
+
+Owner correction 2026-09-13: restore the visible chevron to 16px in Vizzer and the IllTool port; retain the light stroke and centered rotation. This supersedes the half-size adjustment above.
