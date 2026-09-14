@@ -1,6 +1,6 @@
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
-:root{--rail-width:236px;--sidebar-type-size:12px;--search-top:116px;--rail-top:158px}
+:root{--toolbar-control-height:24px;--rail-width:236px;--sidebar-type-size:12px;--search-top:116px;--rail-top:158px}
 body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink);font:14px/1.5 system-ui,-apple-system,sans-serif;overflow:hidden}
 #bgcv,#cv{position:fixed;inset:0;width:100vw;height:100vh}
 #bgcv{pointer-events:none}
@@ -16,7 +16,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 #title b{color:var(--ink);font-weight:600}
 #title small{margin-left:8px;color:var(--mut);font-size:9px;letter-spacing:.06em}
 #viewmenu{position:relative;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut)}
-#viewmenu summary{list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--ink)}
+#viewmenu summary{box-sizing:border-box;height:var(--toolbar-control-height);list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--ink)}
 #viewmenu summary::-webkit-details-marker{display:none}
 #viewmenu summary::after{content:' ▾';color:var(--mut)}
 #viewmenu[open] summary{border-color:var(--accent)}
@@ -25,7 +25,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 #viewmenu a:hover,#viewmenu a:focus-visible{color:var(--ink);background:var(--bg2);outline:none}
 #viewmenu a[aria-current="page"]{color:var(--accent);font-weight:700}
 #exportmenu{position:relative;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;color:var(--mut)}
-#exportmenu summary{list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--mut)}
+#exportmenu summary{box-sizing:border-box;height:var(--toolbar-control-height);list-style:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;background:var(--panel);cursor:pointer;color:var(--mut)}
 #exportmenu summary::-webkit-details-marker{display:none}
 #exportmenu summary::after{content:' ▾';color:var(--mut)}
 #exportmenu[open] summary{color:var(--ink);border-color:var(--mut)}
@@ -58,7 +58,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 .seg button:last-child{border-right:none}
 .seg button.on{color:var(--ink);background:var(--bg2)}
 .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.typeseg{height:32px;border-radius:7px;align-items:stretch}.typeseg button{display:grid;place-items:center;width:34px;padding:0;letter-spacing:0;line-height:1}.typeseg button[data-sidebar-size="12"]{font-size:12px}.typeseg button[data-sidebar-size="14"]{font-size:14px}.typeseg button[data-sidebar-size="16"]{font-size:16px}
+.typeseg{box-sizing:border-box;height:var(--toolbar-control-height);border-radius:6px;align-items:stretch}.typeseg button{display:grid;place-items:center;width:28px;padding:0;letter-spacing:0;line-height:1}.typeseg button[data-sidebar-size="12"]{font-size:10px}.typeseg button[data-sidebar-size="14"]{font-size:12px}.typeseg button[data-sidebar-size="16"]{font-size:14px}
 .clearx{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1;width:22px;height:22px;padding:0;
   border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;align-self:center}
 .clearx:hover{color:var(--ink);border-color:var(--mut)}
@@ -149,8 +149,8 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 /* Keep segmented controls intact when the self-hosted app runs in a narrow panel. */
 #chips>*{flex-shrink:0}
 
-#themechoice{gap:0;background:var(--panel);border:1px solid var(--line);border-radius:6px}
-#top #themechoice button{min-width:32px;min-height:30px;color:var(--ink);font-size:19px}
+#themechoice{box-sizing:border-box;height:var(--toolbar-control-height);gap:0;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+#top #themechoice button{display:grid;place-items:center;width:28px;min-width:28px;min-height:0;padding:0;color:var(--ink);font-size:14px;line-height:1}#themechoice svg{width:14px;height:14px}
 #top #themechoice button.on{background:var(--ink);color:var(--panel)}
 :where(button,a,input,select,summary):focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 input::placeholder{color:var(--mut);opacity:1}

@@ -57,3 +57,9 @@ authored foundation/foundational-tagged work; dependency alone is not classifica
 The 28px treatment was too large. Accordion chevrons now have a 16px visible
 bounding box in both orientations, retaining fixed-center rotation and the
 separate, larger clickable summary row. This supersedes the prior geometry.
+
+### Toolbar sizing — 2026-09-13
+
+Text-size and theme controls share the Views control’s 24px outer height. Theme
+glyphs use a 14px box; text-size previews remain compact without changing the
+selected reading size.
