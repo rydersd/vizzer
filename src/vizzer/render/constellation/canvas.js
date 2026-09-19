@@ -8,7 +8,14 @@ let W,H,DPR; function size(){ DPR=Math.min(devicePixelRatio,2); W=innerWidth; H=
   ctx=nodeCtx;} size(); addEventListener('resize',size);
 let rx=-.35, ry=.6, zoom=1, panX=0, panY=0, vx=0, vy=0;
 const P = DATA.nodes.map(()=>({x:0,y:0,s:0,d:0,on:true,near:0}));
-const nodeRadius = i => Math.max(3,P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1)));
+const FOCUS_BACKGROUND_TIER=.3, FOCUS_BACKGROUND_SCALE=.6, FOCUS_DESATURATE=.8;
+const desaturate=(rgb,amount)=>{const grey=Math.round(.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]);return mixA(rgb,[grey,grey,grey],amount);};
+function nodePaintColor(rgb,focusAlpha,tier){
+  if(tier<FOCUS_BACKGROUND_TIER)return mixA(desaturate(rgb,FOCUS_DESATURATE),RGB.bg,1-focusAlpha);
+  return contrastNodeColor(mixA(rgb,RGB.fade,1-focusAlpha),focusAlpha<.5?3.2:4.5);
+}
+const nodeRadius = i => Math.max(3,P[i].s*(sizeMode==='time' ? DATA.nodes[i].tw : (DATA.nodes[i].w||1)))
+  *(focusBackground(i)?FOCUS_BACKGROUND_SCALE:1);
 // Canvas nodes are intentionally tiny, but their pointer target must not be.
 // Fourteen screen pixels keeps adjacent nodes distinguishable while making a
 // normal mouse click survive sub-pixel projection and hand jitter.
@@ -100,6 +107,326 @@ function project(){
     p.on = canvasVisible(n)&&insideCanvasInteractionBounds(p.x,p.y,bounds);
   });
 }
+// Derived, cached, concave capability regions. This is the generic extraction
+// of the downstream constellation algorithm: only projected nodes, the
+// canvas bounds, and optional hierarchy titles are inputs.
+const HULL_ALPHA=.07, HULL_LABEL_ALPHA=.55, HULL_MIN_NODES=4, HULL_MIN_WIDTH=60, HULL_DIM_TIER=.25;
+const HULL_LABEL_FONT='11px ui-monospace,monospace', HULL_LABEL_LINE=16;
+// A hull edge longer than this many mean member spacings (sqrt of the bounding
+// area per member) is dug inward toward the members; shorter edges already hug them.
+const HULL_DIG_SPACINGS=3.5;
+// Ring search for a name that found no slot: step outward this many px per
+// ring, this many directions per ring, until the canvas is exhausted.
+const HULL_LABEL_RING_STEP=12, HULL_LABEL_RING_DIRECTIONS=16, HULL_LABEL_GRID=8;
+let hullCache={key:'',hulls:[]}, hullComputeMs=0;
+const capColorIndex=new Map([...caps].sort().map((capability,index)=>[capability,index]));
+function hslRgb(h,s=.62,l=.57){
+  const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;
+  let rgb=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
+  return rgb.map(value=>Math.round((value+m)*255));
+}
+
+const capabilityColor = c => hslRgb(((capColorIndex.get(c)??0)*137.508)%360);
+function capabilityTitle(c){
+  const root=(DATA.groups||[]).find(group=>!group.parent&&group.id.split(':').pop()===c);
+  return root?.title||String(c).replace(/-/g,' ');
+}
+// Andrew's monotone chain; returns the hull counter-clockwise in canvas
+// coordinates (interior on the left of each edge), collinear points dropped.
+function convexHull(points){
+  if(points.length<3)return points.slice();
+  const sorted=points.slice().sort((a,b)=>a.x-b.x||a.y-b.y);
+  const cross=(o,a,b)=>(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x);
+  const lower=[];
+  for(const point of sorted){
+    while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],point)<=0)lower.pop();
+    lower.push(point);
+  }
+  const upper=[];
+  for(let index=sorted.length-1;index>=0;index--){
+    const point=sorted[index];
+    while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],point)<=0)upper.pop();
+    upper.push(point);
+  }
+  lower.pop();upper.pop();
+  return lower.concat(upper);
+}
+// Do segments ab and cd properly cross (sharing an endpoint does not count)?
+const orient=(p,q,r)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+function segmentsCross(a,b,c,d){
+  const o1=orient(a,b,c),o2=orient(a,b,d);
+  if(!((o1>0&&o2<0)||(o1<0&&o2>0)))return false;
+  const o3=orient(c,d,a),o4=orient(c,d,b);
+  return (o3>0&&o4<0)||(o3<0&&o4>0);
+}
+// Concave hull: Park & Oh edge digging on the convex hull. Every edge longer
+// than maxEdge is replaced by two edges through the interior member nearest
+// that edge's LINE whose foot lies within the segment. Any member inside the
+// removed triangle would be nearer the edge than the chosen one, so digging
+// to the nearest never drops a member outside; a dig whose new edges would
+// cross the outline is skipped, so the polygon stays simple. Deterministic:
+// the seed hull is ordered, edges are visited in order and re-visited after a
+// dig, ties break on the members' order. Orientation matches convexHull
+// (interior on the left of each edge, cross > 0). Interior coordinates are
+// staged in flat arrays: the candidate scan is the hot loop.
+function concaveHull(points,maxEdge){
+  const hull=convexHull(points);
+  if(hull.length<3||!(maxEdge>0))return hull;
+  const onHull=new Set(hull);
+  const inside=points.filter(point=>!onHull.has(point));
+  const count=inside.length,ix=new Float64Array(count),iy=new Float64Array(count),free=new Uint8Array(count);
+  for(let k=0;k<count;k++){ix[k]=inside[k].x;iy[k]=inside[k].y;free[k]=1;}
+  let remaining=count;
+  const maxEdge2=maxEdge*maxEdge,cross=segmentsCross;  // bound once: a global lookup per pair is the vm's slow path
+  for(let index=0;index<hull.length&&remaining;){
+    const a=hull[index],b=hull[(index+1)%hull.length];
+    const ax=a.x,ay=a.y,ex=b.x-ax,ey=b.y-ay,length2=ex*ex+ey*ey;
+    if(length2<=maxEdge2){index++;continue;}
+    let best=-1,bestDistance=1e300;
+    for(let k=0;k<count;k++){
+      if(!free[k])continue;
+      const px=ix[k]-ax,py=iy[k]-ay;
+      const along=px*ex+py*ey;
+      if(along<=0||along>=length2)continue;
+      // >= 0: on the interior side, or ON the edge. A member lying on a hull
+      // edge is not a hull vertex (convexHull drops collinear points) and has
+      // distance 0, so it must be the first dig on that edge — skipping it
+      // and digging past it would leave it outside the polygon (review of
+      // #1336: six of fifteen grid-aligned members fell outside their hull).
+      const cross=ex*py-ey*px;
+      if(cross<-1e-6)continue;
+      const distance=cross*cross;         // squared perpendicular distance times length2
+      if(distance<bestDistance){bestDistance=distance;best=k;}
+    }
+    if(best<0){index++;continue;}
+    const c=inside[best];
+    let crosses=false;
+    for(let e=0;e<hull.length&&!crosses;e++){
+      if(e===index)continue;
+      const p=hull[e],q=hull[(e+1)%hull.length];
+      if(cross(a,c,p,q)||cross(c,b,p,q))crosses=true;
+    }
+    if(crosses){index++;continue;}
+    hull.splice(index+1,0,c);free[best]=0;remaining--;
+  }
+  return hull;
+}
+// Label text width. The node vm's recording context cannot measure text
+// (width 0); 11px ui-monospace runs ~6.6px per glyph, so that estimate stands
+// in wherever a measurement is unavailable and the placement stays testable.
+function hullLabelWidth(text){
+  const measured=bgctx.measureText(text).width;
+  return measured>0?measured:text.length*6.6;
+}
+const rectsOverlap=(a,b)=>a.x0<b.x1&&b.x0<a.x1&&a.y0<b.y1&&b.y0<a.y1;
+// Where a capability's name may sit: above the hull (centred, then hugging
+// either corner), below it likewise, then left, then right. The first slot
+// whose text box is inside the canvas, clear of every label already placed
+// and clear of every on-screen node's painted glyph wins;
+// a name with no free slot is hidden rather than printed over something.
+// The focused capability chooses first, then bigger regions, so the map's
+// main areas keep their names.
+function placeHullLabels(hulls,nodeBoxes,bounds){
+  const gap=4,half=HULL_LABEL_LINE/2;
+  const placed=[];
+  hulls.sort((a,b)=>(b.c===clusterFocus)-(a.c===clusterFocus)||b.members-a.members||a.c.localeCompare(b.c));
+  for(const entry of hulls){
+    const w=hullLabelWidth(entry.title)/2+gap,{minX,maxX,minY,maxY,pad,reach}=entry;
+    const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    // The hull runs through node CENTRES; the widest painted glyph on its rim
+    // reaches `reach` past it, so the name clears that, not just the pad.
+    const clear=Math.max(pad,reach)+gap;
+    const above=minY-clear-half,below=maxY+clear+half;
+    // Every slot lies within this margin of the hull's box, so only the nodes
+    // inside it can collide; one pass over the nodes per hull, not per slot.
+    const margin={x0:minX-clear-2*w,x1:maxX+clear+2*w,y0:above-half,y1:below+half};
+    const nearby=nodeBoxes.filter(node=>rectsOverlap(margin,node));
+    const slots=[
+      {x:cx,y:above},{x:minX+w,y:above},{x:maxX-w,y:above},
+      {x:cx,y:below},{x:minX+w,y:below},{x:maxX-w,y:below},
+      {x:minX-clear-w,y:cy},{x:maxX+clear+w,y:cy},
+    ];
+    entry.label=null;
+    for(const slot of slots){
+      const box={x0:slot.x-w,x1:slot.x+w,y0:slot.y-half,y1:slot.y+half};
+      if(box.x0<bounds.left||box.x1>bounds.right||box.y0<bounds.top||box.y1>bounds.bottom)continue;
+      if(placed.some(other=>rectsOverlap(box,other)))continue;
+      if(nearby.some(node=>rectsOverlap(box,node)))continue;
+      entry.label={x:slot.x,y:slot.y,box,leader:null};break;
+    }
+    if(!entry.label)entry.label=placeHullLabelOnRing(entry,w,half,placed,nodeBoxes,bounds);
+    placed.push(entry.label.box);
+  }
+}
+// A name with no free slot beside its hull (iteration 3: "Automation" hid at
+// rest in the crowded centre) walks outward on rings around the hull until a
+// spot is clear of every node and every placed name, and draws a leader back
+// to the hull. The node boxes are rasterised into a coarse occupancy grid
+// once per pass, so each candidate costs a handful of cell reads. Should the
+// whole canvas be occupied, the name still prints at its first slot clamped
+// inside the canvas: a name is never dropped.
+let hullLabelGrid=null;
+function hullLabelOccupancy(nodeBoxes,bounds){
+  if(hullLabelGrid)return hullLabelGrid;
+  const cell=HULL_LABEL_GRID,cols=Math.ceil(W/cell)+1,rows=Math.ceil(H/cell)+1;
+  const cells=new Uint8Array(cols*rows);
+  const clampCol=v=>{ const c=(v/cell)|0; return c<0?0:(c>cols-1?cols-1:c); };
+  const clampRow=v=>{ const r=(v/cell)|0; return r<0?0:(r>rows-1?rows-1:r); };
+  for(const box of nodeBoxes){
+    const c0=clampCol(box.x0),c1=clampCol(box.x1),r0=clampRow(box.y0),r1=clampRow(box.y1);
+    for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++)cells[r*cols+c]=1;
+  }
+  const occupied=box=>{
+    const c0=clampCol(box.x0),c1=clampCol(box.x1),r0=clampRow(box.y0),r1=clampRow(box.y1);
+    for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++)if(cells[r*cols+c])return true;
+    return false;
+  };
+  return hullLabelGrid={occupied};
+}
+// The ring directions, top first then alternating sides, so a name prefers
+// to sit above its hull; computed once.
+const HULL_LABEL_RING_ANGLES=Array.from({length:HULL_LABEL_RING_DIRECTIONS},(_,d)=>{
+  const angle=-Math.PI/2+(d%2?1:-1)*Math.ceil(d/2)*2*Math.PI/HULL_LABEL_RING_DIRECTIONS;
+  return [Math.cos(angle),Math.sin(angle)];
+});
+function placeHullLabelOnRing(entry,w,half,placed,nodeBoxes,bounds){
+  const {minX,maxX,minY,maxY,pad,reach}=entry;
+  const cx=(minX+maxX)/2,cy=(minY+maxY)/2,halfW=(maxX-minX)/2,halfH=(maxY-minY)/2;
+  const clear=(pad>reach?pad:reach)+4;
+  const grid=hullLabelOccupancy(nodeBoxes,bounds);
+  const maxRing=Math.ceil(Math.max(W,H)/HULL_LABEL_RING_STEP);
+  for(let ring=1;ring<=maxRing;ring++){
+    const offset=clear+ring*HULL_LABEL_RING_STEP;
+    for(const [cos,sin] of HULL_LABEL_RING_ANGLES){
+      const x=cx+(halfW+w+offset)*cos,y=cy+(halfH+half+offset)*sin;
+      const box={x0:x-w,x1:x+w,y0:y-half,y1:y+half};
+      if(box.x0<bounds.left||box.x1>bounds.right||box.y0<bounds.top||box.y1>bounds.bottom)continue;
+      if(placed.some(other=>rectsOverlap(box,other)))continue;
+      if(grid.occupied(box))continue;
+      return {x,y,box,leader:hullLeader(entry,box)};
+    }
+  }
+  const x=Math.min(bounds.right-w,Math.max(bounds.left+w,cx));
+  const y=Math.min(bounds.bottom-half,Math.max(bounds.top+half,minY-clear-half));
+  return {x,y,box:{x0:x-w,x1:x+w,y0:y-half,y1:y+half},leader:null};
+}
+// Leader from the label box edge nearest the hull to the hull vertex nearest
+// the label; null when the label already touches the hull's box.
+function hullLeader(entry,box){
+  const cx=(box.x0+box.x1)/2,cy=(box.y0+box.y1)/2;
+  let vertex=null,best=Infinity;
+  for(const point of entry.hull){
+    const d=Math.hypot(point.x-cx,point.y-cy);
+    if(d<best){best=d;vertex=point;}
+  }
+  if(!vertex)return null;
+  const gap=Math.max(entry.pad,entry.reach)+4;
+  if(vertex.x>=box.x0-gap&&vertex.x<=box.x1+gap&&vertex.y>=box.y0-gap&&vertex.y<=box.y1+gap)return null;
+  // Exit the box where the line to the vertex leaves it.
+  const dx=vertex.x-cx,dy=vertex.y-cy;
+  const sx=dx!==0?Math.abs((box.x1-box.x0)/2/dx):Infinity,sy=dy!==0?Math.abs((box.y1-box.y0)/2/dy):Infinity;
+  const t=Math.min(sx,sy)*1.15;
+  return {x0:cx+dx*t,y0:cy+dy*t,x1:vertex.x,y1:vertex.y};
+}
+// Where a capability name may be printed: the canvas interaction bounds less
+// the snail-trails dock (#historydock), which is fixed over the bottom of the
+// canvas — a name placed under it is as good as dropped (review of #1336: at
+// 1000x700 "Platform Shell" sat under the dock). The vm's DOM stub reports a
+// whole-viewport rect for every element (top 0), which cannot be a dock, so
+// only a rect that starts below the interaction top counts.
+function hullLabelBounds(){
+  const bounds=canvasInteractionBounds();
+  const dock=document.getElementById('historydock');
+  const rect=dock&&typeof dock.getBoundingClientRect==='function'?dock.getBoundingClientRect():null;
+  if(rect&&rect.height>0&&rect.top>bounds.top&&rect.top<bounds.bottom)bounds.bottom=rect.top-4;
+  return bounds;
+}
+function computeCapabilityHulls(){
+  const started=performance.now();
+  const members=new Map(),radii=new Map(),reach=new Map(),nodeBoxes=[];
+  DATA.nodes.forEach((n,i)=>{
+    const p=P[i];if(!p.on)return;
+    let list=members.get(n.c);if(!list){list=[];members.set(n.c,list);radii.set(n.c,0);reach.set(n.c,0);}
+    const r=nodeRadius(i),painted=nodePaintRadius(i);
+    list.push({x:p.x,y:p.y});radii.set(n.c,radii.get(n.c)+r);
+    if(painted>reach.get(n.c))reach.set(n.c,painted);
+    // A node blended into the sky by cluster focus is background; a name may
+    // sit over it, but never over a node that is actually legible.
+    if(clusterTier(n.c)>=FOCUS_BACKGROUND_TIER)
+      nodeBoxes.push({x0:p.x-painted,x1:p.x+painted,y0:p.y-painted,y1:p.y+painted});
+  });
+  const hulls=[];
+  for(const [c,list] of members){
+    if(list.length<HULL_MIN_NODES)continue;
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for(const point of list){
+      if(point.x<minX)minX=point.x;if(point.x>maxX)maxX=point.x;
+      if(point.y<minY)minY=point.y;if(point.y>maxY)maxY=point.y;
+    }
+    const pad=1.5*radii.get(c)/list.length;
+    if(maxX-minX+2*pad<HULL_MIN_WIDTH)continue;
+    // Mean member spacing from the bounding area; the dig length follows it,
+    // so the outline hugs the epic clumps at any zoom.
+    const spacing=Math.sqrt(Math.max(1,(maxX-minX)*(maxY-minY))/list.length);
+    const hull=concaveHull(list,Math.max(HULL_DIG_SPACINGS*spacing,2*pad));
+    if(hull.length<3)continue;
+    hulls.push({c,title:capabilityTitle(c),members:list.length,hull,pad,reach:reach.get(c),minX,maxX,minY,maxY});
+  }
+  bgctx.font=HULL_LABEL_FONT;
+  hullLabelGrid=null;
+  placeHullLabels(hulls,nodeBoxes,hullLabelBounds());
+  hullComputeMs=performance.now()-started;
+  return hulls;
+}
+function capabilityHulls(){
+  let onCount=0,onSum=0;
+  for(let i=0;i<P.length;i++)if(P[i].on){onCount++;onSum+=i;}
+  const key=[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,W,H,sizeMode,clusterFocus,onCount,onSum].join(',');
+  if(key!==hullCache.key)hullCache={key,hulls:computeCapabilityHulls()};
+  return hullCache.hulls;
+}
+// Trace the hull offset outward by pad: each edge shifted along its outward
+// normal, each convex vertex rounded with an arc, each reflex vertex (a
+// concave notch) joined at the mitre of its two offset edges, so the region
+// hugs the members without the doubled seam a fill-plus-wide-stroke would paint.
+function traceExpandedHull(hull,pad){
+  const count=hull.length;
+  ctx.beginPath();
+  for(let index=0;index<count;index++){
+    const previous=hull[(index+count-1)%count],vertex=hull[index],next=hull[(index+1)%count];
+    const turn=(vertex.x-previous.x)*(next.y-vertex.y)-(vertex.y-previous.y)*(next.x-vertex.x);
+    const inAngle=Math.atan2(-(vertex.x-previous.x),vertex.y-previous.y);
+    const outAngle=Math.atan2(-(next.x-vertex.x),next.y-vertex.y);
+    if(turn>=0){ctx.arc(vertex.x,vertex.y,pad,inAngle,outAngle,true);continue;}
+    const n1x=Math.cos(inAngle),n1y=Math.sin(inAngle),n2x=Math.cos(outAngle),n2y=Math.sin(outAngle);
+    const dot=1+n1x*n2x+n1y*n2y;
+    if(dot<.2){ctx.lineTo(vertex.x+n1x*pad,vertex.y+n1y*pad);ctx.lineTo(vertex.x+n2x*pad,vertex.y+n2y*pad);continue;}
+    ctx.lineTo(vertex.x+(n1x+n2x)*pad/dot,vertex.y+(n1y+n2y)*pad/dot);
+  }
+  ctx.closePath();
+}
+// In cluster focus only the focused capability's region reads at full
+// strength; the others recede with their nodes.
+const hullTier = c => clusterFocus&&c!==clusterFocus?HULL_DIM_TIER:1;
+function drawCapabilityRegions(){
+  const hulls=capabilityHulls();
+  if(!hulls.length)return;
+  ctx.font=HULL_LABEL_FONT;ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const {c,title,hull,pad,label} of hulls){
+    const tier=hullTier(c);
+    // A third toward the ink so the fill reads on the sky in either theme.
+    const color=rgbCss(mixA(capabilityColor(c),RGB.ink,.3));
+    ctx.globalAlpha=HULL_ALPHA*tier;ctx.fillStyle=color;
+    traceExpandedHull(hull,pad);ctx.fill();
+    if(!label)continue;
+    ctx.globalAlpha=HULL_LABEL_ALPHA*tier;
+    ctx.fillText(title,label.x,label.y);
+    if(!label.leader)continue;
+    ctx.globalAlpha=HULL_LABEL_ALPHA*tier*.6;ctx.strokeStyle=color;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(label.leader.x0,label.leader.y0);ctx.lineTo(label.leader.x1,label.leader.y1);ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
 function draw(){
   bgctx.clearRect(0,0,W,H);nodeCtx.clearRect(0,0,W,H);ctx=bgctx;
   const bounds=canvasInteractionBounds();
@@ -107,6 +434,7 @@ function draw(){
     context.save();context.beginPath();context.rect(bounds.left,bounds.top,
       Math.max(0,bounds.right-bounds.left),Math.max(0,bounds.bottom-bounds.top));context.clip();
   }
+  drawCapabilityRegions(bounds);
   const activeWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/300);
   const pulse=reducedMotion?.78:.55+.45*activeWave;
   const xWave=reducedMotion?.5:.5+.5*Math.sin(performance.now()/620);
@@ -124,7 +452,7 @@ function draw(){
     ctx.setLineDash([]); ctx.lineWidth=lit?1.5:(activeCount===2?2:1);
     ctx.strokeStyle = lit ? C.shipped : C.active;
     const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
-    ctx.globalAlpha = (lit ? .9 : (activeCount===2?.62:.27))*(searchEdgeDim?.16:1);
+    ctx.globalAlpha = (lit ? .9 : (activeCount===2?.62:.27))*(searchEdgeDim?.16:1)*Math.min(clusterTier(DATA.nodes[a].c),clusterTier(DATA.nodes[b].c));
     ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
   }
   // Nonblocking relations remain dashed, including their active endpoint context.
@@ -136,7 +464,7 @@ function draw(){
     if (!lit&&!activeCount) continue;
     ctx.lineWidth=lit?1.5:(activeCount===2?2:1);
     const searchEdgeDim=searchTerms.length>0&&!searchMatches[a]&&!searchMatches[b];
-    ctx.strokeStyle = C.active; ctx.globalAlpha = (lit?.75:(activeCount===2?.55:.22))*(searchEdgeDim?.16:1);
+    ctx.strokeStyle = C.active; ctx.globalAlpha = (lit?.75:(activeCount===2?.55:.22))*(searchEdgeDim?.16:1)*Math.min(clusterTier(DATA.nodes[a].c),clusterTier(DATA.nodes[b].c));
     ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke();
   }
   // Straight agent trails connect only explicit chronological checkpoints.
@@ -203,7 +531,7 @@ function draw(){
   for(const i of order){
     const p=P[i],n=DATA.nodes[i],rr=nodeRadius(i);
     const searchDim=searchTerms.length>0&&!searchMatches[i];
-    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i]);
+    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i])||focusBackground(i);
     const rgb=nodeColor(n),rec=lens.delivery&&n.rec&&!dim;
     if(rec){
       ctx.globalAlpha=.16;ctx.fillStyle=rgbCss(mixA(rgb,[255,255,255],.5));
@@ -232,40 +560,34 @@ function draw(){
     const i=order[position],p=P[i];
     const n = DATA.nodes[i];
     const searchDim = searchTerms.length>0 && !searchMatches[i];
-    const dim = (sel>=0 && !selSet.has(i)) || searchDim || outsideCluster(n);
+    const dim = (sel>=0 && !selSet.has(i)) || searchDim || outsideCluster(n) || focusBackground(i);
     let rgb = nodeColor(n);
     const rec = lens.delivery && n.rec && !dim;
     if (rec) rgb = mixA(rgb, [255,255,255], .55); // ★ next: brighter lightness
     const clusterActive=Boolean(capFocus||groupFocus)&&!outsideCluster(n);
     rgb=contrastNodeColor(dim?RGB.fade:rgb,dim?3.1:(clusterActive?7:4.5));
+    if(focusBackground(i))rgb=nodePaintColor(rgb,clusterTier(n.c),clusterTier(n.c));
     const col = rgbCss(rgb);
-    const focusAlpha=dim?.18:1;
+    const focusAlpha=(dim?.18:1)*clusterTier(n.c);
     ctx.globalAlpha = progressOpacity(n)*focusAlpha;
     const rr = nodeRadius(i);
-    if (n.g==='specced'){ // unbuilt-but-specced: an empty vessel, outline only
-      ctx.strokeStyle = col; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr*.85,0,7); ctx.stroke();
-    } else if(n.g==='shipped'){
-      ctx.strokeStyle=col;ctx.lineWidth=1.5;trianglePath(p.x,p.y,rr);ctx.stroke();
-    } else if(n.g==='buggap'){
-      ctx.globalAlpha*=.9+.1*xWave;ctx.strokeStyle=col;ctx.lineWidth=1.5;
-      xPath(p.x,p.y,rr*(.7+.035*xWave));ctx.stroke();
-    } else {
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,7); ctx.fill();
-    }
-    // Essential glyph outline stays at non-text AA contrast even when its
-    // fill or ambient halo is subdued. Shape retains the lifecycle meaning.
-    ctx.globalAlpha=1;ctx.strokeStyle=col;ctx.lineWidth=clusterActive&&!dim?3:2.5;
+    // Build one lifecycle path. Hollow/round nodes carry version in this same
+    // stroke instead of acquiring a second concentric version circle.
     if(n.g==='shipped')trianglePath(p.x,p.y,rr);
     else if(n.g==='buggap')xPath(p.x,p.y,rr*.7);
     else {ctx.beginPath();ctx.arc(p.x,p.y,n.g==='specced'?rr*.85:rr,0,7);}
+    if(n.g!=='specced'&&drawsHollowCircle(n)){ctx.fillStyle=col;ctx.fill();}
+    ctx.globalAlpha=1;ctx.strokeStyle=col;
+    const outlineWidth=clusterActive&&!dim?3:2.5;
+    // Width, rather than opacity, preserves upstream's essential outline
+    // contrast while conveying the release horizon on the shared circle.
+    ctx.lineWidth=outlineWidth*(drawsHollowCircle(n)?Math.max(.35,versionOpacity(n)):1);
     ctx.stroke();
-    // Release/version is a separate outer-ring channel; blending it into fill
-    // would make progress versus horizon impossible to decode.
-    ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;
-    ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
+    // Non-circular glyphs retain a separate version ring.
+    if(!drawsHollowCircle(n)){
+      ctx.globalAlpha=versionOpacity(n)*focusAlpha; ctx.strokeStyle=col;ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(p.x,p.y,rr*1.16,0,7); ctx.stroke();
+    }
     const testReview=latestTestReview(i);
     if(testReview&&!dim){
       const isC=testReview.risk==='C',visual=testReviewVisualState(testReview,{active:activeWave,slow:xWave,reduced:reducedMotion});
@@ -363,7 +685,7 @@ function draw(){
   for(const i of order){
     const p=P[i],rr=nodeRadius(i),unresolved=ownerQuestions(i);
     const searchDim=searchTerms.length>0&&!searchMatches[i];
-    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i]);
+    const dim=(sel>=0&&!selSet.has(i))||searchDim||outsideCluster(DATA.nodes[i])||focusBackground(i);
     if(!unresolved.length||dim)continue;
     ctx.globalAlpha=.95;ctx.strokeStyle=C.owner;ctx.lineWidth=1.5;
     xPath(p.x,p.y,Math.max(4,rr*.72));ctx.stroke();
@@ -373,6 +695,15 @@ function draw(){
   for(const context of [bgctx,nodeCtx])context.restore();
 }
 const snapCam = reducedMotion;
+function restZoom(){
+  const reach=Math.max(0,...Object.values(capReach));
+  const radius=R+reach,bounds=hullLabelBounds();
+  const target=.4*Math.min(bounds.right-bounds.left,bounds.bottom-bounds.top);
+  if(!(radius>0)||!(target>0))return 1;
+  let z=1;
+  for(let step=0;step<8;step++){const F=900*z;z=target/(radius*F/(F+520));}
+  return Math.min(3.4,Math.max(1,z));
+}
 function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
@@ -436,7 +767,10 @@ function updatePointerState(x,y){
   let paintBest=-1,paintDepth=Infinity;
   for(let i=0;i<P.length;i++){
     const p=P[i];
-    if(!p.on){p.near=0;continue;}
+    // In capability focus the rest of the constellation is scenery. It stays
+    // visibly contextual but cannot steal a hover or a click through the
+    // selected capability.
+    if(!p.on||focusBackground(i)){p.near=0;continue;}
     const distance=Math.hypot(p.x-x,p.y-y), hitRadius=nodeHitRadius(i);
     p.near=Math.max(0,1-Math.max(0,distance-hitRadius)/32);
     if(distance<=hitRadius&&(distance<bestDistance-.25||(Math.abs(distance-bestDistance)<=.25&&p.d<bestDepth))){best=i;bestDistance=distance;bestDepth=p.d;}
@@ -499,7 +833,7 @@ function presentPointerState(x,y){
       const live=(n.aw||[]).map(wi=>DATA.work[wi]).filter(freshWork);
       const liveText=live.length?` · ${live.map(w=>w.total?w.done+'/'+w.total:'0/0').join(', ')} checkpoints`:'';
       const trailText=lens.progress&&progressText(n)?` · ${progressText(n)}`:'';
-      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ring`;
+      const opacityText=` · ${Math.round(progressOpacity(n)*100)}% progress fill · ${Math.round(versionOpacity(n)*100)}% version ${versionChannelName(n)}`;
       const courseText=ownerCourseText(best)?` · owner ${ownerCourseText(best)}`:(puntedBy[best].length?` · affected by ${puntedBy[best].length} punt${puntedBy[best].length===1?'':'s'}`:'');
       tip.innerHTML=`${lens.delivery&&n.rec?icon('star-fill',true)+' ':''}${esc(n.t)}<small>${esc(n.st)} · ${esc(n.c.replace(/-/g,' '))}${esc(opacityText)}${esc(courseText)}${esc(liveText)}${esc(trailText)}</small>`;
     }

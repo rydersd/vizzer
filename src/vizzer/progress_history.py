@@ -338,4 +338,5 @@ def prepare_progress_history(graph: Graph, cfg: Config, root: Path,
                "items": current_items,
                "backfill": backfill}
     content = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    graph.progress_history = payload
     return ProgressHistory(path, content, [])

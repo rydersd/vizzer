@@ -14,6 +14,7 @@ from ..config import Config
 from ..model import Graph, owner_question_fingerprint
 from ..story_sidebar import object_detail_provider
 from .common import priority_items, source_link_prefix
+from .velocity import velocity_payload, velocity_summary
 
 FRONTEND_DIR = "constellation"
 FRONTEND_RESOURCES = (
@@ -215,14 +216,18 @@ def _progress(value: object) -> dict:
 
 
 def _top_group(graph: Graph, group_id: str | None) -> tuple[str, str]:
-    """(top-level group id tail, immediate group title) for a node."""
+    """(top-level group id tail, nested group title) for a node.
+
+    A capability itself is not a synthetic epic: flat projects retain their
+    broad capability scatter instead of acquiring epic-centre magnetism.
+    """
     by_id = {g.id: g for g in graph.groups}
     imm = by_id.get(group_id or "")
     cur = imm
     while cur is not None and cur.parent is not None:
         cur = by_id.get(cur.parent)
     top_tail = cur.id.split(":", 1)[1] if cur else ""
-    return top_tail, (imm.title if imm else "")
+    return top_tail, (imm.title if imm and (imm is not cur or imm.kind == "epic") else "")
 
 
 def _group_search_text(graph: Graph, group_id: str | None) -> str:
@@ -806,6 +811,22 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     planning = dict(graph.priority.get("planning", {}))
     planning["baseTargets"] = graph.priority.get("base_targets", [])
     planning["effectiveTargets"] = graph.priority.get("effective_targets", [])
+    foundation_tiers = {}
+    tier_path = cfg.get("render.foundation_tiers_path", "")
+    if tier_path:
+        tier_file = (root / tier_path).resolve()
+        if not tier_file.is_relative_to(root.resolve()):
+            raise ValueError("foundation tiers path escapes repository")
+        tiers = json.loads(tier_file.read_text(encoding="utf-8"))
+        if not isinstance(tiers, dict):
+            raise ValueError("foundation tiers must be an object")
+        for tier, epics in tiers.items():
+            if tier.startswith("_"):
+                continue
+            if not isinstance(epics, list) or any(not isinstance(epic, str) for epic in epics):
+                raise ValueError("foundation tiers must map tier names to epic IDs")
+            for epic in epics:
+                foundation_tiers[epic if epic.startswith("epic:") else "epic:" + epic] = tier
     rendered_groups = []
     for group in sorted(graph.groups, key=lambda value: value.id):
         entry = {
@@ -820,7 +841,18 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             entry["foundational"] = True
         source = group.meta.get("source", {}) if isinstance(group.meta, dict) else {}
         source_path = source.get("path", "") if isinstance(source, dict) else ""
+        if group.id in foundation_tiers:
+            entry["foundationTier"] = foundation_tiers[group.id]
         if source_path:
+            source_file = (root / source_path).resolve()
+            if source_file.is_relative_to(root.resolve()):
+                try:
+                    entry["purpose"] = source_file.read_text(encoding="utf-8")
+                    plans_file = source_file.parent / "planning" / "plans.md"
+                    if plans_file.resolve().is_relative_to(root.resolve()) and plans_file.is_file():
+                        entry["plans"] = plans_file.read_text(encoding="utf-8")
+                except (OSError, UnicodeError):
+                    pass
             entry["p"] = source_path
             entry["h"] = _source_href(root, cfg, source_path)
         summary = group.meta.get("summary") if isinstance(group.meta, dict) else None
@@ -856,6 +888,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         "sourceAreas": cfg.source_areas(),
         # deterministic "now": the newest activity in the graph, never wall clock
         "now": max((n["ts"] for n in nodes), default=0),
+        "velocity": velocity_payload(velocity_summary(graph, cfg, root)),
     }
     if cfg.get("radar.enabled", False):
         from .radar import summary

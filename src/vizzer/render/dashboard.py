@@ -9,6 +9,7 @@ from ..decision_journal import (
 )
 from ..model import Graph, Group, Item
 from .common import bar, item_link, priority_items, source_link_prefix, status_cell, topo
+from .velocity import dashboard_panel, velocity_summary
 
 
 def _assessment_text(value: object, limit: int = 500) -> str:
@@ -273,6 +274,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     )
 
     lines = ["# Dashboard — what to work on", ""]
+    lines.extend(dashboard_panel(velocity_summary(graph, cfg, root)))
 
     # codex-sequence-2026-08-08: project uptake follows persisted, explainable
     # target leverage rather than activity/popularity.

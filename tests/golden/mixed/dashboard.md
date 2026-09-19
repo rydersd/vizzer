@@ -1,5 +1,9 @@
 # Dashboard — what to work on
 
+## Velocity
+
+No persisted lifecycle, merge, build, or spend evidence yet. See [velocity](velocity.md).
+
 ## In progress
 
 - 🔧 building [snap-to-grid](../../spec/drawing/epics/tools/stories/snap-to-grid.md) — Dragging an object snaps its edges to the configured grid.

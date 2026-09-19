@@ -246,7 +246,7 @@ function openNode(i,{inPlace=false}={}){
       ${(n.tags||[]).length?`<span>tags</span><b>${esc(n.tags.join(', '))}</b>`:''}
       <span>epic</span><b>${esc(n.e)}</b><span>release</span><b>${esc(n.r||'—')}</b>
       <span>activity</span><b>${n.ac} spec commit${n.ac===1?'':'s'} · ${n.am} doc mention${n.am===1?'':'s'}</b>
-      <span>visual</span><b>${Math.round(progressOpacity(n)*100)}% fill progress · ${esc(relKey(n))} ${Math.round(versionOpacity(n)*100)}% version ring</b>
+      <span>visual</span><b>${Math.round(progressOpacity(n)*100)}% fill progress · ${esc(relKey(n))} ${Math.round(versionOpacity(n)*100)}% version ${versionChannelName(n)}</b>
       <span>touched</span><b>${touched}</b>
       ${trail?`<span>progress</span><b>${esc(trail)}</b>`:''}
       ${!assessment?'':`<span>delivery size</span><b>${esc(deliverySizeText)}</b>
@@ -400,3 +400,23 @@ async function openPlanningArea(id){
   }catch(error){if(ticket===areaRequest)dbody.textContent=error.message;}
 }
 if(SERVED)setTimeout(loadPlanningAreas,0);
+
+// Source hierarchy metadata is optional in the generic renderer. When it is
+// present, its drawer is a read-only explanation of the same group filter the
+// rail applies; it never invents plans or a foundation tier from dependencies.
+function openHierarchyDetails(groupId){
+  if(typeof questionEditor!=='undefined'&&questionEditor)return false;
+  const group=(DATA.groups||[]).find(candidate=>candidate.id===groupId);if(!group)return;
+  activePlanningArea=null;areaRequest++;sel=-1;
+  const nodes=deliveryNodes.filter(node=>nodeBelongsToGroup(node,groupId));
+  const shipped=nodes.filter(node=>node.g==='shipped').length;
+  const remaining=typeof foundationRemaining==='function'?foundationRemaining(nodes):0;
+  const tier=group.foundationTier?` · Foundation tier ${esc(group.foundationTier)}`:'';
+  dossierIdentity.innerHTML=`<h2>${esc(group.title)}</h2><p class="dossiersummary">${esc(structuralKindLabel(group.kind))}${tier}</p>`;
+  dossierFooter.innerHTML='';
+  dbody.innerHTML=`<p>${remaining?`${foundationCountMarkup(remaining)} `:''}${shipped}/${nodes.length} delivery stories complete</p>`
+    +`<details open><summary>Purpose & details</summary><div class="storymd">${renderStoryMarkdown(group.purpose||group.summary||'No purpose has been recorded for this group.')}</div></details>`
+    +`<details open><summary>Plans</summary><div class="storymd">${renderStoryMarkdown(group.plans||'No candidate plans have been recorded for this group.')}</div></details>`
+    +(group.h?`<p><a class="story" href="${esc(group.h)}">Open ${esc(structuralKindLabel(group.kind))} source</a></p>`:'');
+  dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');document.documentElement.classList.add('dossier-open');
+}
