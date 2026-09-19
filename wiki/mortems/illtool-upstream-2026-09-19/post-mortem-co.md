@@ -45,5 +45,14 @@ not modified. A temporary loopback preview serves this candidate only.
 Package build and packaged `check` passed; the CLI has no `--version` flag.
 Browser verification is developer evidence, not owner UX approval.
 Final local full suite: **664 passed, 2 skipped**, Python 3.9 / Node 25,
-107.67 seconds. The existing optional integration skips are unchanged. Hosted
+107.67 seconds. Both skips are existing integer-digit-limit tests that require
+Python 3.11+ (independently replayed with skip reasons). Hosted
 Python 3.9–3.13 and distributable CI, PR review and merge remain pending.
+
+PR #12 is open at reviewed source commit
+4c4212336071f95fa8de6027056ac2c4e4d2ed5a, base
+2ba0172c017bf5669a596141b81eef82a395a920; binary patch SHA-256
+a3da2a87c7b51bf13b28995982414aec543baa29989796cdc76dd74da8bbcfb1.
+Final independent Codex adversarial review of that committed PR: PASS.
+The final no-epic oracle correction passed the 29-test focused suite and tests
+production-emitted metadata/coordinates without a test-side layout mutation.
