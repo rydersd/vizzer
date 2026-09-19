@@ -40,10 +40,13 @@ function updateVisibleCounts(){
       &&(!questionOnly||nodeHasOwnerQuestions(n)));
     const capShipped=nodes.filter(n=>n.g==='shipped').length;
     const capBugs=nodes.filter(n=>n.st==='bug-gap').length;
-    meter.count.textContent=`${capShipped}/${nodes.length}`;
+    const unfinished=foundationRemaining(nodes);
+    if(unfinished||meter.foundational)meter.count.innerHTML=foundationCountMarkup(unfinished,meter.foundational)+`${capShipped}/${nodes.length}`;
+    else meter.count.textContent=`${capShipped}/${nodes.length}`;
     meter.shipped.style.width=(100*capShipped/Math.max(1,nodes.length)).toFixed(1)+'%';
     meter.bugs.style.width=(100*capBugs/Math.max(1,nodes.length)).toFixed(1)+'%';
-    meter.element.setAttribute('aria-label',`${meter.label}, ${capShipped} of ${nodes.length} delivery items shipped, ${capBugs} bug gap${capBugs===1?'':'s'} open`);
+    const label=`${meter.label}, ${capShipped} of ${nodes.length} delivery items shipped, ${capBugs} bug gap${capBugs===1?'':'s'} open`;
+    meter.element.setAttribute('aria-label',unfinished?`${label}, ${unfinished} unfinished foundational ${unfinished===1?'story':'stories'}`:label);
   }
 }
 function updateViewStatus(){
@@ -211,21 +214,39 @@ function foundationalGroup(group,nodes=[]){
     if(current.kind==='foundation'||current.foundational===true)return true;
     current=(DATA.groups||[]).find(parent=>parent.id===current.parent);
   }
-  return nodes.some(node=>(node.tags||[]).some(tag=>/^(foundation|foundational)$/i.test(tag)));
+  return nodes.some(node=>nodeFoundationTier(node)!==null);
 }
 const foundationChip=()=>'<span class="foundationchip" title="Foundational work" aria-label="Foundational">F</span>';
-function meterMarkup(label,total,shipped,bugs,kind='',foundational=false){
-  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${shipped}/${total}</span></span>
+const groupsById=new Map((DATA.groups||[]).map(group=>[group.id,group]));
+function nodeFoundationTier(node){
+  if(node.foundational===true||(node.tags||[]).some(tag=>/^(foundation|foundational)$/i.test(tag)))return 'tagged';
+  let groupId=node.group||'',seen=new Set();
+  while(groupId&&!seen.has(groupId)){
+    seen.add(groupId);const group=groupsById.get(groupId);if(!group)break;
+    if(group.foundationTier!=null)return group.foundationTier;
+    if(group.kind==='foundation'||group.foundational===true)return 'foundation';
+    groupId=group.parent||'';
+  }
+  return null;
+}
+function foundationRemaining(nodes=[]){
+  return new Set(nodes.filter(node=>!node.foundation&&(node.role||'delivery')==='delivery'&&node.g!=='shipped'&&nodeFoundationTier(node)!==null).map(node=>node.id)).size;
+}
+const foundationCountMarkup=(count,show=false)=>show||count?`<span class="foundationcount" title="${count} unfinished foundational ${count===1?'story':'stories'}">${count} F</span>`:'';
+function meterMarkup(label,total,shipped,bugs,kind='',foundational=false,nodes=[]){
+  const remaining=foundationRemaining(nodes);
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${foundationCountMarkup(remaining,foundational)}${shipped}/${total}</span></span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
 }
-function registerMeter(key,element,label,matches){
-  capabilityMeters.set(key,{element,label,matches,count:element.querySelector('.capcount'),shipped:element.querySelector('.capbar i'),bugs:element.querySelector('.capbar b')});
+function registerMeter(key,element,label,matches,foundational=false){
+  capabilityMeters.set(key,{element,label,matches,foundational,count:element.querySelector('.capcount'),shipped:element.querySelector('.capbar i'),bugs:element.querySelector('.capbar b')});
 }
 function meterButton(key,label,matches,total,shipped,bugs,onSelect,container=rail,kind=''){
   const d=document.createElement('button');d.type='button';d.className='cap';d.setAttribute('aria-pressed','false');
   const group=(DATA.groups||[]).find(group=>group.id===key);
-  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind,foundationalGroup(group,deliveryNodes.filter(matches)));
-  registerMeter(key,d,label,matches);
+  const nodes=deliveryNodes.filter(matches);
+  d.innerHTML=meterMarkup(label,total,shipped,bugs,kind,foundationalGroup(group,nodes),nodes);
+  registerMeter(key,d,label,matches,foundationalGroup(group,nodes));
   d.onclick=()=>onSelect(d);container.appendChild(d);
   return d;
 }
@@ -237,13 +258,29 @@ function syncRailSelection(active){
   });
 }
 function selectHierarchy(button,capability,groupId=null){
+  if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   const alreadySelected=capFocus===capability&&groupFocus===groupId;
   capFocus=alreadySelected?null:capability;
   groupFocus=alreadySelected?null:groupId;
   syncRailSelection(button);
   applyViewState(button);
-  const area=planningAreaFor(capability,groupId);if(area)openPlanningArea(area.id);
+  const area=planningAreaFor(capability,groupId);
+  if(area)openPlanningArea(area.id);
+  else if(groupId&&typeof openHierarchyDetails==='function')openHierarchyDetails(groupId);
 }
+function syncFocusExitControl(){
+  let button=document.getElementById('focusexit');
+  if(!button){
+    button=document.createElement('button');button.type='button';button.id='focusexit';button.className='flycap';
+    button.addEventListener('click',()=>exitClusterFocus());document.body.appendChild(button);
+  }
+  button.textContent=clusterFocus?`Exit ${capabilityTitle(clusterFocus)} focus (Esc)`:'';
+  button.classList.toggle('show',Boolean(clusterFocus));button.setAttribute('aria-hidden',String(!clusterFocus));
+}
+addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||event.defaultPrevented||document.getElementById('dossier').classList.contains('open'))return;
+  if(exitClusterFocus()){event.preventDefault();syncFocusExitControl();}
+});
 function renderCapabilityAccordions(){
   const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
   const groups=DATA.groups||[];
@@ -256,10 +293,15 @@ function renderCapabilityAccordions(){
     const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
     const details=document.createElement('details');details.className='railcapability';
     if(capFocus===capability||(!capFocus&&index===0))details.open=true;
-    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes));
-    summary.addEventListener('click',()=>{const area=planningAreaFor(capability);if(area)openPlanningArea(area.id);});
+    const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes),summaryNodes);
+    summary.addEventListener('click',event=>{
+      if(typeof questionEditor!=='undefined'&&questionEditor){event.preventDefault();return;}
+      const area=planningAreaFor(capability);
+      if(area)openPlanningArea(area.id);
+      else{enterClusterFocus(capability);if(root)openHierarchyDetails(root.id);}
+    });
     details.appendChild(summary);
-    registerMeter(`capability:${capability}`,summary,root?.title||capability||'Project',summaryMatches);
+    registerMeter(`capability:${capability}`,summary,root?.title||capability||'Project',summaryMatches,foundationalGroup(root,summaryNodes));
     details.addEventListener('toggle',()=>{
       if(!details.open)return;
       rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});

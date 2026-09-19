@@ -18,6 +18,7 @@ RENDERERS = {
     "feature_index": "feature_index",
     "lanes": "lanes",
     "dashboard": "dashboard",
+    "velocity": "velocity",
     "analytics": "analytics",
     "awaiting_owner": "awaiting_owner",
     "decision_journal": "decision_journal",

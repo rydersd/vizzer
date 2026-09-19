@@ -458,6 +458,11 @@ class Graph:
     activity: dict = field(default_factory=dict)
     # Versioned workstream intent plus leased local sessions/collision analysis.
     workstreams: dict = field(default_factory=dict)
+    # The full progress-history ledger as staged by THIS build (never
+    # serialized into the graph). Renderers that need every lifecycle event —
+    # the velocity view — read it here so a refresh renders the events it is
+    # about to write instead of the previous run's file.
+    progress_history: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         serialized_items = []

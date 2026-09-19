@@ -85,6 +85,7 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 #rail{position:fixed;left:0;top:var(--rail-top);bottom:0;width:var(--rail-width);padding:8px 12px 20px;overflow-y:auto;z-index:4;
   background:linear-gradient(to right,var(--bg) 55%,transparent)}
 #railresize{position:fixed;z-index:5;left:calc(var(--rail-width) - 5px);top:var(--rail-top);bottom:0;width:10px;margin:0;padding:0;border:0;border-radius:0;background:transparent;cursor:ew-resize;touch-action:none}#railresize::after{content:'';position:absolute;left:4px;top:50%;width:2px;height:44px;border-radius:2px;background:var(--line);transform:translateY(-50%)}#railresize:hover::after,#railresize:focus-visible::after,#railresize.dragging::after{background:var(--accent)}#railresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#focusexit{position:fixed;right:14px;bottom:40px;z-index:6;display:none;margin:0;background:var(--panel)}#focusexit.show{display:block}
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}

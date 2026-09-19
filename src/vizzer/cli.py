@@ -9,6 +9,7 @@ import http.server
 import json
 import os
 import secrets
+import stat as stat_module
 import tempfile
 import subprocess
 import sys
@@ -734,7 +735,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             if parsed.path == "/api/discussions" and not parsed.query:
                 if not self._require_current_engine():
                     return
-                live_graph = _read_graph(root)
+                live_graph = _read_graph(root, allow_stale=True)
                 if live_graph is None:
                     self._send_json(500, {"error": "current work graph is unavailable"})
                     return
@@ -752,7 +753,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             if parsed.path == "/api/workstreams" and not parsed.query:
                 if not self._require_current_engine():
                     return
-                live_graph = _read_graph(root)
+                live_graph = _read_graph(root, allow_stale=True)
                 if live_graph is None:
                     self._send_json(500, {
                         "error": "current work graph is unavailable; run vizzer refresh",
@@ -779,7 +780,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 # for prose different from the already-rendered card.  Writes
                 # still rebuild below and reject stale fingerprints before any
                 # decision is accepted.
-                live_graph = _read_graph(root)
+                live_graph = _read_graph(root, allow_stale=True)
                 if live_graph is None:
                     self._send_json(500, {
                         "error": "current work graph is unavailable; run vizzer refresh",
@@ -990,12 +991,50 @@ def _print_sync_hints(cfg: Config, graph: Graph) -> None:
         )
 
 
-def _read_graph(root: Path) -> Graph | None:
-    path = root / GRAPH_RELPATH
-    if not path.is_file():
-        return None
+_GRAPH_LAST_GOOD_LOCK = threading.Lock()
+_GRAPH_LAST_GOOD: dict[Path, str] = {}
+
+
+def _reset_graph_read_cache() -> None:
+    """Clear read-only serving fallback (also used by isolated tests)."""
+    with _GRAPH_LAST_GOOD_LOCK:
+        _GRAPH_LAST_GOOD.clear()
+
+
+def _graph_file_identity(path: Path) -> tuple | None:
     try:
-        return Graph.from_dict(json.loads(path.read_text(encoding="utf-8")))
+        value = path.stat()
+        if stat_module.S_ISREG(value.st_mode):
+            return value.st_dev, value.st_ino, value.st_mtime_ns, value.st_size
+    except OSError:
+        pass
+    return None
+
+
+def _last_good_graph(path: Path, reason: str, allow_stale: bool) -> Graph | None:
+    with _GRAPH_LAST_GOOD_LOCK:
+        text = _GRAPH_LAST_GOOD.get(path) if allow_stale else None
+    if text is None:
+        print(f"graph: could not load {path}: {reason}; re-run 'sync'", flush=True)
+        return None
+    print(f"graph: could not load {path}: {reason}; serving the last good graph", flush=True)
+    return Graph.from_dict(json.loads(text))
+
+
+def _read_graph(root: Path, *, allow_stale: bool = False) -> Graph | None:
+    """Strict by default; only read-only HTTP routes may survive a torn rewrite.
+
+    Git checkouts and artifact replacement can briefly remove or truncate the
+    graph. Validation, rendering and mutations must never accept cached authority.
+    Every call rebuilds a fresh Graph because handlers mutate its overlays.
+    """
+    path = (root / GRAPH_RELPATH).resolve()
+    before = _graph_file_identity(path)
+    if before is None:
+        return _last_good_graph(path, "missing or not a regular file", allow_stale)
+    try:
+        text = path.read_text(encoding="utf-8")
+        graph = Graph.from_dict(json.loads(text))
     except (
         OSError,
         UnicodeError,
@@ -1004,8 +1043,14 @@ def _read_graph(root: Path) -> Graph | None:
         AttributeError,
         ValueError,
     ) as exc:
-        print(f"graph: could not load {path}: {exc}; re-run 'sync'")
-        return None
+        return _last_good_graph(path, str(exc), allow_stale)
+    if _graph_file_identity(path) != before:
+        return _last_good_graph(path, "changed during read", allow_stale)
+    with _GRAPH_LAST_GOOD_LOCK:
+        if path not in _GRAPH_LAST_GOOD and len(_GRAPH_LAST_GOOD) >= 16:
+            del _GRAPH_LAST_GOOD[next(iter(_GRAPH_LAST_GOOD))]
+        _GRAPH_LAST_GOOD[path] = text
+    return graph
 
 
 def _output_dir(cfg: Config, root: Path, command: str = "render") -> Path | None:

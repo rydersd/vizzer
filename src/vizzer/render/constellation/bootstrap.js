@@ -40,6 +40,8 @@ if(typeof ResizeObserver==='function'){
   chromeObserver.observe(document.getElementById('top'));
   chromeObserver.observe(document.getElementById('search'));
 }
+// Fit once before deep-link navigation; never override a later owner zoom.
+zoom=restZoom();
 openRequestedStory();
 frame();
 window.__vizzerBoot.ready();
