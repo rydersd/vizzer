@@ -1605,7 +1605,7 @@ def test_constellation_question_cards_are_selectable_but_static_files_are_read_o
     assert "Reload this page before answering" in html
     assert "await preflightQuestionAuthority(forms)" in html
     assert "fetch('/api/questions/answers'" in html
-    assert "reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true})" in html
+    assert "reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true})" in html
     assert "location.reload()" not in html.split("function bindQuestionControls(n){", 1)[1].split("function planSection", 1)[0]
     assert "function refreshDossier()" in html
     assert "const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0" in html
@@ -1619,7 +1619,7 @@ def test_constellation_question_cards_are_selectable_but_static_files_are_read_o
     assert "location.reload()" not in queue_logic
     assert "fetch('/api/questions/answers'" in queue_logic
     assert "count!==forms.length" in queue_logic
-    assert "reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true})" in queue_logic
+    assert "reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true})" in queue_logic
     reconcile = html.split("function reconcileAcceptedDecisions", 1)[1].split(
         "function planSection", 1)[0]
     assert "refreshDossier()" in reconcile

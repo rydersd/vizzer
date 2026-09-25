@@ -29,10 +29,10 @@ function openQuestionEditor(id,returnTarget){
     if(submitting||!text.value.trim())return;
     sync();submitting=true;submit.disabled=true;back.disabled=true;text.readOnly=true;status.textContent='Saving answer…';
     try{
-      await preflightQuestionAuthority([{dataset:{questionId:id}}]);
-      const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers:[{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}]})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Answer could not be saved');
-      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
+      const accepted=await recordQuestionAnswers([{dataset:{questionId:id}}],
+        [{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}],
+        {failure:'Answer could not be saved'});
+      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
     }catch(error){status.textContent=error.message||String(error);status.setAttribute('role','alert');submitting=false;back.disabled=false;text.readOnly=false;sync();text.focus();}
   };
   sync();text.focus();text.setSelectionRange(text.value.length,text.value.length);
@@ -269,11 +269,9 @@ function bindQuestionControls(n){
     queue.setAttribute('aria-busy','true');queueButton.disabled=true;queueButton.textContent='Providing…';queueStatus.textContent='Checking current Vizzer and question authority…';
     forms.forEach(form=>form.querySelector('fieldset').disabled=true);
     try{
-      await preflightQuestionAuthority(forms);
-      queueStatus.textContent='Recording owner decisions…';
-      const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'answers failed');
-      reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
+      const accepted=await recordQuestionAnswers(forms,answers,
+        {onStatus:text=>{queueStatus.textContent=text;}});
+      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
     }catch(error){
       queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
       forms.forEach(form=>form.querySelector('fieldset').disabled=false);
@@ -287,6 +285,48 @@ function bindQuestionControls(n){
   });
 }
 
+// POST the answers and return {decisions, revision}. A slow write can
+// outlive the browser's connection (the serve records the answer, then its
+// reply hits a closed socket), and a retry is then refused as a stale
+// revision. Neither means the answer failed, so on ANY failure the durable
+// ledger decides: re-read /api/questions, and when every submitted question
+// now has a recorded decision, those decisions are the result. Only if that
+// read fails or an answer is missing does the original error propagate.
+async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed'}={}){
+  try{
+    await preflightQuestionAuthority(forms);
+    onStatus('Recording owner decisions…');
+    const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
+    const body=await response.json();if(!response.ok)throw new Error(body.error||failure);
+    return {decisions:body.decisions,revision:body.revision};
+  }catch(error){
+    onStatus('Checking whether the answers were recorded…');
+    const recovered=await recoverRecordedAnswers(answers.map(answer=>answer.questionId));
+    if(recovered)return recovered;
+    throw error;
+  }
+}
+// {decisions, revision} when every question id has a recorded decision on the
+// server, else null. Decisions come from the same decision_to_api shape the
+// POST returns, so reconcileAcceptedDecisions takes them unchanged.
+async function recoverRecordedAnswers(questionIds){
+  let body;
+  try{
+    const response=await fetch('/api/questions',{cache:'no-store'});
+    if(!response.ok)return null;
+    body=await response.json();
+  }catch(_error){return null;}
+  const recordedById=new Map();
+  for(const decision of body.decisions||[]){
+    const id=decision?.question?.id;
+    if(questionIds.includes(id))recordedById.set(id,decision); // latest wins
+  }
+  if(!questionIds.every(id=>recordedById.has(id)))return null;
+  // The failed exchange may have predated a serve restart: adopt the live
+  // CSRF token so the next write from this tab is not refused.
+  if(questionContext&&body.csrfToken)questionContext.csrfToken=body.csrfToken;
+  return {decisions:questionIds.map(id=>recordedById.get(id)),revision:body.revision};
+}
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
   questionSubmissionError='';
   for(const decision of decisions||[]){

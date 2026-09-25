@@ -54,7 +54,8 @@ from .planning import (
 )
 from .question_answers import (
     QuestionAnswerConflict, QuestionAnswerError, QuestionNotFoundError,
-    append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
+    append_answer, append_answers, current_questions_and_decisions, decision_to_api,
+    ledger_snapshot, question_to_api,
     read_answers, restore_answers,
 )
 from .question_aging import overdue_warning_lines, question_ages
@@ -793,6 +794,10 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     self._send_json(500, {"error": str(exc)})
                     return
                 assert ledger is not None
+                # The stored graph may predate the latest answer while its
+                # refresh runs; the ledger decides what is still open.
+                open_questions, decisions = current_questions_and_decisions(
+                    live_graph, ledger)
                 self._send_json(200, {
                     "engineVersion": __version__,
                     "renderId": process_render_id(),
@@ -800,12 +805,10 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     "csrfToken": csrf_token,
                     "revision": ledger["revision"],
                     "questions": [
-                        question_to_api(question)
-                        for question in live_graph.owner_questions
+                        question_to_api(question) for question in open_questions
                     ],
                     "decisions": [
-                        decision_to_api(decision)
-                        for decision in live_graph.owner_decisions
+                        decision_to_api(decision) for decision in decisions
                     ],
                 })
                 return

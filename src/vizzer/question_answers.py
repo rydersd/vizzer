@@ -253,6 +253,30 @@ def reconcile_answers(graph: Graph, cfg, root: Path) -> list[str]:
     return warnings
 
 
+def current_questions_and_decisions(graph: Graph, ledger: dict) -> tuple[list, list]:
+    """``(open questions, decisions)`` for a stored graph, as of ``ledger``.
+
+    The stored graph can lag the ledger: an answer POST writes the ledger
+    before its refresh rewrites the graph (seconds on an idle host, tens of
+    seconds on a busy one).  Applying the same (question id, fingerprint)
+    match ``reconcile_answers`` uses keeps ``GET /api/questions`` truthful in
+    that window, so a page that lost its POST reply can see the answer landed.
+    """
+    by_identity = {
+        (answer["questionId"], answer["fingerprint"]): answer
+        for answer in ledger["answers"]
+    }
+    open_questions = []
+    decisions = list(graph.owner_decisions)
+    for question in graph.owner_questions:
+        answer = by_identity.get((question.id, owner_question_fingerprint(question)))
+        if answer is None:
+            open_questions.append(question)
+        else:
+            decisions.append(_decision(answer))
+    return open_questions, sorted(decisions, key=lambda value: value.question.id)
+
+
 def question_to_api(question: OwnerQuestion) -> dict:
     return {
         "id": question.id,
