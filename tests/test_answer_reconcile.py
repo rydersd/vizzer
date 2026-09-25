@@ -225,7 +225,7 @@ out.quietNote=viewsBehindText(body,now);
 // Behind for over a minute: say so.
 out.slowNote=viewsBehindText({...body,viewsBehindSince:'2026-09-25T18:28:00Z'},now);
 // A failed refresh is named at once, first line only.
-out.failedNote=viewsBehindText({...body,refreshFailure:{error:'could not write derived artifacts: [Errno 13] Permission denied\nsecond line',failedAt:'2026-09-25T18:29:50Z',attempts:2}},now);
+out.failedNote=viewsBehindText({...body,refreshFailure:{error:"could not write derived artifacts: [Errno 13] Permission denied: '/private/var/folders/x/T/tmp1/vizzer/views/.roadmap.md.ab12'\nsecond line",failedAt:'2026-09-25T18:29:50Z',attempts:2}},now);
 out.caughtUp=viewsBehindText({...body,viewsBehind:false},now);
 // Adopting the same authority twice changes nothing.
 adoptQuestionAuthority(body,{now});

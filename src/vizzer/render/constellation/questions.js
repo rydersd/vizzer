@@ -435,7 +435,9 @@ function viewsBehindText(body,now=Date.now()){
   const at=new Date(since), pad=value=>String(value).padStart(2,'0');
   const when=`${pad(at.getHours())}:${pad(at.getMinutes())}`;
   if(!failure)return `Views are behind your answers since ${when}.`;
-  const reason=String(failure.error||'unknown error').split('\n')[0].replace(/[.\s]+$/,'');
+  // First line only, without a trailing quoted file path (the serve log has it).
+  const reason=String(failure.error||'unknown error').split('\n')[0]
+    .replace(/:\s*'[^']*'\s*$/,'').replace(/[.\s]+$/,'');
   return `Views are behind your answers since ${when} — refresh failed: ${reason}. Retrying.`;
 }
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
