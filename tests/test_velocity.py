@@ -15,7 +15,7 @@ from vizzer.model import (
     OwnerQuestionRecommendation,
 )
 from vizzer.render import render_all
-from vizzer.render.velocity import velocity_payload, velocity_summary
+from vizzer.render.velocity import stage_merge_ledger, velocity_payload, velocity_summary
 
 
 UTC = timezone.utc
@@ -271,10 +271,9 @@ def test_velocity_render_uses_synthetic_persisted_evidence_and_escapes_host_text
             ]},
         }}
     cfg = Config(data=deep_merge(DEFAULTS, {"velocity": {"window_days": 4, "rolling_days": 2}}))
-    monkeypatch.setattr(
-        "vizzer.render.velocity.merged_pull_requests",
-        lambda root, since, visible_roots: ([velocity.Merge(77, datetime(2026, 9, 4, tzinfo=UTC), True)], "fixture/main"),
-    )
+    (tmp_path / "vizzer").mkdir(exist_ok=True)
+    (tmp_path / "vizzer/velocity-merges.json").write_text(velocity.merge_ledger_text(
+        [velocity.Merge(77, datetime(2026, 9, 4, tzinfo=UTC), True)], "fixture/main"), encoding="utf-8")
 
     summary = velocity_summary(graph, cfg, tmp_path)
     rendered = render_all(graph, cfg, tmp_path, only={"velocity", "dashboard", "constellation"})
@@ -314,10 +313,9 @@ def test_velocity_tab_executes_the_exported_wip_and_window_contract(tmp_path, mo
         ]},
     }}
     cfg = Config(data=deep_merge(DEFAULTS, {"velocity": {"window_days": 4, "rolling_days": 2}}))
-    monkeypatch.setattr(
-        "vizzer.render.velocity.merged_pull_requests",
-        lambda root, since, visible_roots: ([velocity.Merge(88, datetime(2026, 9, 4, tzinfo=UTC), True)], "fixture/main"),
-    )
+    (tmp_path / "vizzer").mkdir(exist_ok=True)
+    (tmp_path / "vizzer/velocity-merges.json").write_text(velocity.merge_ledger_text(
+        [velocity.Merge(88, datetime(2026, 9, 4, tzinfo=UTC), True)], "fixture/main"), encoding="utf-8")
 
     summary = velocity_summary(graph, cfg, tmp_path)
     html = render_all(graph, cfg, tmp_path, only={"constellation"})["constellation.html"]
@@ -337,8 +335,8 @@ def test_velocity_summary_memoizes_only_matching_graph_root_and_config(tmp_path,
     cfg = Config(data=deep_merge(DEFAULTS, {"velocity": {"window_days": 1, "rolling_days": 1}}))
     graph = Graph.from_dict({"schema": 1, "groups": [], "items": []})
     monkeypatch.setattr(
-        "vizzer.render.velocity.merged_pull_requests",
-        lambda *args: (calls.append(args) or ([], "fixture/main")),
+        "vizzer.render.velocity.read_merge_ledger",
+        lambda *args: (calls.append(args) or ([], "fixture/main", [])),
     )
 
     assert velocity_summary(graph, cfg, tmp_path) is velocity_summary(graph, cfg, tmp_path)
@@ -359,3 +357,108 @@ def test_velocity_rejects_unbounded_or_escaping_configuration(tmp_path, settings
 
     with pytest.raises(ValueError):
         velocity_summary(Graph(vocab=cfg.vocab), cfg, tmp_path)
+
+
+# Merge ledger: committed views read merges from a refresh-written ledger, never
+# Git. Regression: renderers counted "(#N)" merges live, so the squash merge that
+# landed a refreshed view added a PR to "today" and `check` reported it stale.
+
+def _git(root, *args, when=None):
+    env = {"GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "f@example.invalid",
+           "GIT_COMMITTER_NAME": "Fixture", "GIT_COMMITTER_EMAIL": "f@example.invalid",
+           "PATH": __import__("os").environ["PATH"]}
+    if when is not None:
+        stamp = when.strftime("%Y-%m-%dT%H:%M:%S+0000")
+        env.update(GIT_AUTHOR_DATE=stamp, GIT_COMMITTER_DATE=stamp)
+    subprocess.run(["git", "-C", str(root), *args], check=True, env=env, capture_output=True)
+
+
+def _merge_commit(root, number, path, when):
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(f"change {number}\n", encoding="utf-8")
+    _git(root, "add", path)
+    _git(root, "commit", "-qm", f"Change {number} (#{number})", when=when)
+
+
+def test_union_keeps_recorded_entries_and_prunes_by_newest_merge() -> None:
+    at = lambda day: datetime(2026, 9, day, 12, tzinfo=UTC)  # noqa: E731
+    recorded = [velocity.Merge(1, at(1), True), velocity.Merge(2, at(10), False)]
+    observed = [velocity.Merge(2, at(11), True), velocity.Merge(3, at(20), False)]
+    merged = velocity.union_merges(recorded, observed, keep_days=15)
+    assert [m.number for m in merged] == [2, 3]
+    assert merged[0] == velocity.Merge(2, at(10), False)
+
+
+def test_merge_ledger_round_trips_and_rejects_malformed_entries(tmp_path) -> None:
+    path = tmp_path / "velocity-merges.json"
+    merges = [velocity.Merge(7, datetime(2026, 9, 3, 1, 2, 3, tzinfo=UTC), True)]
+    path.write_text(velocity.merge_ledger_text(merges, "origin/main"), encoding="utf-8")
+    assert velocity.read_merge_ledger(path) == (merges, "origin/main", [])
+    path.write_text(json.dumps({"schema": 1, "ref": None, "merges": [{"pr": "x"}]}), encoding="utf-8")
+    read, ref, warnings = velocity.read_merge_ledger(path)
+    assert (read, ref, len(warnings)) == ([], None, 1)
+
+
+def test_committed_render_never_reads_git(tmp_path, monkeypatch) -> None:
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer/velocity-merges.json").write_text(velocity.merge_ledger_text(
+        [velocity.Merge(41, datetime(2026, 9, 4, 20, tzinfo=UTC), True),
+         velocity.Merge(42, datetime(2026, 9, 4, 21, tzinfo=UTC), False)], "origin/main"),
+        encoding="utf-8")
+    cfg = Config(data=deep_merge(DEFAULTS, {"velocity": {"window_days": 4, "rolling_days": 2}}))
+
+    def tripwire(*args, **kwargs):
+        raise AssertionError("committed render consulted Git")
+
+    monkeypatch.setattr(subprocess, "run", tripwire)
+    graph = Graph.from_dict({"schema": 1, "groups": [], "items": []})
+    summary = velocity_summary(graph, cfg, tmp_path)
+    assert summary["recent_prs"] == 2
+    assert summary["merge_ref"] == "origin/main"
+
+
+def test_a_merge_after_refresh_does_not_restale_the_committed_view(tmp_path) -> None:
+    if shutil.which("git") is None:
+        pytest.skip("git is required for the refresh fixture")
+    _git(tmp_path, "init", "-q", "-b", "main")
+    base = datetime.now(UTC).replace(microsecond=0) - timedelta(days=2)
+    _merge_commit(tmp_path, 101, "src/a.py", base)
+    _merge_commit(tmp_path, 102, "docs/b.md", base + timedelta(hours=1))
+    cfg = Config(data=DEFAULTS)
+    empty = {"schema": 1, "groups": [], "items": []}
+
+    graph = Graph.from_dict(empty)
+    staged = stage_merge_ledger(graph, cfg, tmp_path)
+    assert staged is not None
+    path, content = staged
+    assert path == tmp_path / "vizzer/velocity-merges.json"
+    refreshed = render_all(graph, cfg, tmp_path, only={"velocity"})["velocity.md"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    assert '"pr": 101' in content and '"pr": 102' in content
+
+    # The squash merge that lands the refresh is a new (#N) commit.
+    _merge_commit(tmp_path, 103, "vizzer/views/velocity.md", base + timedelta(hours=2))
+    checked = render_all(Graph.from_dict(empty), cfg, tmp_path, only={"velocity"})["velocity.md"]
+    assert checked == refreshed
+
+    _, content = stage_merge_ledger(Graph.from_dict(empty), cfg, tmp_path)
+    assert '"pr": 103' in content
+
+
+def test_ledger_conflict_unions_by_pr_where_a_line_union_is_not_json(tmp_path) -> None:
+    def ledger(*numbers):
+        return velocity.merge_ledger_text(
+            [velocity.Merge(n, datetime(2026, 9, 1, n, tzinfo=UTC), False) for n in numbers],
+            "origin/main")
+    base, ours, theirs = (tmp_path / "base", tmp_path / "ours", tmp_path / "theirs")
+    base.write_text(ledger(1, 2)); ours.write_text(ledger(1, 2, 3)); theirs.write_text(ledger(1, 2, 4))
+    subprocess.run(["git", "merge-file", "--union", str(ours), str(base), str(theirs)], check=False)
+    assert velocity.parse_merge_ledger(ours.read_text())[2], "a line union produced a valid ledger"
+
+    text = velocity.union_merge_ledger_texts(ledger(1, 2, 3), ledger(1, 2, 4))
+    merges, ref, warnings = velocity.parse_merge_ledger(text)
+    assert [m.number for m in merges] == [1, 2, 3, 4] and ref == "origin/main" and warnings == []
+    with pytest.raises(ValueError):
+        velocity.union_merge_ledger_texts("{not json", ledger(1))

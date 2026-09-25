@@ -50,6 +50,7 @@ from .model import Graph, owner_question_fingerprint
 from .progress_history import ProgressHistory, prepare_progress_history
 from .reconcile import build_graph
 from .render import render_all
+from .render.velocity import stage_merge_ledger
 from .planning import (
     PlanningError, StaleRevisionError, analyze_change, apply_change,
     read_overlay, restore_overlay, undo_change, validate_state,
@@ -1570,6 +1571,11 @@ def _refresh_entries(root: Path, cfg: Config, graph: Graph,
     if output_dir is None:
         return None
     try:
+        # The ONLY Git read behind the committed views: record new main-line
+        # merges into the committed ledger before rendering from it. `check`
+        # reads the ledger alone, so the squash merge that lands this refresh
+        # cannot restale what it lands.
+        merge_ledger = stage_merge_ledger(graph, cfg, root)
         rendered = render_all(graph, cfg, root)
     except Exception as exc:
         print(f"refresh: {exc}")
@@ -1577,6 +1583,8 @@ def _refresh_entries(root: Path, cfg: Config, graph: Graph,
     entries = [(root / GRAPH_RELPATH, graph.dumps())]
     if progress.path is not None and progress.content is not None:
         entries.append((progress.path, progress.content))
+    if merge_ledger is not None:
+        entries.append(merge_ledger)
     for filename, content in rendered.items():
         relative = Path(filename)
         if relative.is_absolute() or ".." in relative.parts:

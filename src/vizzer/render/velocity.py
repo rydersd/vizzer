@@ -15,12 +15,16 @@ from ..model import Graph
 from ..velocity import (
     DayRow, HostSummary, anchor_day, build_stamps, day_rows, host_cuts,
     host_summaries, lead_times, lifecycle_transitions, median_lead_time,
-    merged_pull_requests, parse_spend_log, ratio_text, read_jsonl,
-    rolling_average, sparkline, tokens_text, work_in_progress,
+    Merge, merge_ledger_text, merged_pull_requests, parse_spend_log,
+    ratio_text, read_jsonl, read_merge_ledger, rolling_average, sparkline,
+    tokens_text, union_merges, work_in_progress,
 )
 
 DEFAULT_LOG_PATH = "vizzer/velocity-log.jsonl"
 DEFAULT_BUILDS_PATH = "vizzer/owner-builds.jsonl"
+DEFAULT_MERGES_PATH = "vizzer/velocity-merges.json"
+# Set by `stage_merge_ledger` on the graph a refresh is about to render.
+_STAGED_MERGES_ATTR = "_velocity_staged_merges"
 DEFAULT_WINDOW_DAYS = 28
 DEFAULT_ROLLING_DAYS = 7
 
@@ -84,9 +88,63 @@ def _host_line(summary: HostSummary) -> str:
     )
 
 
+def _visible_roots(cfg: Config) -> tuple[str, ...]:
+    visible_roots = cfg.get("velocity.visible_roots", ["src/"])
+    if not isinstance(visible_roots, (list, tuple)) or any(
+        not isinstance(value, str) or not value or value.startswith("/")
+        or ".." in value.split("/") for value in visible_roots
+    ):
+        raise ValueError("velocity.visible_roots must be repository-relative directory names")
+    return tuple(value.rstrip("/") + "/" for value in visible_roots)
+
+
+def _merges_relpath(cfg: Config) -> str:
+    return str(cfg.get("velocity.merges_path", DEFAULT_MERGES_PATH))
+
+
+def _merges_path(cfg: Config, root: Path) -> Path:
+    path = root / _merges_relpath(cfg)
+    if not path.resolve().is_relative_to(root.resolve()):
+        raise ValueError("velocity merge ledger path escapes repository")
+    return path
+
+
+def stage_merge_ledger(graph: Graph, cfg: Config, root: Path,
+                       now: datetime | None = None) -> tuple[Path, str] | None:
+    """WRITE path only (`refresh`): record new main-line PR merges.
+
+    Reads Git once, unions what it saw into the committed ledger, stages the
+    result on ``graph`` for this refresh's renderers, and returns the file to
+    write. `check`, `render` and every renderer read the committed ledger and
+    never Git, so the squash merge that lands a refreshed view cannot restale
+    it: that merge is recorded by the NEXT refresh.
+    """
+    path = _merges_path(cfg, root)
+    recorded, recorded_ref, _ = read_merge_ledger(path)
+    window_days = int(cfg.get("velocity.window_days", DEFAULT_WINDOW_DAYS))
+    moment = now or datetime.now(timezone.utc)
+    since = moment - timedelta(days=window_days + 2)
+    observed, ref = merged_pull_requests(root, since, _visible_roots(cfg))
+    if ref is None and not recorded:
+        return None
+    merges = union_merges(recorded, observed, keep_days=window_days + 2)
+    ledger_ref = ref or recorded_ref
+    setattr(graph, _STAGED_MERGES_ATTR, (merges, ledger_ref))
+    return path, merge_ledger_text(merges, ledger_ref)
+
+
+def _merges(graph: Graph, cfg: Config, root: Path) -> tuple[list[Merge], str | None, list[str]]:
+    """The merges this refresh staged, else the committed ledger. Never Git."""
+    staged = getattr(graph, _STAGED_MERGES_ATTR, None)
+    if staged is not None:
+        return staged[0], staged[1], []
+    path = _merges_path(cfg, root)
+    return read_merge_ledger(path)
+
+
 # One refresh renders dashboard.md, velocity.md, and the constellation from the
 # same graph object; the summary is memoised on it so all three read ONE
-# computation (one git read, one clock) rather than three that could disagree.
+# computation (one ledger read, one clock) rather than three that could disagree.
 _MEMO_ATTR = "_velocity_summary_memo"
 
 
@@ -110,13 +168,7 @@ def _compute_velocity_summary(graph: Graph, cfg: Config, root: Path) -> dict:
     rolling_days = int(cfg.get("velocity.rolling_days", DEFAULT_ROLLING_DAYS))
     if not 1 <= rolling_days <= window_days <= 366:
         raise ValueError("velocity requires 1 <= rolling_days <= window_days <= 366")
-    visible_roots = cfg.get("velocity.visible_roots", ["src/"])
-    if not isinstance(visible_roots, (list, tuple)) or any(
-        not isinstance(value, str) or not value or value.startswith("/")
-        or ".." in value.split("/") for value in visible_roots
-    ):
-        raise ValueError("velocity.visible_roots must be repository-relative directory names")
-    visible_roots = tuple(value.rstrip("/") + "/" for value in visible_roots)
+    visible_roots = _visible_roots(cfg)
     log_relpath = str(cfg.get("velocity.log_path", DEFAULT_LOG_PATH))
     builds_relpath = str(cfg.get("velocity.owner_builds_path", DEFAULT_BUILDS_PATH))
     for relpath in (log_relpath, builds_relpath):
@@ -137,14 +189,9 @@ def _compute_velocity_summary(graph: Graph, cfg: Config, root: Path) -> dict:
     build_rows, build_warnings = read_jsonl(root / builds_relpath)
     builds = build_stamps(build_rows, zone)
 
-    # Merges are read after the anchor candidates so the git window can be
-    # bounded; the anchor itself may still move forward on a newer merge.
-    provisional = anchor_day(transitions, [], spend, builds, zone)
-    since = datetime.combine(
-        (provisional or datetime.now(timezone.utc).date()) - timedelta(days=window_days + 1),
-        datetime.min.time(), tzinfo=timezone.utc,
-    )
-    merges, merge_ref = merged_pull_requests(root, since, visible_roots)
+    # Persisted merges only (see stage_merge_ledger): a renderer that read Git
+    # would count the very merge that commits its output.
+    merges, merge_ref, merge_warnings = _merges(graph, cfg, root)
     anchor = anchor_day(transitions, merges, spend, builds, zone)
 
     rows = day_rows(window_days, anchor, transitions, merges, spend, builds, zone) \
@@ -184,9 +231,10 @@ def _compute_velocity_summary(graph: Graph, cfg: Config, root: Path) -> dict:
         "hosts": host_summaries(rows, leads, zone),
         "merge_ref": merge_ref,
         "log_relpath": log_relpath,
+        "merges_relpath": _merges_relpath(cfg),
         "builds_relpath": builds_relpath,
         "visible_roots": visible_roots,
-        "warnings": spend_warnings + build_warnings,
+        "warnings": spend_warnings + build_warnings + merge_warnings,
     }
 
 
@@ -308,7 +356,8 @@ def _velocity_view(summary: dict) -> str:
         "Generated read-only view. Lineage: lifecycle events in the progress-history "
         "ledger (never status inferred from Git), pull-request merges on the main "
         f"line (`--first-parent`, subject `(#N)` or `Merge pull request #N`, read from `{summary['merge_ref'] or 'no git'}` "
-        "in this checkout), owner review-build stamps, and the declared token spend "
+        f"by the last `engine refresh` and persisted in `{summary['merges_relpath']}`), "
+        "owner review-build stamps, and the declared token spend "
         f"log `{summary['log_relpath']}`.",
         "",
         f"**Window:** last {window_days} days ending {anchor.isoformat() if anchor else '—'} "
