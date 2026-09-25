@@ -282,6 +282,7 @@ input::placeholder{color:var(--mut);opacity:1}
 .questioncustom{margin:0 0 8px}.questioncustom label{display:block;color:var(--mut);margin-bottom:3px}.questioncustom textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:7px;font:11px/1.35 ui-monospace,"SF Mono",Menlo,monospace}
 .questioncustom textarea:focus{outline:2px solid var(--owner-override);outline-offset:1px}.questionactions{display:flex;align-items:center;gap:8px;margin-top:8px}.questionanswer{border:1px solid var(--owner-override);border-radius:6px;background:transparent;color:var(--owner-override);padding:6px 10px;cursor:pointer;font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}
 .questionanswer:disabled,.questioncard fieldset:disabled .questionoption{opacity:.45;cursor:not-allowed}.questionstatus{color:var(--mut)}
+.questionnote{margin:6px 0;padding:6px 8px;border-left:3px solid var(--buggap);background:color-mix(in srgb,var(--buggap) 10%,var(--panel));color:var(--ink);line-height:1.4}
 .questioncard .recommendation,.questioncard .acceptedanswer{color:var(--owner-override);margin-top:6px}.questioncard small{display:block;color:var(--mut);line-height:1.4;margin-top:5px}.questioncard code{font-size:10px}
 .questionstatus.ready{color:var(--ready);font-weight:700}.questionqueuefooter{position:sticky;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:9px;margin:10px -16px -16px;padding:11px 16px 14px;border-top:1px solid var(--owner-override);background:var(--panel);backdrop-filter:blur(10px);box-shadow:0 -8px 18px color-mix(in srgb,var(--bg) 32%,transparent)}.actionstatus{display:grid;gap:3px;width:100%;min-width:0}.questionqueuefooter span{display:block;color:var(--mut);font:10px/1.3 ui-monospace,"SF Mono",Menlo,monospace;overflow-wrap:anywhere}.dossieractions{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px;position:relative;width:100%}.questionqueuefooter button{flex:none;border:1px solid var(--owner-override);border-radius:7px;background:var(--owner-override);color:var(--bg);padding:7px 11px;cursor:pointer;font:700 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}.questionqueuefooter button:disabled{opacity:.4;cursor:not-allowed}.chatsplit{display:flex;position:relative}.chatsplit>[data-chat-primary]{border-radius:7px 0 0 7px}.chatsplit>[data-chat-overflow]{border-left-color:color-mix(in srgb,var(--bg) 35%,transparent);border-radius:0 7px 7px 0;padding-inline:8px}.chatmenu{position:absolute;left:0;bottom:calc(100% + 6px);display:grid;min-width:110px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--panel);box-shadow:0 8px 24px #0008}.chatmenu[hidden]{display:none}.chatmenu button{border-color:transparent;border-radius:5px;background:transparent;color:var(--ink);text-align:left}.chatmenu button:hover{background:var(--bg2)}
 .questionqueuefooter{position:static;bottom:auto;margin:0}
@@ -531,7 +532,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"engineVersion":"0.8.39","renderId":"27043efea4e5dd0f","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":"main","logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
+const DATA={"engineVersion":"0.8.39","renderId":"bfe8b7f024c79e5b","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":"main","logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -2010,7 +2011,7 @@ function openQuestionEditor(id,returnTarget){
       const accepted=await recordQuestionAnswers([{dataset:{questionId:id}}],
         [{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}],
         {failure:'Answer could not be saved'});
-      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
+      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){status.textContent=error.message||String(error);status.setAttribute('role','alert');submitting=false;back.disabled=false;text.readOnly=false;sync();text.focus();}
   };
   sync();text.focus();text.setSelectionRange(text.value.length,text.value.length);
@@ -2021,6 +2022,12 @@ function openQuestionEditor(id,returnTarget){
 
 let questionContext=null, questionError='', questionSubmissionError='';
 const questionDrafts=new Map();
+// Per-question notes from answer recovery: "answered elsewhere as X; your
+// choice Y was not recorded", or "not recorded; provide again". Shown on the
+// question's own card, because the answered card has no footer banner.
+const questionNotes=new Map();
+const questionNoteMarkup=id=>questionNotes.has(id)
+  ?`<p class="questionnote" role="status" data-question-note>${esc(questionNotes.get(id))}</p>`:'';
 // Owner directive 2026-08-22: a typed answer must never be lost to a reload or
 // a server restart. Drafts mirror to localStorage on every edit and clear only
 // when the answer is ACCEPTED by the server. Parked drafts persist the same
@@ -2099,7 +2106,7 @@ function questionCard(q){
   const evidence=q.evidence.map(value=>`<code>${esc(value)}</code>`).join('<br>');
   const ready=(draft.kind==='option'&&draft.optionId)||(custom&&draft.text.trim());
   const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Selected · ready to answer':'Not answered';
-  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>
+  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>${questionNoteMarkup(q.id)}
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
     <div class="questioncustom" ${custom?'':'hidden'}><button type="button" data-question-edit>Edit in Markdown panel</button><label for="${token}-text">Your suggestion · Markdown supported</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>
@@ -2114,6 +2121,7 @@ function decisionCard(decision){
     :decision.text;
   return `<div class="questioncard answered"><strong>answered · ${esc(decision.answeredBy||q.owner||'owner')}</strong><h3>${esc(q.prompt)}</h3>
     <div class="acceptedanswer">${decision.kind==='option'?'accepted option · '+esc(chosen||''):'<div class="storymarkdown">'+renderStoryMarkdown(chosen||'')+'</div>'}</div>
+    ${questionNoteMarkup(q.id)}
     <small>recorded ${esc(decision.answeredAt||'')} · decision r${esc(decision.revision||1)} · fingerprint <code>${esc((decision.fingerprint||'').slice(0,12))}</code></small></div>`;
 }
 async function preflightQuestionAuthority(forms){
@@ -2249,7 +2257,7 @@ function bindQuestionControls(n){
     try{
       const accepted=await recordQuestionAnswers(forms,answers,
         {onStatus:text=>{queueStatus.textContent=text;}});
-      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
+      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){
       queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
       forms.forEach(form=>form.querySelector('fieldset').disabled=false);
@@ -2263,53 +2271,111 @@ function bindQuestionControls(n){
   });
 }
 
-// POST the answers and return {decisions, revision}. A slow write can
+// POST the answers and return {decisions, revision, notes}. A slow write can
 // outlive the browser's connection (the serve records the answer, then its
-// reply hits a closed socket), and a retry is then refused as a stale
-// revision. Neither means the answer failed, so on ANY failure the durable
-// ledger decides: re-read /api/questions, and when every submitted question
-// now has a recorded decision, those decisions are the result. Only if that
-// read fails or an answer is missing does the original error propagate.
-async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed'}={}){
+// reply hits a closed socket, or the browser gives up while the server is
+// still writing), and a retry is then refused as a stale revision. Neither
+// means the answer failed, so on ANY failure the durable ledger decides:
+// re-read /api/questions and adopt whatever was recorded after this attempt
+// began. With no HTTP response at all the server may still be writing, so keep
+// re-reading (every pollMs, up to pollLimitMs) until the answers appear or the
+// ledger moves on without them. An HTTP error is final: one read. Only when
+// nothing was recorded does the original error propagate.
+async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed',pollMs=2000,pollLimitMs=60000}={}){
+  let expectedRevision=questionContext?.revision??-1, noResponse=false;
   try{
     await preflightQuestionAuthority(forms);
     onStatus('Recording owner decisions…');
-    const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
+    expectedRevision=questionContext.revision;
+    let response;
+    try{
+      response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision,answers})});
+    }catch(error){noResponse=true;throw error;}
     const body=await response.json();if(!response.ok)throw new Error(body.error||failure);
-    return {decisions:body.decisions,revision:body.revision};
+    return {decisions:body.decisions,revision:body.revision,notes:new Map()};
   }catch(error){
     onStatus('Checking whether the answers were recorded…');
-    const recovered=await recoverRecordedAnswers(answers.map(answer=>answer.questionId));
+    const recovered=await recoverRecordedAnswers(answers,expectedRevision,
+      noResponse?{pollMs,pollLimitMs}:{pollMs,pollLimitMs:0});
     if(recovered)return recovered;
     throw error;
   }
 }
-// {decisions, revision} when every question id has a recorded decision on the
-// server, else null. Decisions come from the same decision_to_api shape the
-// POST returns, so reconcileAcceptedDecisions takes them unchanged.
-async function recoverRecordedAnswers(questionIds){
-  let body;
+// Re-read the answer authority until every submitted question has a decision
+// recorded after `expectedRevision`, the ledger has moved past it without them
+// (another writer went first, so this all-or-nothing batch was refused), or the
+// time limit passes. Returns {decisions, revision, notes} for whatever WAS
+// recorded (durable truth wins), or null when nothing was.
+async function recoverRecordedAnswers(answers,expectedRevision,{pollMs=2000,pollLimitMs=0}={}){
+  const deadline=Date.now()+pollLimitMs;
+  let result=null;
+  for(;;){
+    const body=await readQuestionAuthority();
+    if(body){
+      result=recordedAnswerResult(answers,expectedRevision,body);
+      if(result.decisions.length===answers.length||body.revision>expectedRevision)break;
+    }
+    if(Date.now()+pollMs>deadline)break;
+    await new Promise(resolve=>setTimeout(resolve,pollMs));
+  }
+  if(!result?.decisions.length)return null;
+  // The failed exchange may have predated a serve restart: adopt the live
+  // CSRF token so the next write from this tab is not refused.
+  if(questionContext&&result.csrfToken)questionContext.csrfToken=result.csrfToken;
+  return result;
+}
+async function readQuestionAuthority(){
   try{
     const response=await fetch('/api/questions',{cache:'no-store'});
-    if(!response.ok)return null;
-    body=await response.json();
+    return response.ok?await response.json():null;
   }catch(_error){return null;}
+}
+const answerChoiceText=(questionId,answer)=>{
+  const q=(DATA.questions||[]).find(value=>value.id===questionId);
+  return answer.kind==='option'
+    ?q?.options?.find(option=>option.id===answer.optionId)?.label||answer.optionId||''
+    :(answer.text||'').trim();
+};
+// Pure: split the authority's decisions for the submitted answers. Only a
+// decision recorded AFTER expectedRevision counts (an older decision for the
+// same id belongs to a previous version of the question). A decision that is
+// not what this tab submitted (another window, or a revised question) is still
+// the truth, but gets a plain note naming both choices, and keeps the draft.
+function recordedAnswerResult(answers,expectedRevision,body){
   const recordedById=new Map();
   for(const decision of body.decisions||[]){
     const id=decision?.question?.id;
-    if(questionIds.includes(id))recordedById.set(id,decision); // latest wins
+    if((decision?.revision??0)>expectedRevision&&answers.some(answer=>answer.questionId===id))
+      recordedById.set(id,decision); // latest wins
   }
-  if(!questionIds.every(id=>recordedById.has(id)))return null;
-  // The failed exchange may have predated a serve restart: adopt the live
-  // CSRF token so the next write from this tab is not refused.
-  if(questionContext&&body.csrfToken)questionContext.csrfToken=body.csrfToken;
-  return {decisions:questionIds.map(id=>recordedById.get(id)),revision:body.revision};
+  const decisions=[], notes=new Map();
+  for(const answer of answers){
+    const decision=recordedById.get(answer.questionId);
+    if(!decision){
+      notes.set(answer.questionId,'Not recorded: the other answers in this batch were. Choose again and provide it.');
+      continue;
+    }
+    decisions.push(decision);
+    const submitted=answer.answer;
+    const same=decision.fingerprint===answer.expectedFingerprint&&decision.kind===submitted.kind&&
+      (submitted.kind==='option'?decision.optionId===submitted.optionId
+        :(decision.text||'').trim()===(submitted.text||'').trim());
+    if(!same)notes.set(answer.questionId,
+      `Answered in another window as “${answerChoiceText(answer.questionId,decision)}”. Your choice “${answerChoiceText(answer.questionId,submitted)}” was not recorded.`);
+  }
+  return {decisions,revision:body.revision,notes,csrfToken:body.csrfToken};
 }
-function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
+function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
-    questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    // A decision recorded differently from this tab's choice keeps the draft,
+    // so the choice that was not recorded is not lost with it.
+    if(!notes.has(snapshot.id)){
+      questionNotes.delete(snapshot.id);
+      questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    }
     const q=(DATA.questions||[]).find(value=>value.id===snapshot.id);
     if(!q)continue;
     const node=DATA.nodes[q.n], questionIndex=DATA.questions.indexOf(q);

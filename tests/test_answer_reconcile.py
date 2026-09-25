@@ -31,52 +31,69 @@ QUESTIONS_JS = (Path(__file__).resolve().parents[1]
 
 _DRIVER = r"""
 const vm=require('vm');
-globalThis.document={getElementById:()=>null,querySelector:()=>null};
-globalThis.sessionStorage={getItem:()=>null,setItem(){}};globalThis.localStorage=globalThis.sessionStorage;
+globalThis.document={getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[]};
+globalThis.sessionStorage={getItem:()=>null,setItem(){},removeItem(){}};globalThis.localStorage=globalThis.sessionStorage;
 globalThis.addEventListener=()=>{};globalThis.location={hash:'',search:'',protocol:'http:'};
-globalThis.RENDER_ID='render-1';
-const q={id:'question:bar-glyph',fingerprint:'fp-1'};
-globalThis.DATA={questions:[q],nodes:[],decisions:[]};
+globalThis.RENDER_ID='render-1';globalThis.sel=-1;
+globalThis.esc=value=>String(value??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+globalThis.updateViewStatus=()=>{};globalThis.refreshDossier=()=>{};globalThis.openNode=()=>{};
+const option=(id,label)=>({id,label,tradeoff:''});
+const question=(id,fingerprint)=>({id,fingerprint,n:0,owner:'owner',prompt:'Pick?',
+  options:[option('placeholder-only-on-bar','Placeholder only on the bar'),option('diamond-on-both','Diamond on both')],
+  recommendation:{optionId:'placeholder-only-on-bar',rationale:''},falsifier:'',evidence:[]});
+const q1=question('question:bar-glyph','fp-1'), q2=question('question:hover-key','fp-2');
+globalThis.DATA={questions:[q1,q2],nodes:[{id:'story:bar',oq:[0,1],od:[]}],decisions:[]};
 vm.runInThisContext(require('fs').readFileSync(process.argv[1],'utf8'));
-const decision={question:{id:q.id,fingerprint:q.fingerprint},fingerprint:q.fingerprint,
-  revision:323,answeredAt:'2026-09-24T22:03:00-07:00',answeredBy:'owner',
-  kind:'option',optionId:'placeholder-only-on-bar',text:''};
-const forms=[{dataset:{questionId:q.id}}];
-const answers=[{questionId:q.id,expectedFingerprint:q.fingerprint,
-  answer:{kind:'option',optionId:'placeholder-only-on-bar'}}];
-const authority=(decisions,revision)=>({ok:true,status:200,json:async()=>({
-  renderId:RENDER_ID,csrfToken:'rotated-token',revision,
-  questions:decisions.length?[]:[q],decisions})});
-function server(postOutcome,afterPost){
-  let posted=false;
-  return async url=>{
-    if(url==='/api/questions/answers'){posted=true;return postOutcome();}
-    if(url==='/api/questions')return posted?afterPost():authority([],322);
+const decision=(q,revision,optionId)=>({question:{id:q.id,fingerprint:q.fingerprint},fingerprint:q.fingerprint,
+  revision,answeredAt:'2026-09-24T22:03:00-07:00',answeredBy:'owner',kind:'option',optionId,text:''});
+const answerFor=(q,optionId)=>({questionId:q.id,expectedFingerprint:q.fingerprint,answer:{kind:'option',optionId}});
+const formFor=q=>({dataset:{questionId:q.id}});
+const authority=(revision,decisions,open)=>({ok:true,status:200,json:async()=>({
+  renderId:RENDER_ID,csrfToken:'rotated-token',revision,questions:open,decisions})});
+function server(post,after,before=()=>authority(322,[],[q1,q2])){
+  const calls={after:0};let posted=false;
+  const fetchImpl=async url=>{
+    if(url==='/api/questions/answers'){posted=true;return post();}
+    if(url==='/api/questions')return posted?after(++calls.after):before();
     throw new Error('unexpected fetch '+url);
   };
+  return {fetchImpl,calls};
 }
-async function run(fetchImpl){
-  questionContext={csrfToken:'old-token',revision:322};globalThis.fetch=fetchImpl;
-  try{return {ok:true,value:await recordQuestionAnswers(forms,answers)};}
-  catch(error){return {ok:false,error:error.message};}
+const lost=async()=>{throw new TypeError('Failed to fetch');};
+const refused=(status,error)=>async()=>({ok:false,status,json:async()=>({error})});
+async function run(scripted,questions,answers,limit=200){
+  questionContext={csrfToken:'old-token',revision:322};globalThis.fetch=scripted.fetchImpl;
+  try{
+    const value=await recordQuestionAnswers(questions.map(formFor),answers,{pollMs:1,pollLimitMs:limit});
+    return {ok:true,reads:scripted.calls.after,revision:value.revision,
+      ids:value.decisions.map(d=>d.question.id),notes:Object.fromEntries(value.notes),value,
+      token:questionContext.csrfToken};
+  }catch(error){return {ok:false,reads:scripted.calls.after,error:error.message};}
 }
 (async()=>{
   const out={};
-  const lost=await run(server(async()=>{throw new TypeError('Failed to fetch');},
-    async()=>authority([decision],323)));
-  out.lost={ok:lost.ok,revision:lost.value?.revision,id:lost.value?.decisions[0].question.id,
-    token:questionContext.csrfToken};
-  const stale=await run(server(async()=>({ok:false,status:409,json:async()=>({
-    error:'stale question answer revision 322; current is 323'})}),
-    async()=>authority([decision],323)));
-  out.stale={ok:stale.ok,revision:stale.value?.revision};
-  const genuine=await run(server(async()=>({ok:false,status:500,json:async()=>({
-    error:'ledger write failed'})}),async()=>authority([],322)));
-  out.genuine=genuine;
-  const unreadable=await run(server(async()=>{throw new TypeError('Failed to fetch');},
-    async()=>{throw new TypeError('Failed to fetch');}));
-  out.unreadable=unreadable;
-  process.stdout.write(JSON.stringify(out));
+  const mine=[answerFor(q1,'placeholder-only-on-bar')];
+  out.lateWrite=await run(server(lost,n=>n<3?authority(322,[],[q1,q2]):authority(323,[decision(q1,323,'placeholder-only-on-bar')],[q2])),[q1],mine);
+  out.overtaken=await run(server(lost,()=>authority(323,[],[q1,q2])),[q1],mine,5000);
+  out.neverLands=await run(server(lost,()=>authority(322,[],[q1,q2])),[q1],mine,40);
+  out.stale=await run(server(refused(409,'stale question answer revision 322; current is 323'),
+    ()=>authority(323,[decision(q1,323,'placeholder-only-on-bar')],[q2])),[q1],mine,5000);
+  out.genuine=await run(server(refused(500,'ledger write failed'),()=>authority(322,[],[q1,q2])),[q1],mine,5000);
+  out.oldDecision=await run(server(refused(500,'ledger write failed'),
+    ()=>authority(322,[decision(q1,300,'placeholder-only-on-bar')],[q1,q2])),[q1],mine,5000);
+  const other=await run(server(refused(409,'stale question answer revision 322; current is 323'),
+    ()=>authority(323,[decision(q1,323,'diamond-on-both')],[q2])),[q1],mine,5000);
+  out.differs={ok:other.ok,ids:other.ids,notes:other.notes};
+  questionDrafts.set(q1.id,{kind:'option',optionId:'placeholder-only-on-bar',text:''});
+  reconcileAcceptedDecisions(other.value.decisions,other.value.revision,{notes:other.value.notes});
+  out.differsDraftKept=questionDrafts.get(q1.id)?.optionId||'';
+  out.differsCard=decisionCard(DATA.decisions[DATA.decisions.length-1]);
+  out.nodeOpen=DATA.nodes[0].oq;
+  const batch=[answerFor(q1,'placeholder-only-on-bar'),answerFor(q2,'diamond-on-both')];
+  const partial=await run(server(refused(409,'stale question answer revision 322; current is 323'),
+    ()=>authority(323,[decision(q1,323,'placeholder-only-on-bar')],[q2])),[q1,q2],batch,5000);
+  out.partial={ok:partial.ok,ids:partial.ids,notes:partial.notes};
+  process.stdout.write(JSON.stringify(out,(key,value)=>key==='value'?undefined:value));
 })().catch(error=>{process.stdout.write(String(error.stack||error));process.exit(3);});
 """
 
@@ -90,17 +107,42 @@ def _page_outcomes():
     return json.loads(completed.stdout)
 
 
-def test_lost_or_stale_reply_with_recorded_decision_is_accepted():
-    out = _page_outcomes()
-    assert out["lost"] == {"ok": True, "revision": 323, "id": "question:bar-glyph",
-                           "token": "rotated-token"}
-    assert out["stale"] == {"ok": True, "revision": 323}
+def test_a_reply_lost_before_the_write_is_accepted_when_the_answer_lands():
+    late = _page_outcomes()["lateWrite"]
+    assert late["ok"], late
+    assert late["reads"] == 3, "the decision appeared on the third re-read"
+    assert late["revision"] == 323 and late["notes"] == {}
+    assert late["token"] == "rotated-token"
 
 
-def test_genuine_failure_and_unreadable_authority_still_surface_the_error():
+def test_no_http_reply_polls_until_the_ledger_moves_or_the_limit():
     out = _page_outcomes()
-    assert out["genuine"] == {"ok": False, "error": "ledger write failed"}
-    assert out["unreadable"] == {"ok": False, "error": "Failed to fetch"}
+    assert out["overtaken"] == {"ok": False, "reads": 1, "error": "Failed to fetch"}
+    assert not out["neverLands"]["ok"] and out["neverLands"]["reads"] > 1
+
+
+def test_an_http_error_is_final_after_one_read():
+    out = _page_outcomes()
+    assert out["stale"]["ok"] and out["stale"]["reads"] == 1
+    assert out["genuine"] == {"ok": False, "reads": 1, "error": "ledger write failed"}
+    assert out["oldDecision"]["error"] == "ledger write failed", (
+        "a decision from before this attempt is not this answer")
+
+
+def test_an_answer_recorded_differently_says_so_and_keeps_the_draft():
+    out = _page_outcomes()
+    note = out["differs"]["notes"]["question:bar-glyph"]
+    assert "Answered in another window as “Diamond on both”" in note
+    assert "Your choice “Placeholder only on the bar” was not recorded" in note
+    assert out["differsDraftKept"] == "placeholder-only-on-bar"
+    assert "data-question-note" in out["differsCard"]
+    assert out["nodeOpen"] == [1]
+
+
+def test_a_partly_recorded_batch_accepts_what_landed_and_marks_the_rest():
+    partial = _page_outcomes()["partial"]
+    assert partial["ok"] and partial["ids"] == ["question:bar-glyph"]
+    assert "Not recorded" in partial["notes"]["question:hover-key"]
 
 
 def test_get_reports_an_answer_the_stored_graph_has_not_caught_up_with(

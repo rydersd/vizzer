@@ -32,7 +32,7 @@ function openQuestionEditor(id,returnTarget){
       const accepted=await recordQuestionAnswers([{dataset:{questionId:id}}],
         [{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}],
         {failure:'Answer could not be saved'});
-      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
+      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){status.textContent=error.message||String(error);status.setAttribute('role','alert');submitting=false;back.disabled=false;text.readOnly=false;sync();text.focus();}
   };
   sync();text.focus();text.setSelectionRange(text.value.length,text.value.length);
@@ -43,6 +43,12 @@ function openQuestionEditor(id,returnTarget){
 
 let questionContext=null, questionError='', questionSubmissionError='';
 const questionDrafts=new Map();
+// Per-question notes from answer recovery: "answered elsewhere as X; your
+// choice Y was not recorded", or "not recorded; provide again". Shown on the
+// question's own card, because the answered card has no footer banner.
+const questionNotes=new Map();
+const questionNoteMarkup=id=>questionNotes.has(id)
+  ?`<p class="questionnote" role="status" data-question-note>${esc(questionNotes.get(id))}</p>`:'';
 // Owner directive 2026-08-22: a typed answer must never be lost to a reload or
 // a server restart. Drafts mirror to localStorage on every edit and clear only
 // when the answer is ACCEPTED by the server. Parked drafts persist the same
@@ -121,7 +127,7 @@ function questionCard(q){
   const evidence=q.evidence.map(value=>`<code>${esc(value)}</code>`).join('<br>');
   const ready=(draft.kind==='option'&&draft.optionId)||(custom&&draft.text.trim());
   const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Selected · ready to answer':'Not answered';
-  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>
+  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>${questionNoteMarkup(q.id)}
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
     <div class="questioncustom" ${custom?'':'hidden'}><button type="button" data-question-edit>Edit in Markdown panel</button><label for="${token}-text">Your suggestion · Markdown supported</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>
@@ -136,6 +142,7 @@ function decisionCard(decision){
     :decision.text;
   return `<div class="questioncard answered"><strong>answered · ${esc(decision.answeredBy||q.owner||'owner')}</strong><h3>${esc(q.prompt)}</h3>
     <div class="acceptedanswer">${decision.kind==='option'?'accepted option · '+esc(chosen||''):'<div class="storymarkdown">'+renderStoryMarkdown(chosen||'')+'</div>'}</div>
+    ${questionNoteMarkup(q.id)}
     <small>recorded ${esc(decision.answeredAt||'')} · decision r${esc(decision.revision||1)} · fingerprint <code>${esc((decision.fingerprint||'').slice(0,12))}</code></small></div>`;
 }
 async function preflightQuestionAuthority(forms){
@@ -271,7 +278,7 @@ function bindQuestionControls(n){
     try{
       const accepted=await recordQuestionAnswers(forms,answers,
         {onStatus:text=>{queueStatus.textContent=text;}});
-      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true});
+      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){
       queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
       forms.forEach(form=>form.querySelector('fieldset').disabled=false);
@@ -285,53 +292,111 @@ function bindQuestionControls(n){
   });
 }
 
-// POST the answers and return {decisions, revision}. A slow write can
+// POST the answers and return {decisions, revision, notes}. A slow write can
 // outlive the browser's connection (the serve records the answer, then its
-// reply hits a closed socket), and a retry is then refused as a stale
-// revision. Neither means the answer failed, so on ANY failure the durable
-// ledger decides: re-read /api/questions, and when every submitted question
-// now has a recorded decision, those decisions are the result. Only if that
-// read fails or an answer is missing does the original error propagate.
-async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed'}={}){
+// reply hits a closed socket, or the browser gives up while the server is
+// still writing), and a retry is then refused as a stale revision. Neither
+// means the answer failed, so on ANY failure the durable ledger decides:
+// re-read /api/questions and adopt whatever was recorded after this attempt
+// began. With no HTTP response at all the server may still be writing, so keep
+// re-reading (every pollMs, up to pollLimitMs) until the answers appear or the
+// ledger moves on without them. An HTTP error is final: one read. Only when
+// nothing was recorded does the original error propagate.
+async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed',pollMs=2000,pollLimitMs=60000}={}){
+  let expectedRevision=questionContext?.revision??-1, noResponse=false;
   try{
     await preflightQuestionAuthority(forms);
     onStatus('Recording owner decisions…');
-    const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
+    expectedRevision=questionContext.revision;
+    let response;
+    try{
+      response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision,answers})});
+    }catch(error){noResponse=true;throw error;}
     const body=await response.json();if(!response.ok)throw new Error(body.error||failure);
-    return {decisions:body.decisions,revision:body.revision};
+    return {decisions:body.decisions,revision:body.revision,notes:new Map()};
   }catch(error){
     onStatus('Checking whether the answers were recorded…');
-    const recovered=await recoverRecordedAnswers(answers.map(answer=>answer.questionId));
+    const recovered=await recoverRecordedAnswers(answers,expectedRevision,
+      noResponse?{pollMs,pollLimitMs}:{pollMs,pollLimitMs:0});
     if(recovered)return recovered;
     throw error;
   }
 }
-// {decisions, revision} when every question id has a recorded decision on the
-// server, else null. Decisions come from the same decision_to_api shape the
-// POST returns, so reconcileAcceptedDecisions takes them unchanged.
-async function recoverRecordedAnswers(questionIds){
-  let body;
+// Re-read the answer authority until every submitted question has a decision
+// recorded after `expectedRevision`, the ledger has moved past it without them
+// (another writer went first, so this all-or-nothing batch was refused), or the
+// time limit passes. Returns {decisions, revision, notes} for whatever WAS
+// recorded (durable truth wins), or null when nothing was.
+async function recoverRecordedAnswers(answers,expectedRevision,{pollMs=2000,pollLimitMs=0}={}){
+  const deadline=Date.now()+pollLimitMs;
+  let result=null;
+  for(;;){
+    const body=await readQuestionAuthority();
+    if(body){
+      result=recordedAnswerResult(answers,expectedRevision,body);
+      if(result.decisions.length===answers.length||body.revision>expectedRevision)break;
+    }
+    if(Date.now()+pollMs>deadline)break;
+    await new Promise(resolve=>setTimeout(resolve,pollMs));
+  }
+  if(!result?.decisions.length)return null;
+  // The failed exchange may have predated a serve restart: adopt the live
+  // CSRF token so the next write from this tab is not refused.
+  if(questionContext&&result.csrfToken)questionContext.csrfToken=result.csrfToken;
+  return result;
+}
+async function readQuestionAuthority(){
   try{
     const response=await fetch('/api/questions',{cache:'no-store'});
-    if(!response.ok)return null;
-    body=await response.json();
+    return response.ok?await response.json():null;
   }catch(_error){return null;}
+}
+const answerChoiceText=(questionId,answer)=>{
+  const q=(DATA.questions||[]).find(value=>value.id===questionId);
+  return answer.kind==='option'
+    ?q?.options?.find(option=>option.id===answer.optionId)?.label||answer.optionId||''
+    :(answer.text||'').trim();
+};
+// Pure: split the authority's decisions for the submitted answers. Only a
+// decision recorded AFTER expectedRevision counts (an older decision for the
+// same id belongs to a previous version of the question). A decision that is
+// not what this tab submitted (another window, or a revised question) is still
+// the truth, but gets a plain note naming both choices, and keeps the draft.
+function recordedAnswerResult(answers,expectedRevision,body){
   const recordedById=new Map();
   for(const decision of body.decisions||[]){
     const id=decision?.question?.id;
-    if(questionIds.includes(id))recordedById.set(id,decision); // latest wins
+    if((decision?.revision??0)>expectedRevision&&answers.some(answer=>answer.questionId===id))
+      recordedById.set(id,decision); // latest wins
   }
-  if(!questionIds.every(id=>recordedById.has(id)))return null;
-  // The failed exchange may have predated a serve restart: adopt the live
-  // CSRF token so the next write from this tab is not refused.
-  if(questionContext&&body.csrfToken)questionContext.csrfToken=body.csrfToken;
-  return {decisions:questionIds.map(id=>recordedById.get(id)),revision:body.revision};
+  const decisions=[], notes=new Map();
+  for(const answer of answers){
+    const decision=recordedById.get(answer.questionId);
+    if(!decision){
+      notes.set(answer.questionId,'Not recorded: the other answers in this batch were. Choose again and provide it.');
+      continue;
+    }
+    decisions.push(decision);
+    const submitted=answer.answer;
+    const same=decision.fingerprint===answer.expectedFingerprint&&decision.kind===submitted.kind&&
+      (submitted.kind==='option'?decision.optionId===submitted.optionId
+        :(decision.text||'').trim()===(submitted.text||'').trim());
+    if(!same)notes.set(answer.questionId,
+      `Answered in another window as “${answerChoiceText(answer.questionId,decision)}”. Your choice “${answerChoiceText(answer.questionId,submitted)}” was not recorded.`);
+  }
+  return {decisions,revision:body.revision,notes,csrfToken:body.csrfToken};
 }
-function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
+function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
-    questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    // A decision recorded differently from this tab's choice keeps the draft,
+    // so the choice that was not recorded is not lost with it.
+    if(!notes.has(snapshot.id)){
+      questionNotes.delete(snapshot.id);
+      questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    }
     const q=(DATA.questions||[]).find(value=>value.id===snapshot.id);
     if(!q)continue;
     const node=DATA.nodes[q.n], questionIndex=DATA.questions.indexOf(q);
