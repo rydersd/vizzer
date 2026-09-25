@@ -32,6 +32,9 @@ if(SERVED){
     return body;
   }).catch(error=>{console.warn('Vizzer workstreams:',error.message||String(error));});
   loadReviewContext();
+  // Runner fleet indicators (opt-in [runners]); the server caches ~60s.
+  refreshRunnerStatus();
+  setInterval(refreshRunnerStatus,90000);
 }
 syncChromeMetrics();
 addEventListener('resize',syncChromeMetrics);

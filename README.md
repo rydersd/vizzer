@@ -240,6 +240,7 @@ The one file you edit. Keys and defaults:
 | `session_history.enabled` | `false` | Opt in to a machine-local rolling 72-hour Claude/Codex public-activity index, snail trails, and filtered work logs. |
 | `session_history.checkout_roots` | `[]` | Explicit absolute checkout paths whose historical transcripts may be retained after the checkout is removed. Live linked worktrees are discovered by Git identity instead. |
 | `reviews.enabled` | `false` | Enable DoD-derived review plans, agent evidence runs, and served owner validation. |
+| `runners.enabled` | `false` | Show the repository's GitHub Actions self-hosted runners in the served constellation header, with hover status (lane from labels, busy job + PR + elapsed, offline alarm). Read-only via the ambient `gh` login; one runners call per 60 s; never enters rendered files. |
 | `reviews.plans_dir` | `"vizzer/reviews/plans"` | Directly contains bounded schema-1 authored plan JSON files. |
 | `reviews.runs_dir` | `"vizzer/reviews/runs"` | Append-only CAS ledger per plan fingerprint; revised plans start a new epoch without rewriting history. |
 | `reviews.evidence_dir` | `"vizzer/reviews/evidence"` | Required containment root for evidence attached through the review service. |

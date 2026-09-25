@@ -52,7 +52,7 @@ __VIZZER_RADAR_LINK__
     <a href="discussion-queue.md" download>Discussion queue Markdown</a>
     <a href="manifest.json" download>Graph manifest JSON</a>
   </div></details>
-  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
+  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div><div id="runners" role="group" aria-label="CI runners" hidden></div></div>
   <div id="chips"></div>
 </div>
 <!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
@@ -73,6 +73,9 @@ __VIZZER_RADAR_LINK__
   <div id="dossierfooter"></div>
 </div>
 <div id="tip" role="tooltip"></div>
+<!-- Served-only runner hover card: filled from /api/runners when an
+     indicator in #runners is hovered or focused; empty in the file. -->
+<div id="runnercard" role="tooltip" hidden></div>
 <div id="historyisolation" hidden><button id="historyall" type="button"><span id="historyisolatedlabel">Path isolated</span><strong>Show all paths ×</strong></button></div>
 <section id="historydock" __VIZZER_SESSION_HISTORY_HIDDEN__ aria-label="Rolling three-day agent history">
   <header><strong>Snail trails · 3 days</strong>
@@ -104,6 +107,7 @@ __VIZZER_QUESTIONS_JS__
 __VIZZER_PLANNING_JS__
 __VIZZER_DOSSIER_JS__
 __VIZZER_WORK_NAVIGATION_JS__
+__VIZZER_RUNNERS_JS__
 __VIZZER_CANVAS_JS__
 __VIZZER_SESSION_HISTORY_JS__
 __VIZZER_BOOTSTRAP_JS__

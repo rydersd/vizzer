@@ -27,6 +27,7 @@ from .review_service import (
     ReviewServiceError, append_review_event, resolve_evidence, review_state,
 )
 from .story_sidebar import object_detail_providers
+from . import runner_status
 from .session_history import instance as session_history
 
 
@@ -135,6 +136,31 @@ class ReviewHttpExtension:
         except (OSError, UnicodeError) as exc:
             ctx.send_json(500, {"error": f"could not persist review run: {exc}"})
         return True
+
+
+class RunnerStatusHttpExtension:
+    """Serve the live GitHub Actions runner fleet (``[runners] enabled``).
+
+    Served-only and read-only: ``runner_status.payload`` caches ~60 s, never
+    raises, degrades to ``available: false``, and never enters a rendered file.
+    """
+
+    def get(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        if parsed.path != "/api/runners" or parsed.query:
+            return False
+        if not ctx.current_engine():
+            return True
+        if not ctx.cfg.get("runners.enabled", False):
+            ctx.send_json(404, {"error": "runner status is disabled"})
+            return True
+        body = dict(runner_status.payload(ctx.root))
+        body["engineVersion"] = __version__
+        body["renderId"] = process_render_id()
+        ctx.send_json(200, body)
+        return True
+
+    def post(self, ctx: ServeRequestContext, parsed: SplitResult) -> bool:
+        return False  # read-only: no runner control from the map
 
 
 class SessionHistoryHttpExtension:
@@ -334,5 +360,5 @@ class DeveloperFlowHttpExtension:
 
 SERVE_EXTENSIONS = (
     SessionHistoryHttpExtension(), DeveloperFlowHttpExtension(),
-    ReviewHttpExtension(),
+    ReviewHttpExtension(), RunnerStatusHttpExtension(),
 )
