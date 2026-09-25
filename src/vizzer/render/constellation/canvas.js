@@ -704,7 +704,22 @@ function restZoom(){
   for(let step=0;step<8;step++){const F=900*z;z=target/(radius*F/(F+520));}
   return Math.min(3.4,Math.max(1,z));
 }
-function frame(){ ry+=vy; rx+=vx; vx*=.9; vy*=.9;
+// Repaint at the display rate only while the camera is moving or the viewer is
+// interacting. An idle map repaints at IDLE_FRAME_MS, slow enough to be cheap and
+// fast enough for the ambient pulses. An unconditional per-frame repaint kept
+// Safari's GPU process above 300% CPU with the page merely open (2026-09-24).
+const IDLE_AFTER_MS=1500, IDLE_FRAME_MS=125;
+let lastInteractionAt=performance.now(), lastPaintAt=-Infinity;
+const markInteraction=()=>{lastInteractionAt=performance.now();};
+for(const type of ['pointerdown','pointermove','wheel','keydown','resize'])
+  addEventListener(type,markInteraction,{capture:true,passive:true});
+const cameraSettling=()=>Math.abs(vx)+Math.abs(vy)>1e-5
+  ||Math.abs(ct.x-cc.x)+Math.abs(ct.y-cc.y)+Math.abs(ct.z-cc.z)>1e-3;
+function frame(now=performance.now()){
+  const idle=!pointerDown&&!cameraSettling()&&now-lastInteractionAt>IDLE_AFTER_MS;
+  if(idle&&now-lastPaintAt<IDLE_FRAME_MS){requestAnimationFrame(frame);return;}
+  lastPaintAt=now;
+  ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
   project(); if(pointerActive&&!orbiting)updatePointerAt(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
