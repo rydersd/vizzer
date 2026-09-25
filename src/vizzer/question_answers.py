@@ -19,7 +19,7 @@ from .model import (
     Graph, OwnerDecision, OwnerQuestion, owner_question_fingerprint,
     owner_question_from_dict,
 )
-from .decision_journal import decision_is_journaled
+from .decision_journal import decision_is_journaled, unrecorded_story_notes
 
 
 SCHEMA = 1
@@ -229,6 +229,8 @@ def reconcile_answers(graph: Graph, cfg, root: Path) -> list[str]:
     graph.owner_decisions = []
     if ledger is None:
         return warnings
+    # Before partitioning, while every question (open or answered) is listed.
+    warnings.extend(unrecorded_story_notes(graph, root, ledger["answers"]))
     by_identity = {
         (answer["questionId"], answer["fingerprint"]): answer
         for answer in ledger["answers"]

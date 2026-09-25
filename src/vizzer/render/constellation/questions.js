@@ -416,15 +416,20 @@ function adoptQuestionAuthority(body,{now=Date.now()}={}){
   }
   viewsBehindNote=viewsBehindText(body,now);
   clearTimeout(viewsBehindTimer);viewsBehindTimer=null;
-  if(body.viewsBehind){
-    viewsBehindTimer=setTimeout(async()=>{
-      const next=await readQuestionAuthority();
-      if(next&&next.renderId===RENDER_ID)adoptQuestionAuthority(next);
-    },30000);
-    viewsBehindTimer?.unref?.();
-  }
+  if(body.viewsBehind)scheduleAuthorityRecheck(30000);
   if(missing.length)reconcileAcceptedDecisions(missing,body.revision);
   else refreshDossier();
+}
+// Re-read the authority while the views are behind. A failed read (a serve
+// restart, a network blip) re-arms with doubling delay, up to 5 minutes, so
+// the footer note never goes stale; a good read goes back through adopt.
+function scheduleAuthorityRecheck(delay){
+  viewsBehindTimer=setTimeout(async()=>{
+    const next=await readQuestionAuthority();
+    if(next&&next.renderId===RENDER_ID)adoptQuestionAuthority(next);
+    else scheduleAuthorityRecheck(Math.min(delay*2,300000));
+  },delay);
+  viewsBehindTimer?.unref?.();
 }
 // Pure: the quiet footer note while the views lag the ledger. Silent during
 // the normal refresh window (under a minute); a failed refresh is named at once.

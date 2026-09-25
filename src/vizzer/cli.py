@@ -1644,6 +1644,12 @@ def _check(root: Path, structural: bool) -> int:
     except Exception as exc:
         print(f"check: could not build current graph: {exc}")
         return 2
+    # A story note the answer ledger does not hold (an answer interrupted
+    # between its two writes) would tell an agent a decision the owner never
+    # recorded. Reported, never a gate.
+    for warning in expected_graph.warnings:
+        if warning.startswith("story note without a recorded answer"):
+            print(f"check: WARNING {warning}")
 
     answered_blockers = answered_blocker_records(expected_graph)
     if answered_blockers:
