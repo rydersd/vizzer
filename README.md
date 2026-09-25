@@ -230,6 +230,7 @@ The one file you edit. Keys and defaults:
 | `discussions.queue_path` | `"vizzer/discussion-queue.json"` | Audited provider lanes behind the dossier's `Chat` split action and generated discussion queue Markdown. |
 | `progress.history_path` | `""` | Optional generated semantic-history ledger; never hand-edit it. |
 | `progress.hot_window_days` | `7` | Brightness window for recent progress trails. |
+| `velocity.merges_path` | `"vizzer/velocity-merges.json"` | PR-merge ledger written by `refresh`, the only Git read behind the committed views; `check`/`render` read it alone. On a merge conflict, union both sides keyed on `pr` with `vizzer.velocity.union_merge_ledger_texts` — a line union (`merge=union`) is not valid JSON. |
 | `progress.stalled_after_days` | `14` | No-progress age before previously started work shows `?`. |
 | `progress.stall_max_days` | `90` | Marker-growth cap for long stalls. |
 | `progress.backfill_days` | `7` | One-time exact-header Git lookback when history is introduced. |
