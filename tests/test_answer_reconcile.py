@@ -13,6 +13,7 @@ rewritten.
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import shutil
@@ -230,7 +231,17 @@ out.caughtUp=viewsBehindText({...body,viewsBehind:false},now);
 // Adopting the same authority twice changes nothing.
 adoptQuestionAuthority(body,{now});
 out.decidedAgain=DATA.decisions.length;out.contextDecisionsAgain=questionContext.decisions.length;
-process.stdout.write(JSON.stringify(out));
+// While behind, a failed re-read must not end the polling: it re-arms with
+// backoff until a read succeeds.
+(async()=>{
+  const timers=[];globalThis.setTimeout=(fn,ms)=>{timers.push({fn,ms});return timers.length;};globalThis.clearTimeout=()=>{};
+  let reads=0;const replies=[null,null,{...body,viewsBehind:false,refreshFailure:null}];
+  globalThis.readQuestionAuthority=async()=>replies[reads++];
+  adoptQuestionAuthority(body,{now});
+  for(let i=0;i<3&&timers[i];i++)await timers[i].fn();
+  out.recheckDelays=timers.map(t=>t.ms);out.recheckReads=reads;
+  process.stdout.write(JSON.stringify(out));
+})();
 """
 
 
@@ -407,3 +418,62 @@ def _wait(predicate, timeout=20.0):
             return value
         time.sleep(0.05)
     return predicate()
+
+
+def test_a_failed_recheck_keeps_polling_with_backoff_until_caught_up():
+    out = _load_outcomes()
+    assert out["recheckDelays"] == [30000, 60000, 120000]
+    assert out["recheckReads"] == 3
+
+
+class _Killed(BaseException):
+    """Stands in for SIGKILL: nothing in the answer path may catch it."""
+
+
+def test_a_crash_between_the_story_note_and_the_ledger_cannot_misjournal(
+    tmp_path, make_repo, monkeypatch
+):
+    """A kill after the note, before the ledger, left answer A in the story;
+    the owner's later answer B was recorded but never journaled."""
+    repo = _prepare_repo(tmp_path, make_repo)
+    monkeypatch.setattr(cli, "_schedule_background_refresh", lambda root: None)
+    monkeypatch.setattr("threading.excepthook", lambda args: None)
+    story = repo / STORY
+    server, thread, connection, guarded = _start(repo)
+    try:
+        _, context = _request(connection, "GET", "/api/questions")
+        fingerprint = context["questions"][0]["fingerprint"]
+
+        def killed(*_args):
+            raise _Killed()
+
+        monkeypatch.setattr(cli, "write_answers", killed)
+        try:
+            _answer(connection, guarded, fingerprint, 0, "shared")
+        except Exception:
+            pass
+        monkeypatch.undo()
+        monkeypatch.setattr(cli, "_schedule_background_refresh", lambda root: None)
+        assert "**Shared (`shared`)**" in story.read_text(encoding="utf-8")
+        assert not (repo / "vizzer/question-answers.json").exists()
+        cfg = Config.load(repo)
+        warnings = cli._build(cfg, repo).warnings
+        assert any("story note without a recorded answer" in w for w in warnings), warnings
+
+        connection.close()
+        host, port = server.server_address[:2]
+        connection = http.client.HTTPConnection(host, port, timeout=5)
+        status, body = _answer(connection, guarded, fingerprint, 0, "native")
+        assert status == 200, body
+    finally:
+        _stop(server, thread, connection)
+    ledger = json.loads((repo / "vizzer/question-answers.json").read_text(encoding="utf-8"))
+    assert ledger["answers"][-1]["optionId"] == "native"
+    text = story.read_text(encoding="utf-8")
+    begin = f"<!-- vizzer:evolution-answer:{fingerprint}:begin -->"
+    assert text.count(begin) == 1
+    event = text[text.index(begin):]
+    assert "**Native (`native`)**" in event and "**Shared (`shared`)**" not in event
+    assert f"vizzer:evolution-not-recorded:{fingerprint}:begin" in text
+    warnings = cli._build(Config.load(repo), repo).warnings
+    assert not any("story note without a recorded answer" in w for w in warnings), warnings
