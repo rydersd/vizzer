@@ -445,3 +445,20 @@ def test_a_merge_after_refresh_does_not_restale_the_committed_view(tmp_path) -> 
 
     _, content = stage_merge_ledger(Graph.from_dict(empty), cfg, tmp_path)
     assert '"pr": 103' in content
+
+
+def test_ledger_conflict_unions_by_pr_where_a_line_union_is_not_json(tmp_path) -> None:
+    def ledger(*numbers):
+        return velocity.merge_ledger_text(
+            [velocity.Merge(n, datetime(2026, 9, 1, n, tzinfo=UTC), False) for n in numbers],
+            "origin/main")
+    base, ours, theirs = (tmp_path / "base", tmp_path / "ours", tmp_path / "theirs")
+    base.write_text(ledger(1, 2)); ours.write_text(ledger(1, 2, 3)); theirs.write_text(ledger(1, 2, 4))
+    subprocess.run(["git", "merge-file", "--union", str(ours), str(base), str(theirs)], check=False)
+    assert velocity.parse_merge_ledger(ours.read_text())[2], "a line union produced a valid ledger"
+
+    text = velocity.union_merge_ledger_texts(ledger(1, 2, 3), ledger(1, 2, 4))
+    merges, ref, warnings = velocity.parse_merge_ledger(text)
+    assert [m.number for m in merges] == [1, 2, 3, 4] and ref == "origin/main" and warnings == []
+    with pytest.raises(ValueError):
+        velocity.union_merge_ledger_texts("{not json", ledger(1))

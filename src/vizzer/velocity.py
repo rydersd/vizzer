@@ -247,6 +247,31 @@ def _merge_stamp(moment: datetime) -> str:
     return moment.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def parse_merge_ledger(text: str, name: str = "merge ledger"
+                       ) -> tuple[list[Merge], str | None, list[str]]:
+    """Parse ledger text: merges, the ref they were read from, warnings."""
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return [], None, [f"{name}: unreadable merge ledger; merges omitted"]
+    if not isinstance(payload, dict) or payload.get("schema") != MERGE_LEDGER_SCHEMA \
+            or not isinstance(payload.get("merges"), list):
+        return [], None, [f"{name}: merge ledger must be a schema-1 object; merges omitted"]
+    merges: list[Merge] = []
+    warnings: list[str] = []
+    for index, entry in enumerate(payload["merges"], 1):
+        at = parse_stamp(entry.get("at")) if isinstance(entry, dict) else None
+        number = entry.get("pr") if isinstance(entry, dict) else None
+        visible = entry.get("visible") if isinstance(entry, dict) else None
+        if at is None or not isinstance(number, int) or not isinstance(visible, bool):
+            warnings.append(f"{name}: merge #{index} is malformed; skipped")
+            continue
+        merges.append(Merge(number, at, visible))
+    merges.sort(key=lambda m: (m.at, m.number))
+    ref = payload.get("ref") if isinstance(payload.get("ref"), str) else None
+    return merges, ref, warnings
+
+
 def read_merge_ledger(path: Path) -> tuple[list[Merge], str | None, list[str]]:
     """Merges persisted by the last refresh, the ref they were read from, warnings.
 
@@ -256,25 +281,29 @@ def read_merge_ledger(path: Path) -> tuple[list[Merge], str | None, list[str]]:
     if not path.exists():
         return [], None, []
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
         return [], None, [f"{path.name}: unreadable merge ledger; merges omitted"]
-    if not isinstance(payload, dict) or payload.get("schema") != MERGE_LEDGER_SCHEMA \
-            or not isinstance(payload.get("merges"), list):
-        return [], None, [f"{path.name}: merge ledger must be a schema-1 object; merges omitted"]
-    merges: list[Merge] = []
-    warnings: list[str] = []
-    for index, entry in enumerate(payload["merges"], 1):
-        at = parse_stamp(entry.get("at")) if isinstance(entry, dict) else None
-        number = entry.get("pr") if isinstance(entry, dict) else None
-        visible = entry.get("visible") if isinstance(entry, dict) else None
-        if at is None or not isinstance(number, int) or not isinstance(visible, bool):
-            warnings.append(f"{path.name}: merge #{index} is malformed; skipped")
-            continue
-        merges.append(Merge(number, at, visible))
-    merges.sort(key=lambda m: (m.at, m.number))
-    ref = payload.get("ref") if isinstance(payload.get("ref"), str) else None
-    return merges, ref, warnings
+    return parse_merge_ledger(text, path.name)
+
+
+def union_merge_ledger_texts(ours: str, theirs: str) -> str:
+    """Resolve a git conflict on the ledger: union both sides keyed on `pr`.
+
+    A line-level union is not valid JSON (rows lose their separators and a PR
+    both sides recorded appears twice), so conflicts are resolved here and
+    re-emitted through `merge_ledger_text`. A PR on both sides keeps the
+    entry recorded on `theirs` (the main line). Raises ValueError when either
+    side is unreadable, so a caller can stop instead of dropping rows.
+    """
+    theirs_merges, theirs_ref, theirs_warnings = parse_merge_ledger(theirs, "theirs")
+    ours_merges, ours_ref, ours_warnings = parse_merge_ledger(ours, "ours")
+    if theirs_warnings or ours_warnings:
+        raise ValueError("; ".join(theirs_warnings + ours_warnings))
+    by_number = {merge.number: merge for merge in ours_merges}
+    by_number.update({merge.number: merge for merge in theirs_merges})
+    merges = sorted(by_number.values(), key=lambda m: (m.at, m.number))
+    return merge_ledger_text(merges, theirs_ref or ours_ref)
 
 
 def union_merges(recorded: list[Merge], observed: list[Merge],
