@@ -94,6 +94,98 @@ def _remove_replayed_events(text: str, fingerprints: set[str]) -> str:
     return text
 
 
+_ACCEPTED_AT_LINE = re.compile(
+    r"^- \*\*Accepted by:\*\* .* at `([^`]+)`$", re.MULTILINE,
+)
+_OWNER_ANSWER_LINE = re.compile(r"^### Owner answer\n\n(.*)$", re.MULTILINE)
+_QUESTION_ID_LINE = re.compile(r"^- \*\*Question ID:\*\* `([^`]+)`$", re.MULTILINE)
+
+
+def _event_attempt(event: str) -> tuple[str | None, str | None]:
+    """(accepted-at timestamp, first line of the owner answer) of one event."""
+    at = _ACCEPTED_AT_LINE.search(event)
+    answer = _OWNER_ANSWER_LINE.search(event)
+    return (at.group(1) if at else None, answer.group(1) if answer else None)
+
+
+def _is_other_attempt(event: str, decision: OwnerDecision) -> bool:
+    """True when a same-fingerprint event records a DIFFERENT answer attempt.
+
+    The story note is written before the ledger (the ledger is the commit
+    point), so a process killed between the two writes leaves a note for an
+    answer the ledger never recorded (review 2026-09-25, round 3). Such a note
+    carries a different accepted-at time, or a different answer, from the
+    decision the ledger does hold. An event this code cannot read (an older
+    template) is never treated as another attempt.
+    """
+    at, answer = _event_attempt(event)
+    if at is None:
+        return False
+    if at != decision.answered_at:
+        return True
+    selected, detail = _selected_answer(decision)
+    expected = f"**{selected}** — {detail}".split("\n", 1)[0]
+    return answer is not None and answer != expected
+
+
+def render_not_recorded_event(fingerprint: str, event: str) -> str:
+    """What an interrupted answer's note becomes once the real answer lands."""
+    at, answer = _event_attempt(event)
+    question = _QUESTION_ID_LINE.search(event)
+    return "\n".join([
+        f"<!-- vizzer:evolution-not-recorded:{fingerprint}:begin -->",
+        "## Not recorded — interrupted owner answer",
+        "",
+        f"- **Question ID:** `{question.group(1) if question else 'unknown'}`",
+        f"- **Attempted at:** `{at or 'unknown'}`",
+        f"- **Attempted answer:** {answer or 'unknown'}",
+        "",
+        "This answer was written to the story but never reached the answer "
+        "ledger (the serve stopped between the two writes), so it is not a "
+        "decision. The recorded answer is the evolution event that follows.",
+        f"<!-- vizzer:evolution-not-recorded:{fingerprint}:end -->",
+    ])
+
+
+def unrecorded_story_notes(graph: Graph, root: Path, answers: list[dict]) -> list[str]:
+    """Warnings for evolution events the answer ledger does not hold.
+
+    Scans the stories that carry owner questions. An event counts as recorded
+    when a ledger answer has its fingerprint and (when the event names one)
+    its accepted-at time.
+    """
+    recorded: dict[str, set[str]] = {}
+    for answer in answers:
+        recorded.setdefault(answer["fingerprint"], set()).add(answer["answeredAt"])
+    paths: dict[Path, str] = {}
+    for question in [*graph.owner_questions,
+                     *(decision.question for decision in graph.owner_decisions)]:
+        try:
+            path = _story_path_for(graph, root, question.story_id, question.id)
+        except DecisionJournalError:
+            continue
+        paths.setdefault(path, question.story_id)
+    warnings = []
+    for path, story_id in sorted(paths.items(), key=lambda value: str(value[0])):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            continue
+        for fingerprint, event, _span in _evolution_events(text):
+            at, _answer = _event_attempt(event)
+            times = recorded.get(fingerprint)
+            if times is not None and (at is None or at in times):
+                continue
+            warnings.append(
+                f"story note without a recorded answer: {story_id} has an "
+                f"evolution event for fingerprint {fingerprint[:12]} accepted at "
+                f"{at or 'an unknown time'} that the answer ledger does not hold "
+                "(an interrupted answer; the next answer to that question or "
+                "`vizzer engine decisions --all --yes` replaces it)"
+            )
+    return warnings
+
+
 def decision_application_marker(
     decision: OwnerDecision, *, end: bool = False,
 ) -> str:
@@ -106,10 +198,16 @@ def decision_application_marker(
 
 
 def _story_path(graph: Graph, root: Path, decision: OwnerDecision) -> Path:
-    item = graph.item_map().get(decision.question.story_id)
+    return _story_path_for(
+        graph, root, decision.question.story_id, decision.question.id)
+
+
+def _story_path_for(graph: Graph, root: Path, story_id: str,
+                    question_id: str) -> Path:
+    item = graph.item_map().get(story_id)
     if item is None:
         raise DecisionJournalError(
-            f"decision {decision.question.id} references an unknown story"
+            f"decision {question_id} references an unknown story"
         )
     raw = item.source.get("path")
     if not isinstance(raw, str) or not raw:
@@ -280,8 +378,8 @@ def decision_is_journaled(
     except (OSError, UnicodeError, DecisionJournalError):
         return False
     return any(
-        fingerprint == decision.fingerprint
-        for fingerprint, _event, _span in _evolution_events(text)
+        fingerprint == decision.fingerprint and not _is_other_attempt(event, decision)
+        for fingerprint, event, _span in _evolution_events(text)
     )
 
 
@@ -352,14 +450,23 @@ def append_evolution_events(
     additions: dict[Path, list[str]] = {}
     for decision in decisions:
         path = _story_path(graph, root, decision)
-        already_journaled = any(
-            fingerprint == decision.fingerprint
-            for fingerprint, _event, _span in _evolution_events(working[path])
-        )
-        if already_journaled or any(
+        text = working[path]
+        same = [
+            (event, span) for fingerprint, event, span in _evolution_events(text)
+            if fingerprint == decision.fingerprint
+        ]
+        if any(not _is_other_attempt(event, decision) for event, _span in same) or any(
             decision.fingerprint in value for value in additions.get(path, [])
         ):
             continue
+        # Every same-fingerprint event left is an interrupted attempt the
+        # ledger never recorded: it must not stand in for this answer. It is
+        # rewritten as "not recorded" and the real event is appended.
+        for event, (start, end) in sorted(same, key=lambda value: -value[1][0]):
+            text = (text[:start]
+                    + render_not_recorded_event(decision.fingerprint, event)
+                    + text[end:])
+        working[path] = text
         additions.setdefault(path, []).append(render_evolution_event(decision))
 
     changed = []
@@ -372,6 +479,65 @@ def append_evolution_events(
             if body == snapshots[path].decode("utf-8"):
                 continue
             _atomic_write(path, body.encode("utf-8"))
+            changed.append(path)
+    except BaseException:
+        restore_story_snapshots({path: snapshots[path] for path in changed})
+        raise
+    return changed
+
+
+def superseded_marker(decision: OwnerDecision, *, end: bool = False) -> str:
+    """Boundary of the note saying an earlier answer's wording was replaced."""
+    boundary = "end" if end else "begin"
+    return f"<!-- vizzer:evolution-superseded:{decision.fingerprint}:{boundary} -->"
+
+
+def render_superseded_event(decision: OwnerDecision, current_fingerprint: str,
+                            today: str) -> str:
+    selected, _detail = _selected_answer(decision)
+    return "\n".join([
+        superseded_marker(decision),
+        f"## Evolution event — owner answer superseded {today}",
+        "",
+        f"- **Question ID:** `{decision.question.id}`",
+        f"- **Superseded answer:** ledger revision `{decision.revision}`, "
+        f"question fingerprint `{decision.fingerprint}`",
+        f"- **Revised question fingerprint:** `{current_fingerprint}`",
+        "",
+        "The question was reworded after the owner answered it, so the earlier "
+        f"answer (**{selected}**) no longer applies and the question is open "
+        "again. The evolution event for that answer is kept above as history.",
+        superseded_marker(decision, end=True),
+    ])
+
+
+def append_superseded_events(
+    graph: Graph, root: Path,
+    superseded: list[tuple[OwnerDecision, str]], today: str,
+) -> list[Path]:
+    """Mark journaled answers whose question was reworded; return changed paths.
+
+    ``superseded`` pairs each earlier decision with its question's CURRENT
+    fingerprint. Append-only and idempotent: one note per earlier answer, and
+    only when that answer's own evolution event is in the story.
+    """
+    additions: dict[Path, list[str]] = {}
+    for decision, current_fingerprint in superseded:
+        if not decision_is_journaled(graph, root, decision):
+            continue
+        path = _story_path(graph, root, decision)
+        text = path.read_text(encoding="utf-8")
+        if superseded_marker(decision) in text:
+            continue
+        additions.setdefault(path, []).append(
+            render_superseded_event(decision, current_fingerprint, today))
+    snapshots = {path: path.read_bytes() for path in additions}
+    changed = []
+    try:
+        for path, events in additions.items():
+            body = snapshots[path].decode("utf-8").rstrip("\n")
+            _atomic_write(path, (body + "\n\n" + "\n\n".join(events) + "\n")
+                          .encode("utf-8"))
             changed.append(path)
     except BaseException:
         restore_story_snapshots({path: snapshots[path] for path in changed})

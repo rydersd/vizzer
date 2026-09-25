@@ -29,10 +29,10 @@ function openQuestionEditor(id,returnTarget){
     if(submitting||!text.value.trim())return;
     sync();submitting=true;submit.disabled=true;back.disabled=true;text.readOnly=true;status.textContent='Saving answer…';
     try{
-      await preflightQuestionAuthority([{dataset:{questionId:id}}]);
-      const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers:[{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}]})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'Answer could not be saved');
-      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
+      const accepted=await recordQuestionAnswers([{dataset:{questionId:id}}],
+        [{questionId:id,expectedFingerprint:q.fingerprint,answer:{kind:'freeform',text:text.value.trim()}}],
+        {failure:'Answer could not be saved'});
+      resize.disconnect();uncover();panel._markdownDispose?.();panel.remove();questionEditor=null;reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){status.textContent=error.message||String(error);status.setAttribute('role','alert');submitting=false;back.disabled=false;text.readOnly=false;sync();text.focus();}
   };
   sync();text.focus();text.setSelectionRange(text.value.length,text.value.length);
@@ -43,6 +43,17 @@ function openQuestionEditor(id,returnTarget){
 
 let questionContext=null, questionError='', questionSubmissionError='';
 const questionDrafts=new Map();
+// Per-question notes from answer recovery: "answered elsewhere as X; your
+// choice Y was not recorded", or "not recorded; provide again". Shown on the
+// question's own card, because the answered card has no footer banner.
+const questionNotes=new Map();
+// Notes naming the owner's answer to an earlier wording, by question id, so a
+// later authority read can clear the ones that no longer apply.
+const supersededNoteIds=new Set();
+// "Views are behind your answers since HH:MM" (quiet; footer status line).
+let viewsBehindNote='', viewsBehindTimer=null;
+const questionNoteMarkup=id=>questionNotes.has(id)
+  ?`<p class="questionnote" role="status" data-question-note>${esc(questionNotes.get(id))}</p>`:'';
 // Owner directive 2026-08-22: a typed answer must never be lost to a reload or
 // a server restart. Drafts mirror to localStorage on every edit and clear only
 // when the answer is ACCEPTED by the server. Parked drafts persist the same
@@ -100,7 +111,7 @@ function storyDiscussionActions(n,questions){
   const answerButton=questions.length
     ?`<button type="button" data-question-submit disabled>Provide ${questions.length===1?'answer':questions.length+' answers'}</button>`:'';
   return `<div class="questionqueuefooter" data-story-actions${questions.length?' data-question-queue':''}>
-    <div class="actionstatus">${questions.length?`<span data-question-queue-status>0 of ${questions.length} ready</span>`:''}<span data-discussion-status>${esc(message)}</span></div>
+    <div class="actionstatus">${questions.length?`<span data-question-queue-status>0 of ${questions.length} ready</span>`:''}<span data-discussion-status>${esc(message)}</span>${viewsBehindNote?`<span class="viewsbehind" role="status" data-views-behind>${esc(viewsBehindNote)}</span>`:''}</div>
     <div class="dossieractions">${answerButton}<div class="chatsplit" data-chat-split>
       <button type="button" data-chat-primary data-provider="${provider}" ${discussionContext?'':'disabled'}>Chat · ${provider==='claude'?'Claude':'Codex'}</button>
       <button type="button" data-chat-overflow aria-label="Choose discussion provider" aria-expanded="false" ${discussionContext?'':'disabled'}>…</button>
@@ -121,7 +132,7 @@ function questionCard(q){
   const evidence=q.evidence.map(value=>`<code>${esc(value)}</code>`).join('<br>');
   const ready=(draft.kind==='option'&&draft.optionId)||(custom&&draft.text.trim());
   const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Selected · ready to answer':'Not answered';
-  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>
+  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>${questionNoteMarkup(q.id)}
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
     <div class="questioncustom" ${custom?'':'hidden'}><button type="button" data-question-edit>Edit in Markdown panel</button><label for="${token}-text">Your suggestion · Markdown supported</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>
@@ -136,6 +147,7 @@ function decisionCard(decision){
     :decision.text;
   return `<div class="questioncard answered"><strong>answered · ${esc(decision.answeredBy||q.owner||'owner')}</strong><h3>${esc(q.prompt)}</h3>
     <div class="acceptedanswer">${decision.kind==='option'?'accepted option · '+esc(chosen||''):'<div class="storymarkdown">'+renderStoryMarkdown(chosen||'')+'</div>'}</div>
+    ${questionNoteMarkup(q.id)}
     <small>recorded ${esc(decision.answeredAt||'')} · decision r${esc(decision.revision||1)} · fingerprint <code>${esc((decision.fingerprint||'').slice(0,12))}</code></small></div>`;
 }
 async function preflightQuestionAuthority(forms){
@@ -269,11 +281,9 @@ function bindQuestionControls(n){
     queue.setAttribute('aria-busy','true');queueButton.disabled=true;queueButton.textContent='Providing…';queueStatus.textContent='Checking current Vizzer and question authority…';
     forms.forEach(form=>form.querySelector('fieldset').disabled=true);
     try{
-      await preflightQuestionAuthority(forms);
-      queueStatus.textContent='Recording owner decisions…';
-      const response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision:questionContext.revision,answers})});
-      const body=await response.json();if(!response.ok)throw new Error(body.error||'answers failed');
-      reconcileAcceptedDecisions(body.decisions,body.revision,{showFromTop:true});
+      const accepted=await recordQuestionAnswers(forms,answers,
+        {onStatus:text=>{queueStatus.textContent=text;}});
+      reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){
       queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
       forms.forEach(form=>form.querySelector('fieldset').disabled=false);
@@ -287,11 +297,165 @@ function bindQuestionControls(n){
   });
 }
 
-function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
+// POST the answers and return {decisions, revision, notes}. A slow write can
+// outlive the browser's connection (the serve records the answer, then its
+// reply hits a closed socket, or the browser gives up while the server is
+// still writing), and a retry is then refused as a stale revision. Neither
+// means the answer failed, so on ANY failure the durable ledger decides:
+// re-read /api/questions and adopt whatever was recorded after this attempt
+// began. With no HTTP response at all the server may still be writing, so keep
+// re-reading (every pollMs, up to pollLimitMs) until the answers appear or the
+// ledger moves on without them. An HTTP error is final: one read. Only when
+// nothing was recorded does the original error propagate.
+async function recordQuestionAnswers(forms,answers,{onStatus=()=>{},failure='answers failed',pollMs=2000,pollLimitMs=60000}={}){
+  let expectedRevision=questionContext?.revision??-1, noResponse=false;
+  try{
+    await preflightQuestionAuthority(forms);
+    onStatus('Recording owner decisions…');
+    expectedRevision=questionContext.revision;
+    let response;
+    try{
+      response=await fetch('/api/questions/answers',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':questionContext.csrfToken},body:JSON.stringify({expectedRevision,answers})});
+    }catch(error){noResponse=true;throw error;}
+    const body=await response.json();if(!response.ok)throw new Error(body.error||failure);
+    return {decisions:body.decisions,revision:body.revision,notes:new Map()};
+  }catch(error){
+    onStatus('Checking whether the answers were recorded…');
+    const recovered=await recoverRecordedAnswers(answers,expectedRevision,
+      noResponse?{pollMs,pollLimitMs}:{pollMs,pollLimitMs:0});
+    if(recovered)return recovered;
+    throw error;
+  }
+}
+// Re-read the answer authority until every submitted question has a decision
+// recorded after `expectedRevision`, the ledger has moved past it without them
+// (another writer went first, so this all-or-nothing batch was refused), or the
+// time limit passes. Returns {decisions, revision, notes} for whatever WAS
+// recorded (durable truth wins), or null when nothing was.
+async function recoverRecordedAnswers(answers,expectedRevision,{pollMs=2000,pollLimitMs=0}={}){
+  const deadline=Date.now()+pollLimitMs;
+  let result=null;
+  for(;;){
+    const body=await readQuestionAuthority();
+    if(body){
+      result=recordedAnswerResult(answers,expectedRevision,body);
+      if(result.decisions.length===answers.length||body.revision>expectedRevision)break;
+    }
+    if(Date.now()+pollMs>deadline)break;
+    await new Promise(resolve=>setTimeout(resolve,pollMs));
+  }
+  if(!result?.decisions.length)return null;
+  // The failed exchange may have predated a serve restart: adopt the live
+  // CSRF token so the next write from this tab is not refused.
+  if(questionContext&&result.csrfToken)questionContext.csrfToken=result.csrfToken;
+  return result;
+}
+async function readQuestionAuthority(){
+  try{
+    const response=await fetch('/api/questions',{cache:'no-store'});
+    return response.ok?await response.json():null;
+  }catch(_error){return null;}
+}
+const answerChoiceText=(questionId,answer)=>{
+  const q=(DATA.questions||[]).find(value=>value.id===questionId);
+  return answer.kind==='option'
+    ?q?.options?.find(option=>option.id===answer.optionId)?.label||answer.optionId||''
+    :(answer.text||'').trim();
+};
+// Pure: split the authority's decisions for the submitted answers. Only a
+// decision recorded AFTER expectedRevision counts (an older decision for the
+// same id belongs to a previous version of the question). A decision that is
+// not what this tab submitted (another window, or a revised question) is still
+// the truth, but gets a plain note naming both choices, and keeps the draft.
+function recordedAnswerResult(answers,expectedRevision,body){
+  const recordedById=new Map();
+  for(const decision of body.decisions||[]){
+    const id=decision?.question?.id;
+    if((decision?.revision??0)>expectedRevision&&answers.some(answer=>answer.questionId===id))
+      recordedById.set(id,decision); // latest wins
+  }
+  const decisions=[], notes=new Map();
+  for(const answer of answers){
+    const decision=recordedById.get(answer.questionId);
+    if(!decision){
+      notes.set(answer.questionId,'Not recorded: another window answered first. Choose again and provide it.');
+      continue;
+    }
+    decisions.push(decision);
+    const submitted=answer.answer;
+    const same=decision.fingerprint===answer.expectedFingerprint&&decision.kind===submitted.kind&&
+      (submitted.kind==='option'?decision.optionId===submitted.optionId
+        :(decision.text||'').trim()===(submitted.text||'').trim());
+    if(!same)notes.set(answer.questionId,
+      `Answered in another window as “${answerChoiceText(answer.questionId,decision)}”. Your choice “${answerChoiceText(answer.questionId,submitted)}” was not recorded.`);
+  }
+  return {decisions,revision:body.revision,notes,csrfToken:body.csrfToken};
+}
+// Adopt a fresh /api/questions read: on page load, and every 30 s while the
+// views are behind. The embedded map can predate answers the ledger already
+// holds (a refresh still running, or one that failed), and answering such a
+// question again only loops on "Reload before answering". So decisions the map
+// has not caught up with are applied here exactly as a local answer would be,
+// without moving the owner's place.
+function adoptQuestionAuthority(body,{now=Date.now()}={}){
+  questionContext=body;
+  const keyOf=decision=>`${decision.question?.id}@${decision.fingerprint}`;
+  const known=new Set((DATA.decisions||[]).map(decision=>`${decision.id}@${decision.fingerprint}`));
+  const missing=(body.decisions||[]).filter(decision=>{
+    const q=(DATA.questions||[]).find(value=>value.id===decision.question?.id);
+    if(!q||q.fingerprint!==decision.fingerprint||known.has(keyOf(decision)))return false;
+    return (DATA.nodes[q.n]?.oq||[]).includes(DATA.questions.indexOf(q));
+  });
+  for(const id of supersededNoteIds)questionNotes.delete(id);
+  supersededNoteIds.clear();
+  for(const earlier of body.supersededAnswers||[]){
+    if(questionNotes.has(earlier.questionId))continue; // a recovery note is newer
+    questionNotes.set(earlier.questionId,
+      `You answered an earlier wording on ${String(earlier.answeredAt||'').slice(0,10)}: “${earlier.choice}”. The question changed since; answer again.`);
+    supersededNoteIds.add(earlier.questionId);
+  }
+  viewsBehindNote=viewsBehindText(body,now);
+  clearTimeout(viewsBehindTimer);viewsBehindTimer=null;
+  if(body.viewsBehind)scheduleAuthorityRecheck(30000);
+  if(missing.length)reconcileAcceptedDecisions(missing,body.revision);
+  else refreshDossier();
+}
+// Re-read the authority while the views are behind. A failed read (a serve
+// restart, a network blip) re-arms with doubling delay, up to 5 minutes, so
+// the footer note never goes stale; a good read goes back through adopt.
+function scheduleAuthorityRecheck(delay){
+  viewsBehindTimer=setTimeout(async()=>{
+    const next=await readQuestionAuthority();
+    if(next&&next.renderId===RENDER_ID)adoptQuestionAuthority(next);
+    else scheduleAuthorityRecheck(Math.min(delay*2,300000));
+  },delay);
+  viewsBehindTimer?.unref?.();
+}
+// Pure: the quiet footer note while the views lag the ledger. Silent during
+// the normal refresh window (under a minute); a failed refresh is named at once.
+function viewsBehindText(body,now=Date.now()){
+  if(!body?.viewsBehind)return '';
+  const since=Date.parse(body.viewsBehindSince||'')||now, failure=body.refreshFailure;
+  if(!failure&&now-since<60000)return '';
+  const at=new Date(since), pad=value=>String(value).padStart(2,'0');
+  const when=`${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  if(!failure)return `Views are behind your answers since ${when}.`;
+  // First line only, without a trailing quoted file path (the serve log has it).
+  const reason=String(failure.error||'unknown error').split('\n')[0]
+    .replace(/:\s*'[^']*'\s*$/,'').replace(/[.\s]+$/,'');
+  return `Views are behind your answers since ${when} — refresh failed: ${reason}. Retrying.`;
+}
+function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
-    questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    // A decision recorded differently from this tab's choice keeps the draft,
+    // so the choice that was not recorded is not lost with it.
+    if(!notes.has(snapshot.id)){
+      questionNotes.delete(snapshot.id);
+      questionDrafts.delete(snapshot.id);persistQuestionDrafts();
+    }
     const q=(DATA.questions||[]).find(value=>value.id===snapshot.id);
     if(!q)continue;
     const node=DATA.nodes[q.n], questionIndex=DATA.questions.indexOf(q);
@@ -307,7 +471,9 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false}={}){
   questionContext.revision=revision;
   questionContext.questions=(questionContext.questions||[]).filter(question=>
     !decisions.some(decision=>decision.question?.id===question.id));
-  questionContext.decisions=[...(questionContext.decisions||[]),...(decisions||[])];
+  const recorded=new Set((questionContext.decisions||[]).map(value=>`${value.question?.id}@${value.fingerprint}`));
+  questionContext.decisions=[...(questionContext.decisions||[]),
+    ...(decisions||[]).filter(value=>!recorded.has(`${value.question?.id}@${value.fingerprint}`))];
   updateViewStatus();
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead

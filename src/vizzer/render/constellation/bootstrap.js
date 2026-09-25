@@ -13,8 +13,7 @@ if(SERVED){
     const body=await response.json();
     if(!response.ok)throw new Error(body.error||'question answers unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve before answering.`);
-    questionContext=body;
-    refreshDossier();
+    adoptQuestionAuthority(body);
   }).catch(error=>{questionError=error.message||String(error);refreshDossier();});
   fetch('/api/discussions').then(async response=>{
     const body=await response.json();

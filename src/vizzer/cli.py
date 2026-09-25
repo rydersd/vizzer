@@ -13,7 +13,9 @@ import stat as stat_module
 import tempfile
 import subprocess
 import sys
+import dataclasses
 import threading
+import time
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -38,13 +40,13 @@ from .config import Config, ConfigError
 from .developer_store import ensure_developer_store, prepare_developer_store
 from .decision_journal import (
     DecisionJournalError, append_application_event, append_evolution_events,
-    restore_story_snapshots, story_snapshots,
+    append_superseded_events, restore_story_snapshots, story_snapshots,
 )
 from .discussion_queue import (
     DiscussionQueueConflict, DiscussionQueueError, enqueue_discussion,
     discussion_queue_snapshot, read_discussion_queue, restore_discussion_queue,
 )
-from .model import Graph
+from .model import Graph, owner_question_fingerprint
 from .progress_history import ProgressHistory, prepare_progress_history
 from .reconcile import build_graph
 from .render import render_all
@@ -55,8 +57,9 @@ from .planning import (
 )
 from .question_answers import (
     QuestionAnswerConflict, QuestionAnswerError, QuestionNotFoundError,
-    append_answer, append_answers, decision_to_api, ledger_snapshot, question_to_api,
-    read_answers, restore_answers,
+    answers_path, current_questions_and_decisions, decision_to_api,
+    prepare_answers, question_to_api, read_answers, superseded_answers,
+    superseded_to_api, write_answers,
 )
 from .question_aging import overdue_warning_lines, question_ages
 from .review_contract import ReviewContractError
@@ -103,6 +106,218 @@ def _serve_version_error(root: Path) -> str | None:
     return None
 
 
+# Background derived-view refresh. An accepted answer is durable the moment
+# its ledger entry is written; regenerating the derived views takes seconds to
+# tens of seconds and must neither block the owner's click nor ever roll the
+# answer back. One daemon worker per root, collapsing: N schedules while busy
+# run one refresh over the latest state.
+# Delays before retrying a failed background refresh (review 2026-09-25: a
+# failed refresh left the views behind the answers until someone noticed).
+# The last delay repeats until a refresh succeeds.
+_REFRESH_RETRY_DELAYS = (30.0, 120.0, 600.0)
+# ``_background_refresh_once`` result: a write overtook the build, or the
+# refresh journaled a story note, so run again over the new state.
+_REFRESH_RERUN = 1
+
+
+class _RefreshWorker:
+    """One collapsing refresh thread per project root, with retry state."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.pending = threading.Event()
+        self.lock = threading.Lock()
+        self.thread: threading.Thread | None = None
+        self.failures = 0
+        self.error: str | None = None
+        self.failed_at: str | None = None
+        self.next_retry: float | None = None  # time.monotonic()
+        self.next_retry_at: str | None = None
+        self.reason: str | None = None  # set by the failing refresh
+        # When the views were first seen behind the ledger (ISO, UTC).
+        self.behind_since: str | None = None
+
+    def failure(self) -> dict | None:
+        with self.lock:
+            if not self.failures:
+                return None
+            return {"error": self.error, "failedAt": self.failed_at,
+                    "attempts": self.failures, "nextRetryAt": self.next_retry_at}
+
+    def views_behind_since(self, behind: bool) -> str | None:
+        with self.lock:
+            if not behind:
+                self.behind_since = None
+            elif self.behind_since is None:
+                self.behind_since = _utc_now()
+            return self.behind_since
+
+
+_REFRESH_WORKERS: dict[Path, _RefreshWorker] = {}
+_REFRESH_WORKERS_GUARD = threading.Lock()
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _refresh_worker(root: Path) -> _RefreshWorker:
+    key = root.resolve()
+    with _REFRESH_WORKERS_GUARD:
+        worker = _REFRESH_WORKERS.get(key)
+        if worker is None:
+            worker = _REFRESH_WORKERS[key] = _RefreshWorker(root)
+        return worker
+
+
+# Bumped on every exit from ``_mutation_guard`` in this process. With the
+# stored graph's and the answer ledger's mtimes it tells the background
+# refresh whether anything was written while it was building without the lock
+# (the ledger covers a writer in another process).
+_MUTATION_GENERATION = 0
+
+
+def _refresh_state_token(root: Path, cfg: Config) -> tuple:
+    def mtime(path: Path) -> int | None:
+        try:
+            return path.stat().st_mtime_ns
+        except OSError:
+            return None
+    return (_MUTATION_GENERATION, mtime(root / GRAPH_RELPATH),
+            mtime(answers_path(cfg, root)))
+
+
+def _refresh_failed(root: Path, reason: str) -> int:
+    _refresh_worker(root).reason = reason
+    return 2
+
+
+def _journal_superseded_answers(cfg: Config, graph: Graph, root: Path) -> list[Path]:
+    """Append a "superseded" note for each answered question since reworded.
+
+    Returns the story files changed. Never fails the refresh: a note that
+    cannot be written is reported and retried by the next refresh.
+    """
+    try:
+        ledger, _ = read_answers(cfg, root, strict=False)
+        if ledger is None:
+            return []
+        superseded = [
+            (decision, next(owner_question_fingerprint(question)
+                            for question in graph.owner_questions
+                            if question.id == decision.question.id))
+            for decision in superseded_answers(graph.owner_questions, ledger)
+        ]
+        if not superseded:
+            return []
+        return append_superseded_events(
+            graph, root, superseded, datetime.now(timezone.utc).date().isoformat())
+    except (DecisionJournalError, OSError, UnicodeError, QuestionAnswerError) as exc:
+        print(f"refresh: could not note a superseded answer: {exc}")
+        return []
+
+
+def _background_refresh_once(root: Path) -> int:
+    """Rebuild the derived views without holding the mutation lock.
+
+    A full rebuild takes 5-20 s on a large project; while it held the lock
+    every answer POST queued behind it, long enough for a browser to give up. The build and render only
+    READ, so they run unlocked; the lock is taken just to write. If anything
+    was written while building, the result is stale: it is discarded and
+    ``_REFRESH_RERUN`` asks the loop to run again, so the views always end up
+    matching the latest state. Returns 0, ``_REFRESH_RERUN``, or 2 (failed;
+    the reason is on the root's worker).
+    """
+    cfg = _load_config(root, "refresh")
+    if cfg is None:
+        return _refresh_failed(root, "could not load the vizzer configuration")
+    token = _refresh_state_token(root, cfg)
+    built = _build_fresh_graph(root, "refresh")
+    if built is None:
+        return _refresh_failed(root, "could not rebuild the work graph (see the serve log)")
+    cfg, graph, progress = built
+    prepared = _refresh_entries(root, cfg, graph, progress)
+    if prepared is None:
+        return _refresh_failed(root, "could not render the views (see the serve log)")
+    entries, _ = prepared
+    with _mutation_guard(root):
+        if _refresh_state_token(root, cfg) != token:
+            return _REFRESH_RERUN
+        if _journal_superseded_answers(cfg, graph, root):
+            # A story changed under this build: rebuild so the graph has it.
+            return _REFRESH_RERUN
+        _prepare_developer_store(cfg, graph, root)
+        failures: list[str] = []
+        if not _write_artifacts(entries, "refresh", failures):
+            return _refresh_failed(
+                root, "could not write derived artifacts: "
+                + (failures[0] if failures else "see the serve log"))
+    _report_sync(cfg, graph, root, "refresh")
+    return 0
+
+
+def _background_refresh_loop(worker: _RefreshWorker) -> None:
+    """Run refreshes as they are scheduled; retry a failure with backoff.
+
+    An accepted answer is already durable before any refresh runs, so a
+    failure here only leaves the derived views behind. Each retry is logged,
+    and ``GET /api/questions`` reports the failure so the page can say so.
+    """
+    while True:
+        with worker.lock:
+            retry = worker.next_retry
+        timeout = None if retry is None else max(0.0, retry - time.monotonic())
+        worker.pending.wait(timeout)
+        worker.pending.clear()
+        with worker.lock:
+            attempt = worker.failures + 1
+        if attempt > 1:
+            print(f"serve: view refresh attempt {attempt} (retrying after failure)",
+                  file=sys.stderr, flush=True)
+        worker.reason = None
+        try:
+            code = _background_refresh_once(worker.root)
+        except Exception as exc:  # never kill the worker: views are derived
+            code, worker.reason = 2, f"refresh crashed: {exc}"
+        if code == _REFRESH_RERUN:
+            worker.pending.set()
+            continue
+        if code == 0:
+            with worker.lock:
+                recovered = worker.failures
+                worker.failures, worker.error, worker.failed_at = 0, None, None
+                worker.next_retry = worker.next_retry_at = None
+            if recovered:
+                print(f"serve: view refresh succeeded on attempt {attempt}; "
+                      "views match the answers again", file=sys.stderr, flush=True)
+            continue
+        with worker.lock:
+            worker.failures += 1
+            delay = _REFRESH_RETRY_DELAYS[
+                min(worker.failures, len(_REFRESH_RETRY_DELAYS)) - 1]
+            worker.error = worker.reason or f"refresh exited with status {code}"
+            worker.failed_at = _utc_now()
+            worker.next_retry = time.monotonic() + delay
+            worker.next_retry_at = datetime.fromtimestamp(
+                time.time() + delay, timezone.utc).isoformat(timespec="seconds")
+            error = worker.error
+        print(f"serve: view refresh FAILED (attempt {attempt}): {error} — the "
+              f"answers are already committed; retrying in {delay:g}s",
+              file=sys.stderr, flush=True)
+
+
+def _schedule_background_refresh(root: Path) -> None:
+    worker = _refresh_worker(root)
+    with _REFRESH_WORKERS_GUARD:
+        if worker.thread is None or not worker.thread.is_alive():
+            worker.thread = threading.Thread(
+                target=_background_refresh_loop, args=(worker,),
+                name="vizzer-derived-refresh", daemon=True,
+            )
+            worker.thread.start()
+    worker.pending.set()
+
+
 @contextmanager
 def _mutation_guard(root: Path):
     """Serialize accepted owner mutations across threads and, on Unix, processes."""
@@ -116,6 +331,8 @@ def _mutation_guard(root: Path):
                 fcntl.flock(descriptor, fcntl.LOCK_EX)
             yield
         finally:
+            global _MUTATION_GENERATION
+            _MUTATION_GENERATION += 1
             if fcntl is not None:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
             os.close(descriptor)
@@ -440,48 +657,33 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                         f"answer has unknown or missing field: {field}"
                     )
                 with _mutation_guard(root):
-                    built = _build_fresh_graph(root, "questions")
-                    if built is None:
+                    authority = _answer_authority(root)
+                    if authority is None:
                         self._send_json(
                             500, {"error": "current work graph could not be built"}
                         )
                         return
-                    live_cfg, live_graph, _ = built
-                    snapshot = ledger_snapshot(live_cfg, root)
-                    ledger, decision = append_answer(
-                        live_graph, live_cfg, root, question_id,
-                        expected_revision=body["expectedRevision"],
-                        expected_fingerprint=body["expectedFingerprint"],
-                        kind=answer["kind"], option_id=answer.get("optionId"),
-                        text=answer.get("text"),
-                    )
-                    source_snapshots = {}
+                    live_cfg, live_graph = authority
                     try:
-                        source_snapshots = story_snapshots(
-                            live_graph, root, [decision]
+                        ledger, decisions = _record_answers(
+                            live_cfg, live_graph, root, [{
+                                "questionId": question_id,
+                                "expectedFingerprint": body["expectedFingerprint"],
+                                "kind": answer["kind"],
+                                "optionId": answer.get("optionId"),
+                                "text": answer.get("text"),
+                            }], body["expectedRevision"],
                         )
-                        append_evolution_events(live_graph, root, [decision])
-                        refresh_result = _refresh(root)
-                    except Exception:
-                        refresh_result = 2
-                    if refresh_result != 0:
-                        try:
-                            restore_story_snapshots(source_snapshots)
-                            restore_answers(live_cfg, root, snapshot)
-                        except (OSError, QuestionAnswerError,
-                                DecisionJournalError) as exc:
-                            self._send_json(500, {
-                                "error": "answer journaling/refresh failed and rollback "
-                                         f"also failed: {exc}",
-                            })
-                            return
+                    except _AnswerNotRecorded as exc:
                         self._send_json(500, {
-                            "error": "answer was not accepted because its story "
-                                     "evolution event or derived views could not be "
-                                     "updated",
-                            "revision": ledger["revision"] - 1,
+                            "error": f"answer was not accepted: {exc}",
+                            "revision": body["expectedRevision"],
                         })
                         return
+                    decision = decisions[0]
+                # The answer is durable; the derived views catch up in the
+                # background and a refresh failure never rolls it back.
+                _schedule_background_refresh(root)
                 self._send_json(200, {
                     "revision": ledger["revision"],
                     "decision": decision_to_api(decision),
@@ -549,45 +751,26 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                         "text": value.get("text"),
                     })
                 with _mutation_guard(root):
-                    built = _build_fresh_graph(root, "questions")
-                    if built is None:
+                    authority = _answer_authority(root)
+                    if authority is None:
                         self._send_json(
                             500, {"error": "current work graph could not be built"}
                         )
                         return
-                    live_cfg, live_graph, _ = built
-                    snapshot = ledger_snapshot(live_cfg, root)
-                    ledger, decisions = append_answers(
-                        live_graph, live_cfg, root, flattened,
-                        expected_revision=body["expectedRevision"],
-                    )
-                    source_snapshots = {}
+                    live_cfg, live_graph = authority
                     try:
-                        source_snapshots = story_snapshots(
-                            live_graph, root, decisions
+                        ledger, decisions = _record_answers(
+                            live_cfg, live_graph, root, flattened,
+                            body["expectedRevision"],
                         )
-                        append_evolution_events(live_graph, root, decisions)
-                        refresh_result = _refresh(root)
-                    except Exception:
-                        refresh_result = 2
-                    if refresh_result != 0:
-                        try:
-                            restore_story_snapshots(source_snapshots)
-                            restore_answers(live_cfg, root, snapshot)
-                        except (OSError, QuestionAnswerError,
-                                DecisionJournalError) as exc:
-                            self._send_json(500, {
-                                "error": "answer journaling/refresh failed and rollback "
-                                         f"also failed: {exc}",
-                            })
-                            return
+                    except _AnswerNotRecorded as exc:
                         self._send_json(500, {
-                            "error": "answers were not accepted because their story "
-                                     "evolution events or derived views could not be "
-                                     "updated",
-                            "revision": ledger["revision"] - len(decisions),
+                            "error": f"answers were not accepted: {exc}",
+                            "revision": body["expectedRevision"],
                         })
                         return
+                # Same durability contract as the single-answer path.
+                _schedule_background_refresh(root)
                 self._send_json(200, {
                     "revision": ledger["revision"],
                     "decisions": [decision_to_api(value) for value in decisions],
@@ -779,8 +962,9 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 # is reading.  Rebuilding every adapter here made opening a
                 # question an O(repo) operation and could return a fingerprint
                 # for prose different from the already-rendered card.  Writes
-                # still rebuild below and reject stale fingerprints before any
-                # decision is accepted.
+                # validate against this same stored snapshot (ledger overlaid,
+                # see _answer_authority), so the fingerprint a page reads here
+                # is the one its answer is checked against.
                 live_graph = _read_graph(root, allow_stale=True)
                 if live_graph is None:
                     self._send_json(500, {
@@ -794,6 +978,20 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     self._send_json(500, {"error": str(exc)})
                     return
                 assert ledger is not None
+                # The stored graph may predate the latest answer while its
+                # refresh runs; the ledger decides what is still open.
+                open_questions, decisions = current_questions_and_decisions(
+                    live_graph, ledger)
+                # The overlay only ever closes questions, so a shorter open
+                # list means the stored graph (and every view rendered from
+                # it) is behind the ledger. The page says so once that lasts
+                # past the normal refresh window or a refresh has failed.
+                behind = len(open_questions) != len(live_graph.owner_questions)
+                worker = _refresh_worker(root)
+                if behind and (worker.thread is None or not worker.thread.is_alive()):
+                    # Nothing is catching the views up (e.g. serve restarted
+                    # after a failed refresh): start the refresh now.
+                    _schedule_background_refresh(root)
                 self._send_json(200, {
                     "engineVersion": __version__,
                     "renderId": process_render_id(),
@@ -801,13 +999,20 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     "csrfToken": csrf_token,
                     "revision": ledger["revision"],
                     "questions": [
-                        question_to_api(question)
-                        for question in live_graph.owner_questions
+                        question_to_api(question) for question in open_questions
                     ],
                     "decisions": [
-                        decision_to_api(decision)
-                        for decision in live_graph.owner_decisions
+                        decision_to_api(decision) for decision in decisions
                     ],
+                    # The owner's answer to an earlier wording of a question
+                    # that was reworded at its source and so reopened.
+                    "supersededAnswers": [
+                        superseded_to_api(decision)
+                        for decision in superseded_answers(open_questions, ledger)
+                    ],
+                    "viewsBehind": behind,
+                    "viewsBehindSince": worker.views_behind_since(behind),
+                    "refreshFailure": worker.failure(),
                 })
                 return
             if parsed.path == "/api/plan" and not parsed.query:
@@ -1076,6 +1281,78 @@ def _load_config(root: Path, command: str) -> Config | None:
         return None
 
 
+class _AnswerNotRecorded(Exception):
+    """Nothing was recorded: the story note or the ledger could not be written."""
+
+
+def _record_answers(cfg: Config, graph: Graph, root: Path, answers: list[dict],
+                    expected_revision: int) -> tuple[dict, list]:
+    """Journal accepted answers in their stories, then write the ledger.
+
+    The ledger is the commit point (review 2026-09-25): it is written last, so
+    a failure before it leaves no accepted answer behind, and the only
+    rollback is of the story notes. A derived-view refresh is never part of
+    accepting an answer and can never roll one back.
+    Validation errors (``QuestionAnswerError`` and subclasses) propagate
+    before anything is written. Call under ``_mutation_guard``.
+    """
+    ledger, decisions = prepare_answers(
+        graph, cfg, root, answers, expected_revision=expected_revision,
+    )
+    snapshots: dict[Path, bytes] = {}
+    try:
+        snapshots = story_snapshots(graph, root, decisions)
+        try:
+            append_evolution_events(graph, root, decisions)
+        except Exception as exc:
+            raise _AnswerNotRecorded(
+                f"its story evolution event could not be written: {exc}") from exc
+        try:
+            write_answers(cfg, root, ledger)
+        except Exception as exc:
+            raise _AnswerNotRecorded(
+                f"the answer ledger could not be written: {exc}") from exc
+    except Exception as exc:
+        try:
+            restore_story_snapshots(snapshots)
+        except OSError as restore_exc:
+            raise _AnswerNotRecorded(
+                f"{exc}; restoring the story also failed: {restore_exc}") from exc
+        if isinstance(exc, _AnswerNotRecorded):
+            raise
+        raise _AnswerNotRecorded(
+            f"its story evolution event could not be written: {exc}") from exc
+    return ledger, decisions
+
+
+def _answer_authority(root: Path) -> tuple[Config, Graph] | None:
+    """Config plus the graph an owner answer is validated against.
+
+    The stored graph is the snapshot the page rendered and the one
+    ``GET /api/questions`` serves, so its fingerprints are the ones the owner
+    answered. Rebuilding every adapter here held the mutation lock for 5-20 s
+    before the answer was written, long enough for a browser to give up. Only
+    a project with no stored graph yet pays for a fresh build.
+
+    The stored graph can lag the ledger while its refresh runs, so the ledger
+    is overlaid first: a question answered since then is no longer open, and a
+    second answer to it is refused as already answered, exactly as a fresh
+    build would refuse it.
+    """
+    cfg = _load_config(root, "questions")
+    if cfg is None:
+        return None
+    graph = _read_graph(root)
+    if graph is not None:
+        ledger, _ = read_answers(cfg, root)
+        assert ledger is not None
+        open_questions, decisions = current_questions_and_decisions(graph, ledger)
+        return cfg, dataclasses.replace(
+            graph, owner_questions=open_questions, owner_decisions=decisions)
+    built = _build_fresh_graph(root, "questions")
+    return None if built is None else (built[0], built[1])
+
+
 def _build_fresh_graph(root: Path, command: str) -> tuple[Config, Graph, ProgressHistory] | None:
     """Load config and build a graph before writing any derived artifact."""
     cfg = _load_config(root, command)
@@ -1101,7 +1378,8 @@ def _artifact_temp_path(parent: Path, prefix: str) -> Path:
     return path
 
 
-def _write_artifacts(entries: list[tuple[Path, str]], command: str) -> bool:
+def _write_artifacts(entries: list[tuple[Path, str]], command: str,
+                     failures: list[str] | None = None) -> bool:
     """Commit several files as one recoverable snapshot.
 
     All content is prepared before any destination is replaced.  Existing
@@ -1154,6 +1432,8 @@ def _write_artifacts(entries: list[tuple[Path, str]], command: str) -> bool:
             with suppress(OSError):
                 temporary.unlink()
         print(f"{command}: could not write derived artifacts: {exc}")
+        if failures is not None:
+            failures.append(str(exc))
         return False
     return True
 
@@ -1246,6 +1526,13 @@ def _render(root: Path, only_value: str | None) -> int:
 
 
 # codex-sequence-2026-08-08: refresh never delegates to disk-reading render.
+def _prepare_developer_store(cfg: Config, graph: Graph, root: Path) -> None:
+    try:
+        prepare_developer_store(graph, cfg, root)
+    except Exception as exc:
+        print(f"refresh: warning: developer query cache unavailable: {exc}")
+
+
 def _refresh(root: Path) -> int:
     """Synchronize then render the graph built in this invocation.
 
@@ -1256,9 +1543,33 @@ def _refresh(root: Path) -> int:
     if result is None:
         return 2
     cfg, graph, progress = result
+    if _journal_superseded_answers(cfg, graph, root):
+        # A story gained a note: build again so the graph includes it.
+        result = _build_fresh_graph(root, "refresh")
+        if result is None:
+            return 2
+        cfg, graph, progress = result
+    prepared = _refresh_entries(root, cfg, graph, progress)
+    if prepared is None:
+        return 2
+    entries, rendered_count = prepared
+    _prepare_developer_store(cfg, graph, root)
+    if not _write_artifacts(entries, "refresh"):
+        return 2
+    _report_sync(cfg, graph, root, "refresh")
+    print(f"refresh: wrote {rendered_count} files")
+    return 0
+
+
+def _refresh_entries(root: Path, cfg: Config, graph: Graph,
+                     progress: ProgressHistory) -> tuple[list[tuple[Path, str]], int] | None:
+    """Render every artifact a refresh writes, without writing any of them.
+
+    Returns the entries plus how many of them are rendered views.
+    """
     output_dir = _output_dir(cfg, root, "refresh")
     if output_dir is None:
-        return 2
+        return None
     try:
         # The ONLY Git read behind the committed views: record new main-line
         # merges into the committed ledger before rendering from it. `check`
@@ -1268,11 +1579,7 @@ def _refresh(root: Path) -> int:
         rendered = render_all(graph, cfg, root)
     except Exception as exc:
         print(f"refresh: {exc}")
-        return 2
-    try:
-        prepare_developer_store(graph, cfg, root)
-    except Exception as exc:
-        print(f"refresh: warning: developer query cache unavailable: {exc}")
+        return None
     entries = [(root / GRAPH_RELPATH, graph.dumps())]
     if progress.path is not None and progress.content is not None:
         entries.append((progress.path, progress.content))
@@ -1282,13 +1589,9 @@ def _refresh(root: Path) -> int:
         relative = Path(filename)
         if relative.is_absolute() or ".." in relative.parts:
             print(f"refresh: renderer returned unsafe output path {filename!r}")
-            return 2
+            return None
         entries.append((output_dir / relative, content))
-    if not _write_artifacts(entries, "refresh"):
-        return 2
-    _report_sync(cfg, graph, root, "refresh")
-    print(f"refresh: wrote {len(rendered)} files")
-    return 0
+    return entries, len(rendered)
 
 
 def _structural_graph(data: dict) -> dict:
@@ -1341,6 +1644,12 @@ def _check(root: Path, structural: bool) -> int:
     except Exception as exc:
         print(f"check: could not build current graph: {exc}")
         return 2
+    # A story note the answer ledger does not hold (an answer interrupted
+    # between its two writes) would tell an agent a decision the owner never
+    # recorded. Reported, never a gate.
+    for warning in expected_graph.warnings:
+        if warning.startswith("story note without a recorded answer"):
+            print(f"check: WARNING {warning}")
 
     answered_blockers = answered_blocker_records(expected_graph)
     if answered_blockers:
