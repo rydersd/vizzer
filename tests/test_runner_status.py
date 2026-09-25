@@ -174,6 +174,18 @@ def test_last_seen_and_failed_refresh_is_never_last_known_green():
     assert "Runner status unavailable" in body["error"]
 
 
+def test_a_cold_cache_is_loading_and_a_failed_thread_start_never_sticks(_fresh_cache):
+    with mock.patch.object(runner_status, "_start_refresh"):
+        body = runner_status.payload(Path("."), now=lambda: 0.0)
+    assert body["loading"] and body["available"] is None and body["runners"] == []
+    runner_status.reset_cache()
+    with mock.patch.object(runner_status.threading.Thread, "start",
+                           side_effect=RuntimeError("can't start new thread")):
+        body = runner_status.payload(Path("."), now=lambda: 0.0)
+    assert not runner_status._CACHE["refreshing"] and not body["refreshing"]
+    assert body["available"] is False and "could not start a refresh" in body["error"]
+
+
 def _served(repo, enabled):
     if enabled:
         config = repo / "vizzer/vizzer.toml"
@@ -268,8 +280,28 @@ const out={};
 applyRunnerStatus(payload);
 out.markup=element('runners').innerHTML;out.hidden=element('runners').hidden;
 const index=payload.runners.findIndex(r=>r.name==='illtool-mbp-uitest');
-showRunnerCard({dataset:{runnerIndex:String(index)},getBoundingClientRect:()=>({left:40,bottom:30})});
+showRunnerCard({dataset:{runnerName:'illtool-mbp-uitest'},getBoundingClientRect:()=>({left:40,bottom:30})});
 out.cardShown=element('runnercard').hidden===false;
+dismissRunnerCardOnEscape({key:'Escape'});
+out.escapeHidden=element('runnercard').hidden===true;
+element('runnercard').offsetWidth=300;
+showRunnerCard({dataset:{runnerName:'illtool-mini-linux'},getBoundingClientRect:()=>({left:1250,bottom:30})});
+out.clampedLeft=element('runnercard').style.left;
+let writes=0, markupNow=element('runners').innerHTML;
+Object.defineProperty(element('runners'),'innerHTML',{get:()=>markupNow,set:value=>{writes+=1;markupNow=value;}});
+applyRunnerStatus(JSON.parse(JSON.stringify(payload)));
+out.writesWhenUnchanged=writes;out.cardStillOpen=element('runnercard').hidden===false;
+const focusedBefore={dataset:{runnerName:'illtool-mini-linux'}};let refocused='';
+document.activeElement=focusedBefore;element('runners').contains=e=>e===focusedBefore;
+element('runners').querySelectorAll=()=>payload.runners.map(r=>({dataset:{runnerName:r.name},
+  focus(){refocused=r.name;},getBoundingClientRect:()=>({left:10,bottom:30})}));
+const changed=JSON.parse(JSON.stringify(payload));
+changed.runners.find(r=>r.name==='illtool-mini-linux').state='busy';
+applyRunnerStatus(changed);
+out.writesWhenChanged=writes;out.refocused=refocused;
+applyRunnerStatus({schema:1,available:null,loading:true,runners:[]});
+out.loading=markupNow;out.loadingRepoll=runnerRepollDelay({loading:true});out.settledRepoll=runnerRepollDelay(payload);
+hideRunnerCard();
 const now=Date.parse('2026-09-25T05:01:11Z');
 out.busyCard=runnerCardMarkup(payload.runners[index],payload,now);
 const stopped=Object.assign({},payload.runners.find(r=>r.name==='illtool-mini-xctest'),
@@ -277,7 +309,7 @@ const stopped=Object.assign({},payload.runners.find(r=>r.name==='illtool-mini-xc
 out.stoppedText=runnerIndicatorText(stopped);
 out.stoppedCard=runnerCardMarkup(stopped,payload,now);
 applyRunnerStatus({schema:1,available:false,error:'Runner status unavailable: gh dead'});
-out.unavailable=element('runners').innerHTML;
+out.unavailable=markupNow;
 applyRunnerStatus(null);
 out.disabledHidden=element('runners').hidden;
 process.stdout.write(JSON.stringify(out));
@@ -299,7 +331,13 @@ def test_frontend_indicators_and_hover_card():
     assert 'class="runner out-of-pool"' in out["markup"]
     assert out["cardShown"]
     assert "PR #1349" in out["busyCard"] and "running 3m 07s" in out["busyCard"]
-    assert out["stoppedText"] == "xctest-pr · mini · heavy offline"
+    assert out["stoppedText"] == "offline · xctest-pr · mini · heavy", (
+        "the alarm word comes first, so a narrow window clips the lane")
+    assert out["escapeHidden"] and out["clampedLeft"] == "972px"
+    assert out["writesWhenUnchanged"] == 0 and out["cardStillOpen"]
+    assert out["writesWhenChanged"] == 1 and out["refocused"] == "illtool-mini-linux"
+    assert "runners…" in out["loading"] and "unavailable" not in out["loading"]
+    assert out["loadingRepoll"] == 3000 and out["settledRepoll"] is None
     assert "Last seen online 2m 00s ago" in out["stoppedCard"]
     assert "runners unavailable" in out["unavailable"]
     assert out["disabledHidden"]

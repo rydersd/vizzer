@@ -262,6 +262,10 @@ def _build_payload(root: Path) -> dict:
     }
 
 
+def _loading_payload() -> dict:
+    return {"schema": SCHEMA, "available": None, "loading": True, "runners": []}
+
+
 def _unavailable_payload(error: Exception | str) -> dict:
     reason = str(error).strip() or error.__class__.__name__
     return {
@@ -295,30 +299,45 @@ def _refresh(root: Path, attempted_at: float) -> None:
 
 
 def _start_refresh(root: Path, attempted_at: float) -> None:
-    _CACHE["refreshing"] = True
-    threading.Thread(
+    """Start one refresh thread; the caller holds ``_CACHE_LOCK``.
+
+    ``refreshing`` is set only once the thread is running. If it cannot start
+    (for example "can't start new thread" on an overloaded host), the failure
+    is stored like any other failed refresh, so the flag can never stick and
+    turn the last good payload into a permanent last-known-green.
+    """
+    thread = threading.Thread(
         target=_refresh, args=(root, attempted_at), daemon=True,
         name="vizzer-runner-refresh",
-    ).start()
+    )
+    try:
+        thread.start()
+    except RuntimeError as error:
+        _CACHE["attemptedAt"] = attempted_at
+        _CACHE["at"] = attempted_at
+        _CACHE["payload"] = _unavailable_payload(f"could not start a refresh: {error}")
+        return
+    _CACHE["refreshing"] = True
 
 
 def payload(root: Path, *, now=time.monotonic) -> dict:
     """Non-blocking, stale-while-revalidate payload for ``/api/runners``.
 
     Never raises and never waits for GitHub.  With nothing cached yet the
-    caller gets ``available: false`` ("refresh in progress").
+    caller gets ``loading: true`` (not ``available: false``: a serve that has
+    not asked GitHub yet is not an outage), and the page asks again shortly.
     """
     with _CACHE_LOCK:
         moment = now()
-        cached = _CACHE["payload"]
-        cached_at = _CACHE["at"]
         attempted_at = _CACHE["attemptedAt"]
-        age = None if cached_at is None else moment - cached_at
         needs_refresh = attempted_at is None or moment - attempted_at >= CACHE_SECONDS
         if needs_refresh and not _CACHE["refreshing"]:
-            _start_refresh(root, moment)
+            _start_refresh(root, moment)  # may store a failure synchronously
+        cached = _CACHE["payload"]
+        cached_at = _CACHE["at"]
+        age = None if cached_at is None else moment - cached_at
         if cached is None:
-            cached = _unavailable_payload("refresh in progress")
+            cached = _loading_payload()
         return _with_freshness(cached, age, _CACHE["refreshing"])
 
 

@@ -52,8 +52,11 @@ __VIZZER_RADAR_LINK__
     <a href="discussion-queue.md" download>Discussion queue Markdown</a>
     <a href="manifest.json" download>Graph manifest JSON</a>
   </div></details>
-  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div><div id="runners" role="group" aria-label="CI runners" hidden></div></div>
+  <div id="meter"><div id="meterbar"><i id="meterfill"></i></div><div id="meterlab"></div></div>
   <div id="chips"></div>
+  <!-- Served-only runner fleet: its own header row under the chips, never
+       inside the scrolling meter row (an off-screen alarm is no alarm). -->
+  <div id="runners" role="group" aria-label="CI runners" hidden></div>
 </div>
 <!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
 <form id="search" role="search">

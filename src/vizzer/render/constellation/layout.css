@@ -38,7 +38,9 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
    that is offline is the alarm (filled, bold, says "offline"); a runner with
    no routing labels is a dashed, neutral dot. Sits at the right end of the
    meter row. */
-#runners{display:flex;align-items:center;gap:6px;flex:none;margin-left:auto;padding:2px}
+/* Own row under the chips at every width, wrapping rather than scrolling, so
+   no indicator is ever off-screen; narrow widths: the max-width:760px block. */
+#runners{grid-column:1 / -1;grid-row:4;justify-self:end;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:6px;max-width:100%;min-width:0;padding:2px}
 #runners[hidden]{display:none}
 #runners .runner{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--mut);font:11px/1 ui-monospace,"SF Mono",Menlo,monospace;white-space:nowrap;cursor:default}
 #runners .runnerdot{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--ready);box-sizing:border-box;flex:none}
@@ -50,8 +52,9 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 #runners .runner.out-of-pool{border-style:dashed}
 #runners .runner.out-of-pool .runnerdot{border-color:var(--mut)}
 #runners .runner:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#runners .runnersnote{color:var(--mut);font:12px/1 ui-monospace,"SF Mono",Menlo,monospace;white-space:nowrap}
 #runners .runnersunavailable{color:var(--mut);font:12px/1 ui-monospace,"SF Mono",Menlo,monospace;white-space:nowrap}
-#runnercard{position:fixed;pointer-events:none;z-index:60;display:grid;gap:2px;max-width:340px;padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 10px 28px #0006;color:var(--ink);font-size:12px}
+#runnercard{position:fixed;z-index:60;display:grid;gap:2px;max-width:340px;padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 10px 28px #0006;color:var(--ink);font-size:12px}
 #runnercard[hidden]{display:none}
 #runnercard small{color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10px}
 #runnercard .runnerstate.offline{color:var(--buggap);font-weight:700}
@@ -177,4 +180,4 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #top #themechoice button.on{background:var(--ink);color:var(--panel)}
 :where(button,a,input,select,summary):focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 input::placeholder{color:var(--mut);opacity:1}
-@media(max-width:760px){#top{grid-template-columns:minmax(0,1fr) repeat(2,max-content);grid-template-rows:32px 28px 28px auto;column-gap:6px}#title{grid-row:1;grid-column:1;letter-spacing:0}#viewmenu{grid-row:1;grid-column:2}#exportmenu{grid-row:1;grid-column:3}#sidebartype{grid-row:3;grid-column:1;justify-self:start}#themechoice{grid-row:3;grid-column:2 / -1;justify-self:end}#chips{grid-row:4;flex-wrap:nowrap;max-height:36px}#top #themechoice button{min-width:28px}}
+@media(max-width:760px){#top{grid-template-columns:minmax(0,1fr) repeat(2,max-content);grid-template-rows:32px 28px 28px auto;column-gap:6px}#title{grid-row:1;grid-column:1;letter-spacing:0}#viewmenu{grid-row:1;grid-column:2}#exportmenu{grid-row:1;grid-column:3}#sidebartype{grid-row:3;grid-column:1;justify-self:start}#themechoice{grid-row:3;grid-column:2 / -1;justify-self:end}#chips{grid-row:4;flex-wrap:nowrap;max-height:36px}#runners{grid-row:5;justify-self:start;justify-content:flex-start}#top #themechoice button{min-width:28px}}
