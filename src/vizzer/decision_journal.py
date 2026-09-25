@@ -379,6 +379,65 @@ def append_evolution_events(
     return changed
 
 
+def superseded_marker(decision: OwnerDecision, *, end: bool = False) -> str:
+    """Boundary of the note saying an earlier answer's wording was replaced."""
+    boundary = "end" if end else "begin"
+    return f"<!-- vizzer:evolution-superseded:{decision.fingerprint}:{boundary} -->"
+
+
+def render_superseded_event(decision: OwnerDecision, current_fingerprint: str,
+                            today: str) -> str:
+    selected, _detail = _selected_answer(decision)
+    return "\n".join([
+        superseded_marker(decision),
+        f"## Evolution event — owner answer superseded {today}",
+        "",
+        f"- **Question ID:** `{decision.question.id}`",
+        f"- **Superseded answer:** ledger revision `{decision.revision}`, "
+        f"question fingerprint `{decision.fingerprint}`",
+        f"- **Revised question fingerprint:** `{current_fingerprint}`",
+        "",
+        "The question was reworded after the owner answered it, so the earlier "
+        f"answer (**{selected}**) no longer applies and the question is open "
+        "again. The evolution event for that answer is kept above as history.",
+        superseded_marker(decision, end=True),
+    ])
+
+
+def append_superseded_events(
+    graph: Graph, root: Path,
+    superseded: list[tuple[OwnerDecision, str]], today: str,
+) -> list[Path]:
+    """Mark journaled answers whose question was reworded; return changed paths.
+
+    ``superseded`` pairs each earlier decision with its question's CURRENT
+    fingerprint. Append-only and idempotent: one note per earlier answer, and
+    only when that answer's own evolution event is in the story.
+    """
+    additions: dict[Path, list[str]] = {}
+    for decision, current_fingerprint in superseded:
+        if not decision_is_journaled(graph, root, decision):
+            continue
+        path = _story_path(graph, root, decision)
+        text = path.read_text(encoding="utf-8")
+        if superseded_marker(decision) in text:
+            continue
+        additions.setdefault(path, []).append(
+            render_superseded_event(decision, current_fingerprint, today))
+    snapshots = {path: path.read_bytes() for path in additions}
+    changed = []
+    try:
+        for path, events in additions.items():
+            body = snapshots[path].decode("utf-8").rstrip("\n")
+            _atomic_write(path, (body + "\n\n" + "\n\n".join(events) + "\n")
+                          .encode("utf-8"))
+            changed.append(path)
+    except BaseException:
+        restore_story_snapshots({path: snapshots[path] for path in changed})
+        raise
+    return changed
+
+
 def append_application_event(
     graph: Graph,
     root: Path,

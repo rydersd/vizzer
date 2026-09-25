@@ -277,6 +277,47 @@ def current_questions_and_decisions(graph: Graph, ledger: dict) -> tuple[list, l
     return open_questions, sorted(decisions, key=lambda value: value.question.id)
 
 
+def superseded_answers(open_questions: list, ledger: dict) -> list[OwnerDecision]:
+    """The owner's latest answer to an earlier wording of each open question.
+
+    A question reworded at its source after the owner answered it gets a new
+    fingerprint, so ``reconcile_answers`` reopens it. The earlier answer stays
+    in the ledger; this finds it so the reopened card can show it and the story
+    can record that it was superseded.
+    """
+    latest: dict[str, dict] = {}
+    for answer in ledger["answers"]:
+        prior = latest.get(answer["questionId"])
+        if prior is None or answer["revision"] > prior["revision"]:
+            latest[answer["questionId"]] = answer
+    earlier = []
+    for question in open_questions:
+        answer = latest.get(question.id)
+        if answer is not None and answer["fingerprint"] != owner_question_fingerprint(question):
+            earlier.append(_decision(answer))
+    return sorted(earlier, key=lambda value: value.question.id)
+
+
+def answer_choice_text(decision: OwnerDecision) -> str:
+    """The chosen option's label, or the owner's own words."""
+    if decision.kind == "option":
+        for option in decision.question.options:
+            if option.id == decision.option_id:
+                return option.label
+        return decision.option_id or ""
+    return (decision.text or "").strip()
+
+
+def superseded_to_api(decision: OwnerDecision) -> dict:
+    return {
+        "questionId": decision.question.id,
+        "revision": decision.revision,
+        "fingerprint": decision.fingerprint,
+        "answeredAt": decision.answered_at,
+        "choice": answer_choice_text(decision),
+    }
+
+
 def question_to_api(question: OwnerQuestion) -> dict:
     return {
         "id": question.id,
@@ -356,6 +397,29 @@ def restore_answers(cfg, root: Path, snapshot: bytes | None) -> None:
 def append_answers(graph: Graph, cfg, root: Path, answers: list[dict], *,
                    expected_revision: int) -> tuple[dict, list[OwnerDecision]]:
     """Validate and atomically append one or more owner answers."""
+    ledger, decisions = prepare_answers(
+        graph, cfg, root, answers, expected_revision=expected_revision,
+    )
+    write_answers(cfg, root, ledger)
+    return ledger, decisions
+
+
+def write_answers(cfg, root: Path, ledger: dict) -> None:
+    """Atomically replace the ledger with one ``prepare_answers`` returned."""
+    payload = (json.dumps(ledger, indent=2, ensure_ascii=False) + "\n").encode(
+        "utf-8"
+    )
+    _atomic_write(answers_path(cfg, root), payload)
+
+
+def prepare_answers(graph: Graph, cfg, root: Path, answers: list[dict], *,
+                    expected_revision: int) -> tuple[dict, list[OwnerDecision]]:
+    """Validate answers and return ``(next ledger, decisions)``; write nothing.
+
+    Splitting validation from the write lets the served answer path journal
+    the story first and write the ledger last, so the ledger is the commit
+    point: a failure before it leaves no accepted answer behind.
+    """
     if (isinstance(expected_revision, bool) or not isinstance(expected_revision, int)
             or expected_revision < 0):
         raise QuestionAnswerError("expectedRevision must be a non-negative integer")
@@ -449,10 +513,6 @@ def append_answers(graph: Graph, cfg, root: Path, answers: list[dict], *,
         "answers": [*ledger["answers"], *new_entries],
     }
     normalized = _validate_ledger(updated)
-    payload = (json.dumps(normalized, indent=2, ensure_ascii=False) + "\n").encode(
-        "utf-8"
-    )
-    _atomic_write(answers_path(cfg, root), payload)
     return normalized, [_decision(entry) for entry in new_entries]
 
 

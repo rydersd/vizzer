@@ -47,6 +47,11 @@ const questionDrafts=new Map();
 // choice Y was not recorded", or "not recorded; provide again". Shown on the
 // question's own card, because the answered card has no footer banner.
 const questionNotes=new Map();
+// Notes naming the owner's answer to an earlier wording, by question id, so a
+// later authority read can clear the ones that no longer apply.
+const supersededNoteIds=new Set();
+// "Views are behind your answers since HH:MM" (quiet; footer status line).
+let viewsBehindNote='', viewsBehindTimer=null;
 const questionNoteMarkup=id=>questionNotes.has(id)
   ?`<p class="questionnote" role="status" data-question-note>${esc(questionNotes.get(id))}</p>`:'';
 // Owner directive 2026-08-22: a typed answer must never be lost to a reload or
@@ -106,7 +111,7 @@ function storyDiscussionActions(n,questions){
   const answerButton=questions.length
     ?`<button type="button" data-question-submit disabled>Provide ${questions.length===1?'answer':questions.length+' answers'}</button>`:'';
   return `<div class="questionqueuefooter" data-story-actions${questions.length?' data-question-queue':''}>
-    <div class="actionstatus">${questions.length?`<span data-question-queue-status>0 of ${questions.length} ready</span>`:''}<span data-discussion-status>${esc(message)}</span></div>
+    <div class="actionstatus">${questions.length?`<span data-question-queue-status>0 of ${questions.length} ready</span>`:''}<span data-discussion-status>${esc(message)}</span>${viewsBehindNote?`<span class="viewsbehind" role="status" data-views-behind>${esc(viewsBehindNote)}</span>`:''}</div>
     <div class="dossieractions">${answerButton}<div class="chatsplit" data-chat-split>
       <button type="button" data-chat-primary data-provider="${provider}" ${discussionContext?'':'disabled'}>Chat · ${provider==='claude'?'Claude':'Codex'}</button>
       <button type="button" data-chat-overflow aria-label="Choose discussion provider" aria-expanded="false" ${discussionContext?'':'disabled'}>…</button>
@@ -373,7 +378,7 @@ function recordedAnswerResult(answers,expectedRevision,body){
   for(const answer of answers){
     const decision=recordedById.get(answer.questionId);
     if(!decision){
-      notes.set(answer.questionId,'Not recorded: the other answers in this batch were. Choose again and provide it.');
+      notes.set(answer.questionId,'Not recorded: another window answered first. Choose again and provide it.');
       continue;
     }
     decisions.push(decision);
@@ -385,6 +390,53 @@ function recordedAnswerResult(answers,expectedRevision,body){
       `Answered in another window as “${answerChoiceText(answer.questionId,decision)}”. Your choice “${answerChoiceText(answer.questionId,submitted)}” was not recorded.`);
   }
   return {decisions,revision:body.revision,notes,csrfToken:body.csrfToken};
+}
+// Adopt a fresh /api/questions read: on page load, and every 30 s while the
+// views are behind. The embedded map can predate answers the ledger already
+// holds (a refresh still running, or one that failed), and answering such a
+// question again only loops on "Reload before answering". So decisions the map
+// has not caught up with are applied here exactly as a local answer would be,
+// without moving the owner's place.
+function adoptQuestionAuthority(body,{now=Date.now()}={}){
+  questionContext=body;
+  const keyOf=decision=>`${decision.question?.id}@${decision.fingerprint}`;
+  const known=new Set((DATA.decisions||[]).map(decision=>`${decision.id}@${decision.fingerprint}`));
+  const missing=(body.decisions||[]).filter(decision=>{
+    const q=(DATA.questions||[]).find(value=>value.id===decision.question?.id);
+    if(!q||q.fingerprint!==decision.fingerprint||known.has(keyOf(decision)))return false;
+    return (DATA.nodes[q.n]?.oq||[]).includes(DATA.questions.indexOf(q));
+  });
+  for(const id of supersededNoteIds)questionNotes.delete(id);
+  supersededNoteIds.clear();
+  for(const earlier of body.supersededAnswers||[]){
+    if(questionNotes.has(earlier.questionId))continue; // a recovery note is newer
+    questionNotes.set(earlier.questionId,
+      `You answered an earlier wording on ${String(earlier.answeredAt||'').slice(0,10)}: “${earlier.choice}”. The question changed since; answer again.`);
+    supersededNoteIds.add(earlier.questionId);
+  }
+  viewsBehindNote=viewsBehindText(body,now);
+  clearTimeout(viewsBehindTimer);viewsBehindTimer=null;
+  if(body.viewsBehind){
+    viewsBehindTimer=setTimeout(async()=>{
+      const next=await readQuestionAuthority();
+      if(next&&next.renderId===RENDER_ID)adoptQuestionAuthority(next);
+    },30000);
+    viewsBehindTimer?.unref?.();
+  }
+  if(missing.length)reconcileAcceptedDecisions(missing,body.revision);
+  else refreshDossier();
+}
+// Pure: the quiet footer note while the views lag the ledger. Silent during
+// the normal refresh window (under a minute); a failed refresh is named at once.
+function viewsBehindText(body,now=Date.now()){
+  if(!body?.viewsBehind)return '';
+  const since=Date.parse(body.viewsBehindSince||'')||now, failure=body.refreshFailure;
+  if(!failure&&now-since<60000)return '';
+  const at=new Date(since), pad=value=>String(value).padStart(2,'0');
+  const when=`${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  if(!failure)return `Views are behind your answers since ${when}.`;
+  const reason=String(failure.error||'unknown error').split('\n')[0].replace(/[.\s]+$/,'');
+  return `Views are behind your answers since ${when} — refresh failed: ${reason}. Retrying.`;
 }
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
@@ -412,7 +464,9 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   questionContext.revision=revision;
   questionContext.questions=(questionContext.questions||[]).filter(question=>
     !decisions.some(decision=>decision.question?.id===question.id));
-  questionContext.decisions=[...(questionContext.decisions||[]),...(decisions||[])];
+  const recorded=new Set((questionContext.decisions||[]).map(value=>`${value.question?.id}@${value.fingerprint}`));
+  questionContext.decisions=[...(questionContext.decisions||[]),
+    ...(decisions||[]).filter(value=>!recorded.has(`${value.question?.id}@${value.fingerprint}`))];
   updateViewStatus();
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead
