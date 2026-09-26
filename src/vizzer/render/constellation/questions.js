@@ -447,6 +447,8 @@ function viewsBehindText(body,now=Date.now()){
 }
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  // Answering from the question navigator moves on to the next open question.
+  const navigatorBefore=showFromTop&&typeof questionNavigatorState==='function'?questionNavigatorState():null;
   for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
@@ -478,7 +480,9 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead
   // of preserving a now-invalid question-form scroll extent and spacer.
-  if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
+  const moveOn=navigatorBefore&&!ownerQuestions(sel).length?nextOpenQuestionAfter(navigatorBefore):null;
+  if(moveOn)showOwnerQuestion(moveOn);
+  else if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
 }
 
 // Owner revisions are review candidates, with exact source identity and durable diffs.

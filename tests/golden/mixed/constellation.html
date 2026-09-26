@@ -260,6 +260,12 @@ html.dossier-open #viewpanel{right:var(--dossier-width)}
 #dossierresize:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 #dossierhead{position:relative;z-index:3;flex:none;min-width:0;padding:16px 42px 11px 16px;border-bottom:1px solid var(--line);background:var(--panel);box-shadow:0 8px 18px color-mix(in srgb,var(--bg) 30%,transparent)}
 #dossieridentity{min-width:0}
+.questionnav{display:grid;grid-template-columns:1fr auto 1fr;margin:0 0 10px;border:1px solid var(--line);border-radius:7px;overflow:hidden;font:600 11px/1.2 ui-monospace,"SF Mono",Menlo,monospace}
+.questionnav button{min-height:28px;border:0;border-radius:0;background:transparent;color:var(--ink);padding:6px 10px;cursor:pointer;font:inherit}
+.questionnav button:hover:not([disabled]){background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+.questionnav button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.questionnav button[disabled]{opacity:.45;cursor:default}
+.questionnav span{display:grid;place-items:center;padding:6px 12px;border-inline:1px solid var(--line);color:var(--mut);white-space:nowrap}
 #dossieridentity h2{font-size:15px;line-height:1.35;text-wrap:balance;margin-bottom:8px}
 .dossierpills{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .dossiersummary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:7px;color:var(--mut);font-size:11px;line-height:1.35}
@@ -563,7 +569,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"engineVersion":"0.8.39","renderId":"dc009c0beadbadb1","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
+const DATA={"engineVersion":"0.8.39","renderId":"37e1d6ab33ff79da","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -872,6 +878,10 @@ const hasAreaFacets=areaDefinitions.length>0;
 let areaMode=areaDefinitions[0]?.id||null;
 let areaFocus=null;
 let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
+// The owner question the Previous | N of M | Next control counts from
+// (question_navigation.js). Declared here because openNode reads it, and a let
+// in a later fragment is in its dead zone until that fragment runs.
+let questionNavFocusId = '';
 let clusterFocus = null, clusterFocusReturnZoom = null;
 const lensButtons = {};
 const lifecycleButtons = {};
@@ -2457,6 +2467,8 @@ function viewsBehindText(body,now=Date.now()){
 }
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  // Answering from the question navigator moves on to the next open question.
+  const navigatorBefore=showFromTop&&typeof questionNavigatorState==='function'?questionNavigatorState():null;
   for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
@@ -2488,7 +2500,9 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead
   // of preserving a now-invalid question-form scroll extent and spacer.
-  if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
+  const moveOn=navigatorBefore&&!ownerQuestions(sel).length?nextOpenQuestionAfter(navigatorBefore):null;
+  if(moveOn)showOwnerQuestion(moveOn);
+  else if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
 }
 
 // Owner revisions are review candidates, with exact source identity and durable diffs.
@@ -2882,7 +2896,7 @@ function openNode(i,{inPlace=false}={}){
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
+  dossierIdentity.innerHTML=`${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -2945,6 +2959,7 @@ function openNode(i,{inPlace=false}={}){
     }
   });
   bindQuestionControls(n);
+  bindQuestionNavigator();
   bindPlanControls(n);
   bindStorySidebar(dbody);
   if(n.role==='reference'){
@@ -3111,6 +3126,97 @@ addEventListener('keydown',event=>{
       arrowKeyOwnedByControl(event.target))return;
   if(navigateWorkLane(route[0],route[1]))event.preventDefault();
 });
+
+// ---- Previous | "N of M" | Next across open owner questions ----
+// Owner directive 2026-09-26: "when i start answering
+// questions, and there are more than one. at the top of the panel i should
+// just have a segmented control at the top to jump between next and prev, so i
+// can get to the next one without closing the panel." The order is the owner
+// question order: graph order of delivery items, then question order within an
+// item. Served-only: the file:// build cannot record answers.
+function openOwnerQuestionOrder(){
+  return DATA.nodes.flatMap((node,n)=>node.foundation?[]:ownerQuestions(n).map(q=>({n,id:q.id})));
+}
+// Pure: where the dossier's story sits in the open-question order, or null
+// when there is nothing to step to (static build, fewer than two open
+// questions, or a story with no open question).
+function questionNavigatorState(storyIndex=sel,focusId=questionNavFocusId){
+  if(!SERVED||!Number.isInteger(storyIndex)||storyIndex<0)return null;
+  const order=openOwnerQuestionOrder();
+  if(order.length<2)return null;
+  const here=order.filter(entry=>entry.n===storyIndex);
+  if(!here.length)return null;
+  const current=here.find(entry=>entry.id===focusId)||here[0];
+  const position=order.indexOf(current);
+  return {order,position,total:order.length,current,
+    previous:order[position-1]||null,next:order[position+1]||null};
+}
+function questionNavigatorMarkup(state){
+  if(!state)return '';
+  return `<nav class="questionnav" aria-label="Owner questions" aria-keyshortcuts="ArrowLeft ArrowRight" data-question-nav>`
+    +`<button type="button" data-question-nav-previous aria-label="Previous owner question" ${state.previous?'':'disabled'}>Previous</button>`
+    +`<span role="status" aria-live="polite" data-question-nav-position>${state.position+1} of ${state.total}</span>`
+    +`<button type="button" data-question-nav-next aria-label="Next owner question" ${state.next?'':'disabled'}>Next</button></nav>`;
+}
+const questionNavKeyStep=key=>key==='ArrowLeft'?-1:key==='ArrowRight'?1:0;
+function navigateOwnerQuestion(step){
+  const state=questionNavigatorState();
+  const target=state&&(step<0?state.previous:state.next);
+  if(!target)return false;
+  showOwnerQuestion(target);
+  // The header was rebuilt under the pressed button: keep keyboard focus on
+  // the same segment, or its neighbour once this end is reached.
+  const nav=dossierIdentity.querySelector('[data-question-nav]');
+  const same=nav?.querySelector(step<0?'[data-question-nav-previous]':'[data-question-nav-next]');
+  const other=nav?.querySelector(step<0?'[data-question-nav-next]':'[data-question-nav-previous]');
+  (same&&!same.disabled?same:other)?.focus?.();
+  return true;
+}
+// Drafts live in questionDrafts, which openNode never clears, so a chosen
+// option is still selected when a step comes back to its card.
+function showOwnerQuestion(target){
+  questionNavFocusId=target.id;
+  if(target.n!==sel)openNode(target.n);else refreshDossier();
+  [...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===target.id)
+    ?.scrollIntoView?.({block:'start'});
+}
+// After providing answers, move on to the next open question after the one
+// answered (or the nearest earlier one when it was the last).
+function nextOpenQuestionAfter(before){
+  if(!before)return null;
+  const order=openOwnerQuestionOrder(), open=new Map(order.map(entry=>[entry.id,entry]));
+  const later=before.order.slice(before.position+1).find(entry=>open.has(entry.id));
+  const earlier=before.order.slice(0,before.position).reverse().find(entry=>open.has(entry.id));
+  const pick=later||earlier;
+  return pick?open.get(pick.id):null;
+}
+function syncQuestionNavigator(){
+  const nav=dossierIdentity.querySelector('[data-question-nav]'), state=questionNavigatorState();
+  if(!nav||!state)return;
+  const position=nav.querySelector('[data-question-nav-position]');
+  if(position)position.textContent=`${state.position+1} of ${state.total}`;
+  const previous=nav.querySelector('[data-question-nav-previous]'), next=nav.querySelector('[data-question-nav-next]');
+  if(previous)previous.disabled=!state.previous;
+  if(next)next.disabled=!state.next;
+}
+function bindQuestionNavigator(){
+  const nav=dossierIdentity.querySelector('[data-question-nav]');
+  if(!nav)return;
+  nav.querySelector('[data-question-nav-previous]')?.addEventListener('click',()=>navigateOwnerQuestion(-1));
+  nav.querySelector('[data-question-nav-next]')?.addEventListener('click',()=>navigateOwnerQuestion(1));
+  // Arrows on the focused control step questions; preventDefault keeps the
+  // window-level work navigation from also firing.
+  nav.addEventListener('keydown',event=>{
+    const step=questionNavKeyStep(event.key);
+    if(!step||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+    event.preventDefault();navigateOwnerQuestion(step);
+  });
+  // Working on a card makes it the shown question, so "N of M" stays true.
+  (dbody.querySelectorAll?.('form[data-question-id]')||[]).forEach(form=>form.addEventListener('focusin',()=>{
+    if(questionNavFocusId===form.dataset.questionId)return;
+    questionNavFocusId=form.dataset.questionId;syncQuestionNavigator();
+  }));
+}
 
 // ---- served-only runner fleet indicators ----
 // Owner 2026-08-26: "in vizzer it should show the runners connected and i

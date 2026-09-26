@@ -35,6 +35,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_PLANNING_JS__", "planning.js"),
     ("__VIZZER_DOSSIER_JS__", "dossier.js"),
     ("__VIZZER_WORK_NAVIGATION_JS__", "work_navigation.js"),
+    ("__VIZZER_QUESTION_NAVIGATION_JS__", "question_navigation.js"),
     ("__VIZZER_RUNNERS_JS__", "runners.js"),
     ("__VIZZER_CANVAS_JS__", "canvas.js"),
     ("__VIZZER_SESSION_HISTORY_JS__", "session_history.js"),
