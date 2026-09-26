@@ -4,9 +4,11 @@
 // just have a segmented control at the top to jump between next and prev, so i
 // can get to the next one without closing the panel." The order is the owner
 // question order: graph order of delivery items, then question order within an
-// item. Served-only: the file:// build cannot record answers.
+// item. Other roles (a reference dossier has no answer footer) are left out.
+// Served-only: the file:// build cannot record answers.
 function openOwnerQuestionOrder(){
-  return DATA.nodes.flatMap((node,n)=>node.foundation?[]:ownerQuestions(n).map(q=>({n,id:q.id})));
+  return DATA.nodes.flatMap((node,n)=>node.foundation||(node.role||'delivery')!=='delivery'?[]
+    :ownerQuestions(n).map(q=>({n,id:q.id})));
 }
 // Pure: where the dossier's story sits in the open-question order, or null
 // when there is nothing to step to (static build, fewer than two open
@@ -51,8 +53,7 @@ function showOwnerQuestion(target){
   [...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===target.id)
     ?.scrollIntoView?.({block:'start'});
 }
-// After providing answers, move on to the next open question after the one
-// answered (or the nearest earlier one when it was the last).
+// After the shown question is answered, move on to the next open question after it (or the nearest earlier one when it was the last).
 function nextOpenQuestionAfter(before){
   if(!before)return null;
   const order=openOwnerQuestionOrder(), open=new Map(order.map(entry=>[entry.id,entry]));

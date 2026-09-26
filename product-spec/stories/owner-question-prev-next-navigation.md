@@ -27,13 +27,17 @@ illtool files (the two dossiers have diverged).
   M open questions.
 - Next / Previous move to the next / previous open question, across stories,
   in the owner question order (graph order of delivery items, then question
-  order within an item), and the dossier stays open.
+  order within an item; other roles, such as reference items, have no answer
+  footer and are left out), and the dossier stays open.
 - An option chosen on a card survives stepping away and back (the existing
   `questionDrafts` store).
 - The ends do not wrap: Previous is disabled on 1 of M, Next on M of M.
-- With exactly one open question there is no control. After Provide answers
-  empties the shown story, the count drops and the dossier moves on to the next
-  open question (or the nearest earlier one).
+- Focusing a question card makes it the counted question, so "N of M" follows
+  the card the owner is working on.
+- With exactly one open question there is no control. Once the shown question
+  is answered (by Provide answers, or alone through the suggestion editor), the
+  count drops and the dossier moves on to the next open question after it (or
+  the nearest earlier one).
 - Previous and Next are buttons with the accessible names "Previous owner
   question" and "Next owner question"; the position is announced; Left/Right
   arrows on the focused control step questions without also triggering the

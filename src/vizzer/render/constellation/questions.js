@@ -480,7 +480,10 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead
   // of preserving a now-invalid question-form scroll extent and spacer.
-  const moveOn=navigatorBefore&&!ownerQuestions(sel).length?nextOpenQuestionAfter(navigatorBefore):null;
+  // Move on once the shown question is answered: by the footer (the whole
+  // Story) or by the editor (that one question).
+  const moveOn=navigatorBefore&&(decisions||[]).some(decision=>decision.question?.id===navigatorBefore.current.id)
+    ?nextOpenQuestionAfter(navigatorBefore):null;
   if(moveOn)showOwnerQuestion(moveOn);
   else if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
 }

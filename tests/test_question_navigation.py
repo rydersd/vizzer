@@ -85,7 +85,7 @@ const context = {
     (listeners[type] || (listeners[type] = [])).push(handler);
   }, requestAnimationFrame: noop,
   getComputedStyle: () => ({getPropertyValue: () => 'rgb(1, 2, 3)', lineHeight: '20px'}),
-  matchMedia: () => ({matches: false, addEventListener: noop}), MutationObserver: class { observe() {} },
+  matchMedia: () => ({matches: false, addEventListener: noop}), MutationObserver: class { observe() {} disconnect() {} },
   ResizeObserver: class { observe() {} disconnect() {} },
   sessionStorage: {getItem: () => null, setItem: noop},
   localStorage: {getItem: () => null, setItem: noop},
@@ -197,6 +197,8 @@ DRIVER = r"""
   const allOpen=()=>pin([[a,[0,1]],[b,[2]],[c,[3]]]);
   const position=()=>{const m=identity().match(/data-question-nav-position>(\d+) of (\d+)</);return m?`${m[1]} of ${m[2]}`:null;};
   const hasNav=()=>identity().includes('data-question-nav');
+  const livePosition=()=>nav()?.querySelector('[data-question-nav-position]')?.textContent||position();
+  const forms=()=>regions.dbody.host.querySelectorAll('form[data-question-id]');
   const reset=()=>{if(sel>=0)dismissDossier({focusCanvas:false});questionNavFocusId='';questionDrafts.clear();};
   const out={served:SERVED,stories};
   allOpen();
@@ -212,11 +214,21 @@ DRIVER = r"""
     globalThis.__testResult=out;return;
   }
 
+  // Working on the second card makes it the counted question.
+  (forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  out.top.secondCardFocused={position:livePosition(),previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled};
+
   // Scenario 2: click Next three times, then Previous, across stories.
+  reset();openNode(a);
   const walk=[];
   const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open')});
   clickNav('next');record();clickNav('next');record();clickNav('next');record();clickNav('previous');record();
   out.walk=walk;
+  // A reference item's question is not in the order: its dossier cannot answer.
+  reset();DATA.nodes[b].role='reference';openNode(a);
+  const referenceWalk=[position()];
+  clickNav('next');referenceWalk.push(position());clickNav('next');referenceWalk.push([sel,position()]);
+  out.referenceWalk=referenceWalk;delete DATA.nodes[b].role;
 
   // Scenario 3: a chosen option survives a step away and back.
   reset();openNode(a);
@@ -275,6 +287,26 @@ DRIVER = r"""
   const afterMiddle={sel,position:position()};
   const lastDisabled=await provide(c);
   out.answered={before,middleDisabled,lastDisabled,afterMiddle,afterLast:{sel,position:position()}};
+  // The editor answers one question: submitting the shown one moves on from it,
+  // though its Story still has an earlier open question.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();
+  const loose=name=>{const kids=new Map();const el={name,innerHTML:'',className:'',value:'',textContent:'',style:{},dataset:{},children:[],
+    classList:{add(){},remove(){},toggle(){},contains(){return false;}},append(){},appendChild(){},prepend(){},
+    inert:false,hidden:false,disabled:false,readOnly:false,isConnected:true,scrollHeight:0,listeners:{},
+    setAttribute(){},removeAttribute(){},focus(){},setSelectionRange(){},before(){},remove(){},replaceChildren(){},dispatchEvent(){},
+    addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
+    querySelector(selector){if(!kids.has(selector))kids.set(selector,loose(name+' '+selector));return kids.get(selector);},
+    querySelectorAll(){return [];}};return el;};
+  const createElement=document.createElement;let editorPanel=null;
+  document.createElement=tag=>{const el=loose(tag);if(tag==='section')editorPanel=el;return el;};
+  openNode(a);clickNav('next'); // a's second question
+  const editorBefore=position();
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
+  const submitEditor=editorPanel?.querySelector('[data-editor-submit]');
+  if(editorPanel)editorPanel.querySelector('textarea').value='Go another way';
+  await submitEditor?.onclick?.();
+  out.answered.editor={opened:Boolean(editorPanel),before:editorBefore,sel,position:position()};
+  document.createElement=createElement;
   fetch=()=>new Promise(()=>{});
   allOpen();
 
@@ -352,7 +384,9 @@ def _served(runs):
 
 def test_segmented_control_is_pinned_at_the_top_with_position_and_count(runs):
     top = _served(runs)["top"]
-    assert top == {"hasNav": True, "navBeforeTitle": True, "position": "1 of 4", "segments": 2}
+    assert top == {"hasNav": True, "navBeforeTitle": True, "position": "1 of 4", "segments": 2,
+                   # Focusing the second card makes it the counted question.
+                   "secondCardFocused": {"position": "2 of 4", "previousDisabled": False}}
 
 
 def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs):
@@ -360,6 +394,8 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
     a, b, c = result["stories"]
     assert [(s["sel"], s["position"], s["open"]) for s in result["walk"]] == [
         (a, "2 of 4", True), (b, "3 of 4", True), (c, "4 of 4", True), (b, "3 of 4", True)]
+    # With b a reference item, its question is skipped: a1, a2, then c.
+    assert result["referenceWalk"] == ["1 of 3", "2 of 3", [c, "3 of 3"]]
 
 
 def test_draft_answers_survive_navigating_away_and_back(runs):
@@ -392,6 +428,8 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
         "afterMiddle": {"sel": c, "position": "3 of 3"},
         # c (the last) answered: the nearest earlier open question, a's second.
         "afterLast": {"sel": a, "position": "2 of 2"},
+        # The editor answers a's second question alone: on to b's, not back to a's first.
+        "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
     }
 
 
