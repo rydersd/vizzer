@@ -180,6 +180,14 @@ DRIVER = r"""
     for(const handler of __listeners.keydown||[])handler(event); // the window, after bubbling
     return event;
   };
+  // The suggestion editor builds its overlay with document.createElement.
+  const loose=name=>{const kids=new Map();const el={name,innerHTML:'',className:'',value:'',textContent:'',style:{},dataset:{},children:[],
+    classList:{add(){},remove(){},toggle(){},contains(){return false;}},append(){},appendChild(){},prepend(){},
+    inert:false,hidden:false,disabled:false,readOnly:false,isConnected:true,scrollHeight:0,listeners:{},
+    setAttribute(){},removeAttribute(){},focus(){},setSelectionRange(){},before(){},remove(){},replaceChildren(){},dispatchEvent(){},
+    addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
+    querySelector(selector){if(!kids.has(selector))kids.set(selector,loose(name+' '+selector));return kids.get(selector);},
+    querySelectorAll(){return [];}};return el;};
   let workLaneSteps=0;
   navigateWorkLane=()=>{workLaneSteps++;return true;};
 
@@ -222,7 +230,8 @@ DRIVER = r"""
   reset();openNode(a);
   const walk=[];
   const announcer=document.getElementById('questionnavstatus');
-  const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open'),
+  const scrolledTo=()=>forms().filter(form=>form.scrolled).map(form=>form.dataset.questionId);
+  const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open'),scrolledTo:scrolledTo(),
     announced:document.getElementById('questionnavstatus')===announcer?announcer.textContent:'(replaced)'});
   clickNav('next');record();clickNav('next');record();clickNav('next');record();clickNav('previous');record();
   out.walk=walk;
@@ -235,12 +244,26 @@ DRIVER = r"""
   // Scenario 3: a chosen option survives a step away and back.
   reset();openNode(a);
   questionDrafts.set('question:nav-a1',{kind:'option',optionId:'opt-b',text:''});
+  // A suggestion typed in the editor, then Back, travels too.
+  const stored={};localStorage.setItem=(key,value)=>{stored[key]=value;};
+  const createEditor=document.createElement;let draftPanel=null;
+  document.createElement=tag=>{const el=loose(tag);if(tag==='section')draftPanel=el;return el;};
+  questionContext={renderId:RENDER_ID,csrfToken:'t',revision:1,decisions:[],questions:[]}; // the editor needs answer authority
+  questionEditor=null;refreshDossier();
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
+  const draftText=draftPanel?.querySelector('textarea');
+  if(draftText){draftText.value='Keep this suggestion';(draftText.listeners.input||[]).forEach(handler=>handler({currentTarget:draftText}));}
+  draftPanel?.querySelector('[data-editor-back]')?.onclick?.();
+  document.createElement=createEditor;questionContext=null;
   clickNav('next');clickNav('next'); // a2, then story b
   const awaySel=sel;
   clickNav('previous');clickNav('previous'); // back to a2, then a1
   out.drafts={awayOnOtherStory:awaySel===b,backSel:sel,position:position(),
     optionId:questionDrafts.get('question:nav-a1')?.optionId||'',
-    cardChecked:/value="opt-b" data-question-option checked/.test(body().split('data-question-id="question:nav-a1"')[1]||'')};
+    cardChecked:/value="opt-b" data-question-option checked/.test(body().split('data-question-id="question:nav-a1"')[1]||''),
+    freeformText:questionDrafts.get('question:nav-a2')?.text||'',
+    storedText:JSON.parse(Object.values(stored).at(-1)||'{}')['question:nav-a2']?.text||'',
+    cardText:/data-question-text[^>]*>Keep this suggestion<\/textarea>/.test((body().split('data-question-id="question:nav-a2"')[1]||'').split('</form>')[0])};
 
   // Scenario 4: the ends do not wrap.
   reset();openNode(a);
@@ -292,15 +315,9 @@ DRIVER = r"""
   // The editor answers one question: submitting the shown one moves on from it,
   // though its Story still has an earlier open question.
   allOpen();fixture.forEach(q=>open.add(q.id));reset();
-  const loose=name=>{const kids=new Map();const el={name,innerHTML:'',className:'',value:'',textContent:'',style:{},dataset:{},children:[],
-    classList:{add(){},remove(){},toggle(){},contains(){return false;}},append(){},appendChild(){},prepend(){},
-    inert:false,hidden:false,disabled:false,readOnly:false,isConnected:true,scrollHeight:0,listeners:{},
-    setAttribute(){},removeAttribute(){},focus(){},setSelectionRange(){},before(){},remove(){},replaceChildren(){},dispatchEvent(){},
-    addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
-    querySelector(selector){if(!kids.has(selector))kids.set(selector,loose(name+' '+selector));return kids.get(selector);},
-    querySelectorAll(){return [];}};return el;};
   const createElement=document.createElement;let editorPanel=null;
   document.createElement=tag=>{const el=loose(tag);if(tag==='section')editorPanel=el;return el;};
+  questionEditor=null;
   openNode(a);clickNav('next'); // a's second question
   const editorBefore=position();
   click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
@@ -398,6 +415,9 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
     assert [(s["sel"], s["position"], s["open"]) for s in result["walk"]] == [
         (a, "2 of 4", True), (b, "3 of 4", True), (c, "4 of 4", True), (b, "3 of 4", True)]
     assert [s["announced"] for s in result["walk"]] == [f"Owner question {n} of 4" for n in (2, 3, 4, 3)]
+    # Each step brings the counted question's own card into view.
+    assert [s["scrolledTo"] for s in result["walk"]] == [
+        ["question:nav-a2"], ["question:nav-b1"], ["question:nav-c1"], ["question:nav-b1"]]
     # With b a reference item, its question is skipped: a1, a2, then c.
     assert result["referenceWalk"] == ["1 of 3", "2 of 3", [c, "3 of 3"]]
 
@@ -405,7 +425,10 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
 def test_draft_answers_survive_navigating_away_and_back(runs):
     result = _served(runs)
     assert result["drafts"] == {"awayOnOtherStory": True, "backSel": result["stories"][0],
-                                "position": "1 of 4", "optionId": "opt-b", "cardChecked": True}
+                                "position": "1 of 4", "optionId": "opt-b", "cardChecked": True,
+                                # The editor's suggestion: in the store, persisted, and back in its card.
+                                "freeformText": "Keep this suggestion", "storedText": "Keep this suggestion",
+                                "cardText": True}
 
 
 def test_ends_disable_previous_and_next_without_wraparound(runs):
