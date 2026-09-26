@@ -221,7 +221,9 @@ DRIVER = r"""
   // Scenario 2: click Next three times, then Previous, across stories.
   reset();openNode(a);
   const walk=[];
-  const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open')});
+  const announcer=document.getElementById('questionnavstatus');
+  const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open'),
+    announced:document.getElementById('questionnavstatus')===announcer?announcer.textContent:'(replaced)'});
   clickNav('next');record();clickNav('next');record();clickNav('next');record();clickNav('previous');record();
   out.walk=walk;
   // A reference item's question is not in the order: its dossier cannot answer.
@@ -317,14 +319,15 @@ DRIVER = r"""
     previousName:/<button type="button" data-question-nav-previous aria-label="Previous owner question"/.test(labels),
     nextName:/<button type="button" data-question-nav-next aria-label="Next owner question"/.test(labels),
     groupName:/aria-label="Owner questions"/.test(labels),
-    positionAnnounced:/aria-live="polite" data-question-nav-position/.test(labels),
   };
   // Right: 1 -> 2 of 4, focus stays on Next. Left: back to 1 of 4, where
   // Previous is disabled, so focus lands on Next.
   const right=key('ArrowRight');
-  keyboard.right={prevented:right.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,'')};
+  keyboard.right={prevented:right.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
+    announced:document.getElementById('questionnavstatus').textContent};
   const left=key('ArrowLeft');
-  keyboard.left={prevented:left.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,'')};
+  keyboard.left={prevented:left.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
+    announced:document.getElementById('questionnavstatus').textContent};
   keyboard.other=key('ArrowUp').defaultPrevented;keyboard.sel=sel;
   keyboard.workLaneSteps=workLaneSteps;
   out.keyboard=keyboard;
@@ -372,7 +375,7 @@ def runs(tmp_path_factory):
                               capture_output=True, timeout=60)
         return {"code": proc.returncode, "stdout": proc.stdout + proc.stderr,
                 "result": json.loads(proc.stdout) if proc.returncode == 0 else None}
-    return {"served": run(_SERVED_RUNNER), "static": run(_RUNNER)}
+    return {"served": run(_SERVED_RUNNER), "static": run(_RUNNER), "html": html}
 
 
 def _served(runs):
@@ -394,6 +397,7 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
     a, b, c = result["stories"]
     assert [(s["sel"], s["position"], s["open"]) for s in result["walk"]] == [
         (a, "2 of 4", True), (b, "3 of 4", True), (c, "4 of 4", True), (b, "3 of 4", True)]
+    assert [s["announced"] for s in result["walk"]] == [f"Owner question {n} of 4" for n in (2, 3, 4, 3)]
     # With b a reference item, its question is skipped: a1, a2, then c.
     assert result["referenceWalk"] == ["1 of 3", "2 of 3", [c, "3 of 3"]]
 
@@ -436,13 +440,20 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
 def test_control_is_keyboard_reachable_with_accessible_names(runs):
     result = _served(runs)
     assert result["keyboard"] == {
-        "previousName": True, "nextName": True, "groupName": True, "positionAnnounced": True,
-        "right": {"prevented": True, "position": "2 of 4", "focus": "[data-question-nav-next]"},
-        "left": {"prevented": True, "position": "1 of 4", "focus": "[data-question-nav-next]"},
+        "previousName": True, "nextName": True, "groupName": True,
+        "right": {"prevented": True, "position": "2 of 4", "focus": "[data-question-nav-next]",
+                  "announced": "Owner question 2 of 4"},
+        "left": {"prevented": True, "position": "1 of 4", "focus": "[data-question-nav-next]",
+                 "announced": "Owner question 1 of 4"},
         # ArrowUp is not the control's key: the window-level work navigation
         # takes it (once), and it never also fired for Left/Right.
         "other": True, "workLaneSteps": 1, "sel": result["stories"][0],
     }
+    # The position is announced through a live region that outlives the rebuilt
+    # header: it sits in the shell beside the identity region, and starts empty
+    # so every step's text is a change a screen reader reads.
+    assert ('<div id="dossieridentity"></div><p id="questionnavstatus" class="sr-only" '
+            'role="status" aria-live="polite"></p>') in runs["html"]
 
 
 def test_static_file_build_boots_and_hides_the_control(runs):

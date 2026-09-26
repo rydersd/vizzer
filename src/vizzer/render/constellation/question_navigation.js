@@ -28,7 +28,7 @@ function questionNavigatorMarkup(state){
   if(!state)return '';
   return `<nav class="questionnav" aria-label="Owner questions" aria-keyshortcuts="ArrowLeft ArrowRight" data-question-nav>`
     +`<button type="button" data-question-nav-previous aria-label="Previous owner question" ${state.previous?'':'disabled'}>Previous</button>`
-    +`<span role="status" aria-live="polite" data-question-nav-position>${state.position+1} of ${state.total}</span>`
+    +`<span data-question-nav-position>${state.position+1} of ${state.total}</span>`
     +`<button type="button" data-question-nav-next aria-label="Next owner question" ${state.next?'':'disabled'}>Next</button></nav>`;
 }
 const questionNavKeyStep=key=>key==='ArrowLeft'?-1:key==='ArrowRight'?1:0;
@@ -52,6 +52,14 @@ function showOwnerQuestion(target){
   if(target.n!==sel)openNode(target.n);else refreshDossier();
   [...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===target.id)
     ?.scrollIntoView?.({block:'start'});
+  announceOwnerQuestion();
+}
+// The header is rebuilt on every step, and a live region rendered with its
+// text already in place is not announced. The shell's persistent status node
+// is, so each step writes the new position there.
+function announceOwnerQuestion(){
+  const status=document.getElementById('questionnavstatus'), state=questionNavigatorState();
+  if(status)status.textContent=state?`Owner question ${state.position+1} of ${state.total}`:'';
 }
 // After the shown question is answered, move on to the next open question after it (or the nearest earlier one when it was the last).
 function nextOpenQuestionAfter(before){
