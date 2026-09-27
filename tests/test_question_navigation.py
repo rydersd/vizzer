@@ -228,6 +228,13 @@ DRIVER = r"""
   const hasNav=()=>identity().includes('data-question-nav');
   const livePosition=()=>nav()?.querySelector('[data-question-nav-position]')?.textContent||position();
   const forms=()=>regions.dbody.host.querySelectorAll('form[data-question-id]');
+  // Choose an option the way the owner does: its radio, then its change event.
+  // A disabled radio cannot be chosen.
+  const choose=(questionId,value)=>{
+    const input=forms().find(form=>form.dataset.questionId===questionId)?.querySelectorAll('[data-question-option]').find(option=>option.value===value);
+    if(!input||input.disabled)return false;
+    input.checked=true;(input.listeners.change||[]).forEach(handler=>handler({currentTarget:input}));return true;
+  };
   const reset=()=>{if(sel>=0)dismissDossier({focusCanvas:false});questionDrafts.clear();};
   const out={served:SERVED,stories};
   allOpen();
@@ -283,31 +290,32 @@ DRIVER = r"""
   clickNav('next');referenceWalk.push(position());clickNav('next');referenceWalk.push([sel,position()]);
   out.referenceWalk=referenceWalk;delete DATA.nodes[b].role;
 
-  // Scenario 3: a chosen option survives a step away and back.
+  // Scenario 3: a chosen option survives a step away and back. The cards
+  // are answerable once the answer authority has loaded.
+  questionContext={renderId:RENDER_ID,csrfToken:'t',revision:1,decisions:[],questions:[]};
   reset();openNode(a);
   // Choose Option B on a1's card through its real radio and change event.
-  const chosen=forms().find(form=>form.dataset.questionId==='question:nav-a1')?.querySelectorAll('[data-question-option]').find(input=>input.value==='opt-b');
-  if(chosen){chosen.checked=true;(chosen.listeners.change||[]).forEach(handler=>handler({currentTarget:chosen}));}
+  const chosenOnCard=choose('question:nav-a1','opt-b');
   // A suggestion typed in the editor, then Back, travels too.
   const stored={};localStorage.setItem=(key,value)=>{stored[key]=value;};
   const createEditor=document.createElement;let draftPanel=null;
   document.createElement=tag=>{const el=loose(tag);if(tag==='section')draftPanel=el;return el;};
-  questionContext={renderId:RENDER_ID,csrfToken:'t',revision:1,decisions:[],questions:[]}; // the editor needs answer authority
   questionEditor=null;refreshDossier();
   click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
   const draftText=draftPanel?.querySelector('textarea');
   if(draftText){draftText.value='Keep this suggestion';(draftText.listeners.input||[]).forEach(handler=>handler({currentTarget:draftText}));}
   draftPanel?.querySelector('[data-editor-back]')?.onclick?.();
-  document.createElement=createEditor;questionContext=null;
+  document.createElement=createEditor;
   clickNav('next');clickNav('next'); // a2, then story b
   const awaySel=sel;
   clickNav('previous');clickNav('previous'); // back to a2, then a1
   out.drafts={awayOnOtherStory:awaySel===b,backSel:sel,position:position(),
-    optionId:questionDrafts.get('question:nav-a1')?.optionId||'',
+    chosenOnCard,optionId:questionDrafts.get('question:nav-a1')?.optionId||'',
     cardChecked:/value="opt-b" data-question-option checked/.test(body().split('data-question-id="question:nav-a1"')[1]||''),
     freeformText:questionDrafts.get('question:nav-a2')?.text||'',
     storedText:JSON.parse(Object.values(stored).at(-1)||'{}')['question:nav-a2']?.text||'',
     cardText:/data-question-text[^>]*>Keep this suggestion<\/textarea>/.test((body().split('data-question-id="question:nav-a2"')[1]||'').split('</form>')[0])};
+  questionContext=null;
 
   // Scenario 4: the ends do not wrap.
   reset();openNode(a);
@@ -343,8 +351,8 @@ DRIVER = r"""
   };
   questionContext={renderId:RENDER_ID,csrfToken:'t',revision,decisions:[],questions:[]};
   const provide=async story=>{
-    for(const q of ownerQuestions(story))questionDrafts.set(q.id,{kind:'option',optionId:'opt-a',text:''});
     openNode(story);
+    for(const q of ownerQuestions(story))choose(q.id,'opt-a');
     const submit=regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]');
     const disabled=Boolean(submit?.disabled);
     await Promise.all(click(submit));
@@ -375,6 +383,13 @@ DRIVER = r"""
   if(editorPanel)editorPanel.querySelector('textarea').value='Go another way';
   await submitEditor?.onclick?.();
   out.answered.editor={opened:Boolean(editorPanel),before:editorBefore,sel,position:position()};
+  // Answering the first of a Story's two questions moves to its second.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();editorPanel=null;questionEditor=null;
+  openNode(a);
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a1')?.querySelector('[data-question-edit]'));
+  if(editorPanel)editorPanel.querySelector('textarea').value='First direction';
+  await editorPanel?.querySelector('[data-editor-submit]')?.onclick?.();
+  out.answered.editorFirst={sel,position:position(),focus:focusedCard()};
   document.createElement=createElement;
   fetch=()=>new Promise(()=>{});
   allOpen();
@@ -397,6 +412,10 @@ DRIVER = r"""
     announced:announcedNow()};
   keyboard.other=key('ArrowUp').defaultPrevented;keyboard.sel=sel;
   keyboard.workLaneSteps=workLaneSteps;
+  // On to 4 of 4, where Next is disabled: focus moves to Previous.
+  key('ArrowRight');key('ArrowRight');const toEnd=key('ArrowRight');
+  keyboard.end={prevented:toEnd.defaultPrevented,position:position(),
+    focus:(document.activeElement?.name||'').replace(/^nav#\d+ /,''),workLaneSteps};
   out.keyboard=keyboard;
 
   out.hiddenAnnouncements=hiddenWrites;
@@ -482,7 +501,7 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
 def test_draft_answers_survive_navigating_away_and_back(runs):
     result = _served(runs)
     assert result["drafts"] == {"awayOnOtherStory": True, "backSel": result["stories"][0],
-                                "position": "1 of 4", "optionId": "opt-b", "cardChecked": True,
+                                "position": "1 of 4", "chosenOnCard": True, "optionId": "opt-b", "cardChecked": True,
                                 # The editor's suggestion: in the store, persisted, and back in its card.
                                 "freeformText": "Keep this suggestion", "storedText": "Keep this suggestion",
                                 "cardText": True}
@@ -516,6 +535,8 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
         "none": {"sel": a, "hasNav": False, "focus": ["close"]},
         # The editor answers a's second question alone: on to b's, not back to a's first.
         "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
+        # The editor answers a's first question alone: on to a's second.
+        "editorFirst": {"sel": a, "position": "1 of 3", "focus": ["question:nav-a2", "opt-a"]},
     }
 
 
@@ -530,6 +551,7 @@ def test_control_is_keyboard_reachable_with_accessible_names(runs):
         # ArrowUp is not the control's key: the window-level work navigation
         # takes it (once), and it never also fired for Left/Right.
         "other": True, "workLaneSteps": 1, "sel": result["stories"][0],
+        "end": {"prevented": True, "position": "4 of 4", "focus": "[data-question-nav-previous]", "workLaneSteps": 1},
     }
     # The position is announced through a live region that outlives the rebuilt
     # header: it sits in the shell beside the identity region, and starts empty
