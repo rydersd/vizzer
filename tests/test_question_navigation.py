@@ -123,7 +123,8 @@ DRIVER = r"""
     const el={name,parent,listeners:{},dataset:{},hidden:false,disabled:false,checked:false,textContent:'',value:'',
       classList:{add(){},remove(){},toggle(){},contains(){return false;}},style:{},
       addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
-      setAttribute(){},removeAttribute(){},focus(){focused=name;document.activeElement=el;},scrollIntoView(){el.scrolled=true;},
+      attributes:{},setAttribute(key,value){el.attributes[key]=String(value);},getAttribute(key){return key in el.attributes?el.attributes[key]:null;},
+      removeAttribute(key){delete el.attributes[key];},focus(){focused=name;document.activeElement=el;},scrollIntoView(){el.scrolled=true;},
       replaceWith(){},prepend(){},appendChild(){},remove(){},
       querySelector(selector){return child(selector);},
       querySelectorAll(selector){
@@ -371,6 +372,28 @@ DRIVER = r"""
   // panel's close button.
   await provide(a);
   out.answered.none={sel,hasNav:hasNav(),focus:focusedCard()};
+  // A slow write: stepping within the story while the POST is pending
+  // rebuilds the footer, which must stay busy, so a second click cannot
+  // post the same answers again.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();
+  const answerJson=fetch, releases=[];let posts=0,released=false;
+  fetch=(url,init)=>url==='/api/questions/answers'
+    ?(posts++,released?answerJson(url,init):new Promise(resolve=>releases.push(()=>resolve(answerJson(url,init)))))
+    :answerJson(url,init);
+  openNode(a);
+  for(const q of ownerQuestions(a))choose(q.id,'opt-a');
+  const decisionsBefore=DATA.decisions.length;
+  const pending=click(regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]'));
+  for(let tick=0;tick<200&&!releases.length;tick++)await Promise.resolve();
+  clickNav('next');clickNav('previous');
+  const rebuilt=regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]');
+  const pendingState={position:position(),disabled:Boolean(rebuilt?.disabled),
+    busy:regions.dossierfooter.host.querySelector('[data-question-queue]')?.getAttribute('aria-busy')||null};
+  const second=click(rebuilt);
+  released=true;releases.forEach(release=>release());
+  await Promise.all([...pending,...second]);
+  out.answered.slowWrite={...pendingState,posts,decisions:DATA.decisions.length-decisionsBefore};
+  fetch=answerJson;
   // The editor answers one question: submitting the shown one moves on from it,
   // though its Story still has an earlier open question.
   allOpen();fixture.forEach(q=>open.add(q.id));reset();
@@ -534,6 +557,9 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
         # c (the last) answered: the nearest earlier open question, a's second.
         "afterLast": {"sel": a, "position": "2 of 2", "focus": ["question:nav-a2", "opt-a"]},
         "none": {"sel": a, "hasNav": False, "focus": ["close"]},
+        # Stepping while the write is pending keeps the rebuilt button busy:
+        # one POST, one decision per question.
+        "slowWrite": {"position": "1 of 4", "disabled": True, "busy": "true", "posts": 1, "decisions": 2},
         # The editor answers a's second question alone: on to b's, not back to a's first.
         "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
         # The editor answers a's first question alone: on to a's second.
