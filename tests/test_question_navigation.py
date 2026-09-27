@@ -1,0 +1,622 @@
+"""Previous | "N of M" | Next across open owner questions, pinned at the top.
+
+Owner directive 2026-09-26 (illtool-standalone): "when i start answering
+questions, and there are more than one. at the top of the panel i should just
+have a segmented control at the top to jump between next and prev, so i can get
+to the next one without closing the panel."
+
+Story: product-spec/stories/owner-question-prev-next-navigation.md
+
+The rendered constellation runs in a DOM-less Node harness twice: once as the
+served page (http:) and once as the read-only file:// build. The dossier's
+three regions are event-capable stand-ins keyed to their rendered markup, so
+the tests click the rendered Previous/Next and Provide-answer controls and
+dispatch arrow keys through the control and then the window.
+"""
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from vizzer.config import Config, DEFAULTS
+from vizzer.model import (
+    Graph, Group, Item, OwnerQuestion, OwnerQuestionOption,
+    OwnerQuestionRecommendation,
+)
+from vizzer.render import render_all
+
+_RUNNER = r"""
+const fs = require('fs');
+const vm = require('vm');
+class ClassList {
+  constructor() { this.values = new Set(); }
+  add(...values) { values.forEach(value => this.values.add(value)); }
+  remove(...values) { values.forEach(value => this.values.delete(value)); }
+  contains(value) { return this.values.has(value); }
+  toggle(value, force) {
+    const enabled = force === undefined ? !this.values.has(value) : Boolean(force);
+    if (enabled) this.values.add(value); else this.values.delete(value);
+    return enabled;
+  }
+}
+const noop = () => {};
+const canvasContext = new Proxy({}, {
+  get(_target, property) {
+    if (property === 'measureText') return () => ({width: 0});
+    if (property === 'createLinearGradient' || property === 'createRadialGradient') return () => ({addColorStop: noop});
+    return noop;
+  },
+  set() { return true; },
+});
+const elements = new Map();
+function element(id = '') {
+  return {
+    id, hidden: false, className: '', style: {setProperty: noop}, dataset: {},
+    classList: new ClassList(), open: false, disabled: false, width: 0, height: 0,
+    textContent: '', innerHTML: '', value: '', children: [],
+    addEventListener: noop, appendChild: noop, append: noop, prepend: noop, remove: noop,
+    replaceChildren: noop, contains: () => true,
+    cloneNode: () => element(),
+    focus: noop, setPointerCapture: noop, releasePointerCapture: noop,
+    hasPointerCapture: () => false, getContext: () => canvasContext,
+    getBoundingClientRect: () => ({left: 0, top: 0, right: 1280, bottom: 720, width: 1280, height: 720}),
+    setAttribute: noop, getAttribute: () => null, removeAttribute: noop, querySelector: () => element(),
+    querySelectorAll: () => [],
+  };
+}
+const document = {
+  title: 'fixture', documentElement: element('html'), body: element('body'),
+  getElementById(id) {
+    if (!elements.has(id)) elements.set(id, element(id));
+    return elements.get(id);
+  },
+  createElement: () => element(), createElementNS: () => element(),
+  querySelector: () => element(), querySelectorAll: () => [],
+};
+const listeners = {};
+const context = {
+  __listeners: listeners, console, document, innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
+  location: {hash: '', search: ''}, visualViewport: null, performance: {now: () => 0},
+  addEventListener: (type, handler) => {
+    (listeners[type] || (listeners[type] = [])).push(handler);
+  }, requestAnimationFrame: noop,
+  getComputedStyle: () => ({getPropertyValue: () => 'rgb(1, 2, 3)', lineHeight: '20px'}),
+  matchMedia: () => ({matches: false, addEventListener: noop}), MutationObserver: class { observe() {} disconnect() {} },
+  ResizeObserver: class { observe() {} disconnect() {} },
+  sessionStorage: {getItem: () => null, setItem: noop},
+  localStorage: {getItem: () => null, setItem: noop},
+  setTimeout: () => 0, clearTimeout: noop, setInterval: () => 0, clearInterval: noop,
+};
+context.window = context;
+(async () => { try {
+  vm.runInNewContext(fs.readFileSync(0, 'utf8'), context, {filename: 'constellation-inline.js'});
+  await context.__testDone;
+  const boot = document.getElementById('boot');
+  const result = context.__testResult || {bootHidden: boot.hidden, bootClass: boot.className};
+  process.stdout.write(JSON.stringify(result));
+  process.exit(boot.className !== 'error' ? 0 : 2);
+} catch (error) {
+  process.stdout.write(`${error.name}: ${error.message}`);
+  process.exit(1);
+}
+})();
+"""
+_SERVED_RUNNER = _RUNNER.replace(
+    "location: {hash: '', search: ''}",
+    "location: {hash: '', search: '', protocol: 'http:', pathname: '/', origin: 'http://127.0.0.1'}, "
+    "fetch: () => new Promise(() => {})",
+)
+
+DRIVER = r"""
+;globalThis.__testDone=(async function(){
+  // ---- an event-capable stand-in for the three dossier regions ----
+  // Each region's innerHTML is the rendered truth; every write is a new
+  // generation, and elements are looked up (and their listeners recorded) per
+  // generation, exactly as a real innerHTML rebuild replaces the elements.
+  let focused='';
+  const fake=(name,html,parent=null)=>{
+    const el={name,parent,listeners:{},dataset:{},hidden:false,disabled:false,checked:false,textContent:'',value:'',
+      classList:{add(){},remove(){},toggle(){},contains(){return false;}},style:{},
+      addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
+      attributes:{},setAttribute(key,value){el.attributes[key]=String(value);},getAttribute(key){return key in el.attributes?el.attributes[key]:null;},
+      removeAttribute(key){delete el.attributes[key];},focus(){focused=name;document.activeElement=el;},scrollIntoView(){el.scrolled=true;},
+      replaceWith(){},prepend(){},appendChild(){},remove(){},
+      querySelector(selector){return child(selector);},
+      querySelectorAll(selector){
+        if(selector!=='[data-question-option]')return [];
+        if(!el.options)el.options=[...html.matchAll(/<input class="questionradio"[^>]*value="([^"]*)" data-question-option[^>]*>/g)]
+          .map(match=>{const input=fake(`${name} option ${match[1]}`,match[0],el);input.value=match[1];input.disabled=/\bdisabled\b/.test(match[0]);return input;});
+        return el.options;
+      }};
+    // A selector finds something only when the element's own markup has it,
+    // so a renamed or missing control reads as null, never as a free stand-in.
+    const kids=new Map();
+    const present=selector=>{
+      const attribute=selector.match(/^\[([\w-]+)/);if(attribute)return html.includes(attribute[1]);
+      const className=selector.match(/^\.([\w-]+)$/);if(className)return new RegExp(`class="[^"]*\\b${className[1]}\\b`).test(html);
+      return new RegExp(`<${selector}[\\s>]`).test(html);
+    };
+    const child=selector=>{
+      if(!present(selector))return null;
+      if(!kids.has(selector)){
+        const kid=fake(name+' '+selector,html,el);
+        const attribute=selector.match(/^\[([\w-]+)\]$/);
+        if(attribute)kid.disabled=new RegExp(`${attribute[1]}[^>]*disabled`).test(html);
+        kids.set(selector,kid);
+      }
+      return kids.get(selector);
+    };
+    return el;
+  };
+  const regions={};
+  for(const id of ['dossieridentity','dbody','dossierfooter']){
+    const host=document.getElementById(id), original={qs:host.querySelector,qsa:host.querySelectorAll};
+    let html='',generation=0;const cache=new Map();
+    // Rebuilding a region drops focus from anything inside it, as in a browser.
+    const inRegion=el=>{for(let node=el;node;node=node.parent)if(node.region===id)return true;return false;};
+    Object.defineProperty(host,'innerHTML',{get:()=>html,set:value=>{
+      if(inRegion(document.activeElement))document.activeElement=null;
+      html=String(value);generation++;cache.clear();}});
+    const memo=(key,make)=>{if(!cache.has(key)){const made=make();[].concat(made).forEach(el=>{el.region=id;});cache.set(key,made);}return cache.get(key);};
+    host.querySelector=selector=>{
+      if(id==='dossieridentity'&&selector==='[data-question-nav]')
+        return html.includes('data-question-nav')?memo('nav',()=>fake(`nav#${generation}`,html)):null;
+      if(id==='dossierfooter'&&['[data-question-queue]','[data-story-actions]'].includes(selector))
+        return html.includes(selector.slice(1,-1))?memo(selector,()=>fake(`${selector}#${generation}`,html)):null;
+      return original.qs.call(host,selector);
+    };
+    host.querySelectorAll=selector=>{
+      if(id==='dbody'&&selector==='form[data-question-id]')return memo('forms',()=>[...html.matchAll(/<form class="questioncard" data-question-id="([^"]+)"[\s\S]*?<\/form>/g)]
+        .map(match=>{const form=fake(`form ${match[1]}#${generation}`,match[0]);form.dataset.questionId=match[1];return form;}));
+      if(id==='dbody'&&selector==='[data-owner-question-stepper]')return memo('steppers',()=>[...html.matchAll(/<section class="ownerquestionstepper"[^>]*data-packet-id="([^"]+)" data-owner-question-index="(\d+)"[\s\S]*?<\/section>/g)]
+        .map(match=>{const host=fake(`stepper ${match[1]}#${generation}`,match[0]);host.dataset.packetId=match[1];host.dataset.ownerQuestionIndex=match[2];return host;}));
+      return original.qsa.call(host,selector);
+    };
+    regions[id]={host,generation:()=>generation};
+  }
+  const identity=()=>regions.dossieridentity.host.innerHTML;
+  const body=()=>regions.dbody.host.innerHTML;
+  const nav=()=>regions.dossieridentity.host.querySelector('[data-question-nav]');
+  const click=el=>{if(!el||el.disabled)return [];return (el.listeners.click||[]).map(handler=>handler({}));};
+  const clickNav=which=>click(nav()?.querySelector(`[data-question-nav-${which}]`));
+  const key=name=>{
+    const target=nav();
+    const event={key:name,target,defaultPrevented:false,isComposing:false,altKey:false,ctrlKey:false,metaKey:false,shiftKey:false,
+      preventDefault(){this.defaultPrevented=true;}};
+    for(const handler of target?.listeners.keydown||[])handler(event);
+    for(const handler of __listeners.keydown||[])handler(event); // the window, after bubbling
+    return event;
+  };
+  // The suggestion editor builds its overlay with document.createElement.
+  const loose=name=>{const kids=new Map();const el={name,innerHTML:'',className:'',value:'',textContent:'',style:{},dataset:{},children:[],
+    classList:{add(){},remove(){},toggle(){},contains(){return false;}},append(){},appendChild(){},prepend(){},
+    inert:false,hidden:false,disabled:false,readOnly:false,isConnected:true,scrollHeight:0,listeners:{},
+    setAttribute(){},removeAttribute(){},focus(){},setSelectionRange(){},before(){},remove(){},replaceChildren(){},dispatchEvent(){},
+    addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
+    querySelector(selector){if(!kids.has(selector))kids.set(selector,loose(name+' '+selector));return kids.get(selector);},
+    querySelectorAll(){return [];}};return el;};
+  // Animation frames run when the test flushes them, and every announcement
+  // records whether the panel was exposed when it was written.
+  const frames=[];
+  requestAnimationFrame=callback=>{frames.push(callback);return frames.length;};
+  const flushFrames=()=>frames.splice(0).forEach(callback=>callback(0));
+  const panelAttributes={};const panel=document.getElementById('dossier');
+  panel.setAttribute=(name,value)=>{panelAttributes[name]=String(value);};
+  const statusNode=document.getElementById('questionnavstatus');let statusText='';const hiddenWrites=[];
+  Object.defineProperty(statusNode,'textContent',{get:()=>statusText,set:value=>{
+    statusText=String(value);if(statusText&&panelAttributes['aria-hidden']!=='false')hiddenWrites.push(statusText);}});
+  const announcedNow=()=>{flushFrames();return statusNode.textContent;};
+  let workLaneSteps=0;
+  navigateWorkLane=()=>{workLaneSteps++;return true;};
+
+  // ---- fixture: the graph carries four open questions on stories a, b, c ----
+  const byId=id=>DATA.nodes.findIndex(node=>node.id===id);
+  const [a,b,c]=['story:a','story:b','story:c'].map(byId);
+  const stories=[a,b,c];
+  const qIndex=id=>DATA.questions.findIndex(q=>q.id===id);
+  const fixture=['question:nav-a1','question:nav-a2','question:nav-0b1','question:nav-c1'].map(id=>DATA.questions[qIndex(id)]);
+  DATA.decisions=DATA.decisions||[];
+  const pin=sets=>{
+    DATA.nodes.forEach(n=>{n.oq=[];});
+    for(const [story,indexes] of sets)DATA.nodes[story].oq=indexes.map(k=>qIndex(fixture[k].id));
+  };
+  const allOpen=()=>pin([[a,[0,1]],[b,[2]],[c,[3]]]);
+  const position=()=>{const m=identity().match(/data-question-nav-position>(\d+) of (\d+)</);return m?`${m[1]} of ${m[2]}`:null;};
+  const hasNav=()=>identity().includes('data-question-nav');
+  const livePosition=()=>nav()?.querySelector('[data-question-nav-position]')?.textContent||position();
+  const forms=()=>regions.dbody.host.querySelectorAll('form[data-question-id]');
+  // Choose an option the way the owner does: its radio, then its change event.
+  // A disabled radio cannot be chosen.
+  const choose=(questionId,value)=>{
+    const input=forms().find(form=>form.dataset.questionId===questionId)?.querySelectorAll('[data-question-option]').find(option=>option.value===value);
+    if(!input||input.disabled)return false;
+    input.checked=true;(input.listeners.change||[]).forEach(handler=>handler({currentTarget:input}));return true;
+  };
+  const reset=()=>{if(sel>=0)dismissDossier({focusCanvas:false});questionDrafts.clear();};
+  const out={served:SERVED,stories};
+  allOpen();
+
+  // Scenario 1: pinned at the top.
+  openNode(a);
+  const markup=identity();
+  out.top={hasNav:hasNav(),navBeforeTitle:markup.indexOf('data-question-nav')>=0&&markup.indexOf('data-question-nav')<markup.indexOf('<h2>'),
+    position:position(),segments:(markup.match(/<button type="button" data-question-nav-(previous|next)/g)||[]).length};
+
+  if(!SERVED){ // the file:// build: no control, nothing to step
+    out.single={state:questionNavigatorState(a)};
+    globalThis.__testResult=out;return;
+  }
+
+  // Working on the second card makes it the counted question, and says so.
+  flushFrames();
+  (forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  out.top.secondCardFocused={position:livePosition(),previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled};
+  // Closing with the real close button forgets the counted question: the
+  // reopened panel counts from the top, and says so.
+  const announced=announcedNow;
+  const beforeClose=statusNode.textContent; // no frame flush: written by the focus itself
+  document.getElementById('close').onclick();
+  const afterClose=announced();
+  openNode(a);
+  out.top.reopen={beforeClose,afterClose,position:livePosition(),announced:announced()};
+  openNode(byId('story:d'));
+  out.top.reopen.storyWithoutQuestions={hasNav:hasNav(),announced:announced()};
+  // Planning and hierarchy views take the panel over: no counted question.
+  const takeovers={};
+  openNode(a);(forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  openPlanningArea('question-nav-probe');
+  takeovers.planning={announced:announced(),focus:questionNavFocusId};
+  openNode(a);(forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  openHierarchyDetails(DATA.groups[0].id);
+  takeovers.hierarchy={announced:announced(),focus:questionNavFocusId};
+  openNode(a);takeovers.reopened=livePosition();
+  out.top.reopen.takeovers=takeovers;
+
+  // Scenario 2: click Next three times, then Previous, across stories.
+  reset();openNode(a);
+  const walk=[];
+  const announcer=document.getElementById('questionnavstatus');
+  const scrolledTo=()=>forms().filter(form=>form.scrolled).map(form=>form.dataset.questionId);
+  const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open'),scrolledTo:scrolledTo(),
+    announced:document.getElementById('questionnavstatus')===announcer?announcedNow():'(replaced)'});
+  clickNav('next');record();clickNav('next');record();clickNav('next');record();clickNav('previous');record();
+  out.walk=walk;
+  // A reference item's question is not in the order: its dossier cannot answer.
+  reset();DATA.nodes[b].role='reference';openNode(a);
+  const referenceWalk=[position()];
+  clickNav('next');referenceWalk.push(position());clickNav('next');referenceWalk.push([sel,position()]);
+  out.referenceWalk=referenceWalk;delete DATA.nodes[b].role;
+
+  // Scenario 3: a chosen option survives a step away and back. The cards
+  // are answerable once the answer authority has loaded.
+  questionContext={renderId:RENDER_ID,csrfToken:'t',revision:1,decisions:[],questions:[]};
+  reset();openNode(a);
+  // Choose Option B on a1's card through its real radio and change event.
+  const chosenOnCard=choose('question:nav-a1','opt-b');
+  // A suggestion typed in the editor, then Back, travels too.
+  const stored={};localStorage.setItem=(key,value)=>{stored[key]=value;};
+  const createEditor=document.createElement;let draftPanel=null;
+  document.createElement=tag=>{const el=loose(tag);if(tag==='section')draftPanel=el;return el;};
+  questionEditor=null;refreshDossier();
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
+  const draftText=draftPanel?.querySelector('textarea');
+  if(draftText){draftText.value='Keep this suggestion';(draftText.listeners.input||[]).forEach(handler=>handler({currentTarget:draftText}));}
+  draftPanel?.querySelector('[data-editor-back]')?.onclick?.();
+  document.createElement=createEditor;
+  clickNav('next');clickNav('next'); // a2, then story b
+  const awaySel=sel;
+  clickNav('previous');clickNav('previous'); // back to a2, then a1
+  out.drafts={awayOnOtherStory:awaySel===b,backSel:sel,position:position(),
+    chosenOnCard,optionId:questionDrafts.get('question:nav-a1')?.optionId||'',
+    cardChecked:/value="opt-b" data-question-option checked/.test(body().split('data-question-id="question:nav-a1"')[1]||''),
+    freeformText:questionDrafts.get('question:nav-a2')?.text||'',
+    storedText:JSON.parse(Object.values(stored).at(-1)||'{}')['question:nav-a2']?.text||'',
+    cardText:/data-question-text[^>]*>Keep this suggestion<\/textarea>/.test((body().split('data-question-id="question:nav-a2"')[1]||'').split('</form>')[0])};
+  questionContext=null;
+
+  // Scenario 4: the ends do not wrap.
+  reset();openNode(a);
+  const first={position:position(),previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled,
+    nextDisabled:nav().querySelector('[data-question-nav-next]').disabled,moved:navigateOwnerQuestion(-1),sel};
+  openNode(c);
+  const last={position:position(),nextDisabled:nav().querySelector('[data-question-nav-next]').disabled,
+    previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled,moved:navigateOwnerQuestion(1),sel};
+  out.ends={first,last};
+
+  // Scenario 5a: exactly one open question shows no control.
+  reset();pin([[c,[3]]]);
+  openNode(c);
+  out.single={hasNav:hasNav(),state:questionNavigatorState(c)};
+  allOpen();
+
+  // Scenario 5b: the footer's Provide answer button records the answer, the
+  // count drops, and the panel moves on.
+  reset();
+  let revision=1;const open=new Set(fixture.map(q=>q.id));
+  const decision=q=>({question:{id:q.id,fingerprint:q.fingerprint},fingerprint:q.fingerprint,revision:revision+1,
+    answeredAt:'2026-09-26T13:00:00-07:00',answeredBy:'owner',kind:'option',optionId:'opt-a',text:''});
+  const json=body=>({ok:true,status:200,json:async()=>body});
+  fetch=async(url,init={})=>{
+    if(url==='/api/questions')return json({renderId:RENDER_ID,csrfToken:'t',revision,decisions:[],
+      questions:fixture.filter(q=>open.has(q.id)).map(q=>({id:q.id,fingerprint:q.fingerprint,storyId:DATA.nodes[q.n].id}))});
+    if(url==='/api/questions/answers'){
+      const posted=JSON.parse(init.body).answers.map(answer=>fixture.find(q=>q.id===answer.questionId));
+      const decisions=posted.map(decision);revision++;posted.forEach(q=>open.delete(q.id));
+      return json({decisions,revision});
+    }
+    return new Promise(()=>{});
+  };
+  questionContext={renderId:RENDER_ID,csrfToken:'t',revision,decisions:[],questions:[]};
+  const provide=async story=>{
+    openNode(story);
+    for(const q of ownerQuestions(story))choose(q.id,'opt-a');
+    const submit=regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]');
+    const disabled=Boolean(submit?.disabled);
+    await Promise.all(click(submit));
+    return disabled;
+  };
+  questionNavFocusId='';
+  const before=(openNode(b),position());
+  const middleDisabled=await provide(b);
+  const closeButton=document.getElementById('close');closeButton.focus=()=>{document.activeElement=closeButton;};
+  const focusedCard=()=>document.activeElement===closeButton?['close']:[document.activeElement?.parent?.dataset.questionId||null,document.activeElement?.value||null];
+  const afterMiddle={sel,position:position(),focus:focusedCard()};
+  const lastDisabled=await provide(c);
+  out.answered={before,middleDisabled,lastDisabled,afterMiddle,afterLast:{sel,position:position(),focus:focusedCard()}};
+  // Answering the last open questions: nothing to move to, focus goes to the
+  // panel's close button.
+  await provide(a);
+  out.answered.none={sel,hasNav:hasNav(),focus:focusedCard()};
+  // A slow write: stepping within the story while the POST is pending
+  // rebuilds the footer, which must stay busy, so a second click cannot
+  // post the same answers again.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();
+  const answerJson=fetch, releases=[];let posts=0,released=false;
+  fetch=(url,init)=>url==='/api/questions/answers'
+    ?(posts++,released?answerJson(url,init):new Promise(resolve=>releases.push(()=>resolve(answerJson(url,init)))))
+    :answerJson(url,init);
+  openNode(a);
+  for(const q of ownerQuestions(a))choose(q.id,'opt-a');
+  const decisionsBefore=DATA.decisions.length;
+  const pending=click(regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]'));
+  for(let tick=0;tick<200&&!releases.length;tick++)await Promise.resolve();
+  clickNav('next');clickNav('previous');
+  const rebuilt=regions.dossierfooter.host.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]');
+  const pendingState={position:position(),disabled:Boolean(rebuilt?.disabled),
+    busy:regions.dossierfooter.host.querySelector('[data-question-queue]')?.getAttribute('aria-busy')||null};
+  const second=click(rebuilt);
+  released=true;releases.forEach(release=>release());
+  await Promise.all([...pending,...second]);
+  out.answered.slowWrite={...pendingState,posts,decisions:DATA.decisions.length-decisionsBefore};
+  fetch=answerJson;
+  // The editor answers one question: submitting the shown one moves on from it,
+  // though its Story still has an earlier open question.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();
+  const createElement=document.createElement;let editorPanel=null;
+  document.createElement=tag=>{const el=loose(tag);if(tag==='section')editorPanel=el;return el;};
+  questionEditor=null;
+  openNode(a);clickNav('next'); // a's second question
+  const editorBefore=position();
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a2')?.querySelector('[data-question-edit]'));
+  const submitEditor=editorPanel?.querySelector('[data-editor-submit]');
+  if(editorPanel)editorPanel.querySelector('textarea').value='Go another way';
+  await submitEditor?.onclick?.();
+  out.answered.editor={opened:Boolean(editorPanel),before:editorBefore,sel,position:position()};
+  // Answering the first of a Story's two questions moves to its second.
+  allOpen();fixture.forEach(q=>open.add(q.id));reset();editorPanel=null;questionEditor=null;
+  openNode(a);
+  click(forms().find(form=>form.dataset.questionId==='question:nav-a1')?.querySelector('[data-question-edit]'));
+  if(editorPanel)editorPanel.querySelector('textarea').value='First direction';
+  await editorPanel?.querySelector('[data-editor-submit]')?.onclick?.();
+  out.answered.editorFirst={sel,position:position(),focus:focusedCard()};
+  document.createElement=createElement;
+  fetch=()=>new Promise(()=>{});
+  allOpen();
+
+  // Scenario 6: keyboard and accessible names.
+  reset();openNode(a);
+  const labels=identity();
+  const keyboard={
+    previousName:/<button type="button" data-question-nav-previous aria-label="Previous owner question"/.test(labels),
+    nextName:/<button type="button" data-question-nav-next aria-label="Next owner question"/.test(labels),
+    groupName:/aria-label="Owner questions"/.test(labels),
+  };
+  // Right: 1 -> 2 of 4, focus stays on Next. Left: back to 1 of 4, where
+  // Previous is disabled, so focus lands on Next.
+  const right=key('ArrowRight');
+  keyboard.right={prevented:right.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
+    announced:announcedNow()};
+  const left=key('ArrowLeft');
+  keyboard.left={prevented:left.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
+    announced:announcedNow()};
+  keyboard.other=key('ArrowUp').defaultPrevented;keyboard.sel=sel;
+  keyboard.workLaneSteps=workLaneSteps;
+  // On to 4 of 4, where Next is disabled: focus moves to Previous.
+  key('ArrowRight');key('ArrowRight');const toEnd=key('ArrowRight');
+  keyboard.end={prevented:toEnd.defaultPrevented,position:position(),
+    focus:(document.activeElement?.name||'').replace(/^nav#\d+ /,''),workLaneSteps};
+  out.keyboard=keyboard;
+
+  out.hiddenAnnouncements=hiddenWrites;
+  globalThis.__testResult=out;
+})();
+"""
+
+
+def _question(qid, story):
+    return OwnerQuestion(
+        id=qid, story_id=story, owner="Ryder", prompt=f"Pick {qid}?",
+        options=[OwnerQuestionOption("opt-a", "Option A", ""),
+                 OwnerQuestionOption("opt-b", "Option B", "")],
+        recommendation=OwnerQuestionRecommendation("opt-a", ""),
+        falsifier="", evidence=[],
+    )
+
+
+def _graph():
+    graph = Graph(
+        groups=[Group(id="capability:c", kind="capability", title="Cap")],
+        vocab=Config(data=DEFAULTS).vocab,
+        items=[Item(id=f"story:{slug}", title=slug.upper(), status="specced", release="R0",
+                    group="capability:c", source={"adapter": "spec_tree", "path": f"s/{slug}.md"})
+               for slug in ("a", "b", "c", "d")],
+    )
+    graph.owner_questions = [
+        _question("question:nav-a1", "story:a"), _question("question:nav-a2", "story:a"),
+        _question("question:nav-0b1", "story:b"), _question("question:nav-c1", "story:c"),
+    ]
+    return graph
+
+
+@pytest.fixture(scope="module")
+def runs(tmp_path_factory):
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path_factory.mktemp("render"),
+                      only={"constellation"})["constellation.html"]
+    source = "\n".join(re.findall(r"<script>\s*(.*?)</script>", html, flags=re.DOTALL)) + DRIVER
+
+    def run(runner):
+        proc = subprocess.run([node, "-e", runner], input=source, text=True,
+                              capture_output=True, timeout=60)
+        return {"code": proc.returncode, "stdout": proc.stdout + proc.stderr,
+                "result": json.loads(proc.stdout) if proc.returncode == 0 else None}
+    return {"served": run(_SERVED_RUNNER), "static": run(_RUNNER), "html": html}
+
+
+def _served(runs):
+    served = runs["served"]
+    assert served["code"] == 0, served["stdout"]
+    assert served["result"]["served"] is True
+    return served["result"]
+
+
+def test_segmented_control_is_pinned_at_the_top_with_position_and_count(runs):
+    top = _served(runs)["top"]
+    assert top == {"hasNav": True, "navBeforeTitle": True, "position": "1 of 4", "segments": 2,
+                   # Focusing the second card makes it the counted question.
+                   "secondCardFocused": {"position": "2 of 4", "previousDisabled": False},
+                   "reopen": {"beforeClose": "Owner question 2 of 4", "afterClose": "",
+                              "position": "1 of 4", "announced": "Owner question 1 of 4",
+                              "storyWithoutQuestions": {"hasNav": False, "announced": ""},
+                              "takeovers": {"planning": {"announced": "", "focus": ""},
+                                            "hierarchy": {"announced": "", "focus": ""},
+                                            "reopened": "1 of 4"}}}
+
+
+def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs):
+    result = _served(runs)
+    a, b, c = result["stories"]
+    assert [(s["sel"], s["position"], s["open"]) for s in result["walk"]] == [
+        (a, "2 of 4", True), (b, "3 of 4", True), (c, "4 of 4", True), (b, "3 of 4", True)]
+    assert [s["announced"] for s in result["walk"]] == [f"Owner question {n} of 4" for n in (2, 3, 4, 3)]
+    # Each step brings the counted question's own card into view.
+    assert [s["scrolledTo"] for s in result["walk"]] == [
+        ["question:nav-a2"], ["question:nav-0b1"], ["question:nav-c1"], ["question:nav-0b1"]]
+    # With b a reference item, its question is skipped: a1, a2, then c.
+    assert result["referenceWalk"] == ["1 of 3", "2 of 3", [c, "3 of 3"]]
+
+
+def test_draft_answers_survive_navigating_away_and_back(runs):
+    result = _served(runs)
+    assert result["drafts"] == {"awayOnOtherStory": True, "backSel": result["stories"][0],
+                                "position": "1 of 4", "chosenOnCard": True, "optionId": "opt-b", "cardChecked": True,
+                                # The editor's suggestion: in the store, persisted, and back in its card.
+                                "freeformText": "Keep this suggestion", "storedText": "Keep this suggestion",
+                                "cardText": True}
+
+
+def test_ends_disable_previous_and_next_without_wraparound(runs):
+    result = _served(runs)
+    a, _, c = result["stories"]
+    assert result["ends"] == {
+        "first": {"position": "1 of 4", "previousDisabled": True, "nextDisabled": False,
+                  "moved": False, "sel": a},
+        "last": {"position": "4 of 4", "nextDisabled": True, "previousDisabled": False,
+                 "moved": False, "sel": c},
+    }
+
+
+def test_single_open_question_hides_the_control(runs):
+    assert _served(runs)["single"] == {"hasNav": False, "state": None}
+
+
+def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs):
+    result = _served(runs)
+    a, _, c = result["stories"]
+    assert result["answered"] == {
+        "before": "3 of 4", "middleDisabled": False, "lastDisabled": False,
+        # b answered: the dossier moves on to c, now 3 of 3.
+        # Keyboard focus lands on the next card's first option, not the page.
+        "afterMiddle": {"sel": c, "position": "3 of 3", "focus": ["question:nav-c1", "opt-a"]},
+        # c (the last) answered: the nearest earlier open question, a's second.
+        "afterLast": {"sel": a, "position": "2 of 2", "focus": ["question:nav-a2", "opt-a"]},
+        "none": {"sel": a, "hasNav": False, "focus": ["close"]},
+        # Stepping while the write is pending keeps the rebuilt button busy:
+        # one POST, one decision per question.
+        "slowWrite": {"position": "1 of 4", "disabled": True, "busy": "true", "posts": 1, "decisions": 2},
+        # The editor answers a's second question alone: on to b's, not back to a's first.
+        "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
+        # The editor answers a's first question alone: on to a's second.
+        "editorFirst": {"sel": a, "position": "1 of 3", "focus": ["question:nav-a2", "opt-a"]},
+    }
+
+
+def test_control_is_keyboard_reachable_with_accessible_names(runs):
+    result = _served(runs)
+    assert result["keyboard"] == {
+        "previousName": True, "nextName": True, "groupName": True,
+        "right": {"prevented": True, "position": "2 of 4", "focus": "[data-question-nav-next]",
+                  "announced": "Owner question 2 of 4"},
+        "left": {"prevented": True, "position": "1 of 4", "focus": "[data-question-nav-next]",
+                 "announced": "Owner question 1 of 4"},
+        # ArrowUp is not the control's key: the window-level work navigation
+        # takes it (once), and it never also fired for Left/Right.
+        "other": True, "workLaneSteps": 1, "sel": result["stories"][0],
+        "end": {"prevented": True, "position": "4 of 4", "focus": "[data-question-nav-previous]", "workLaneSteps": 1},
+    }
+    # The position is announced through a live region that outlives the rebuilt
+    # header: it sits in the shell beside the identity region, and starts empty
+    # so every step's text is a change a screen reader reads.
+    # Every announcement was written while the panel was exposed.
+    assert result["hiddenAnnouncements"] == []
+    assert ('<div id="dossieridentity"></div><p id="questionnavstatus" class="sr-only" '
+            'role="status" aria-live="polite"></p>') in runs["html"]
+
+
+def test_static_file_build_boots_and_hides_the_control(runs):
+    static = runs["static"]
+    assert static["code"] == 0, static["stdout"]
+    assert static["result"]["served"] is False
+    assert static["result"]["top"]["hasNav"] is False
+    assert static["result"]["single"] == {"state": None}
+
+
+def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
+    # Headless Chrome on a loopback-served page: Shift+Tab reaches the control,
+    # a real pointer click at Next's centre hits Next and steps, and the arrow
+    # keys step from the focused control.
+    chrome = next((candidate for candidate in (
+        shutil.which("google-chrome"), shutil.which("chromium"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ) if candidate and Path(candidate).is_file()), None)
+    if chrome is None:
+        pytest.skip("Chrome is required for the physical question-navigation check")
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})["constellation.html"]
+    script = Path(__file__).with_name("browser_question_navigation_smoke.js")
+    completed = subprocess.run([shutil.which("node") or "node", str(script), chrome], input=html,
+                               text=True, capture_output=True, timeout=60)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {
+        "opened": {"story": "story:a", "position": "1 of 4", "focus": "BODY"},
+        "tabbed": {"story": "story:a", "position": "1 of 4", "focus": "data-question-nav-next"},
+        "box": {"visible": True, "hit": True},
+        "clicked": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-next"},
+        "right": {"story": "story:b", "position": "3 of 4", "focus": "data-question-nav-next"},
+        "left": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-previous"},
+    }

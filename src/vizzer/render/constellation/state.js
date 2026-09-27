@@ -307,6 +307,10 @@ const hasAreaFacets=areaDefinitions.length>0;
 let areaMode=areaDefinitions[0]?.id||null;
 let areaFocus=null;
 let capFocus = null, groupFocus = null, sel = -1, hover = -1, questionOnly = false;
+// The owner question the Previous | N of M | Next control counts from
+// (question_navigation.js). Declared here because openNode reads it, and a let
+// in a later fragment is in its dead zone until that fragment runs.
+let questionNavFocusId = '';
 let clusterFocus = null, clusterFocusReturnZoom = null;
 const lensButtons = {};
 const lifecycleButtons = {};
