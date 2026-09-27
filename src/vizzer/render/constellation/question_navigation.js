@@ -66,12 +66,14 @@ function announceOwnerQuestion(){
   const status=document.getElementById('questionnavstatus'), state=questionNavigatorState();
   if(status)status.textContent=state?`Owner question ${state.position+1} of ${state.total}`:'';
 }
-// After an answer moves the panel on, keyboard focus goes to the next card's
-// first option: the answered card and its button are gone, and focus would
-// otherwise fall to the page.
+// After answers rebuild the panel, keyboard focus goes to a card's first
+// option: the answered card and its button are gone, and focus would
+// otherwise fall to the page. Returns whether a card took focus.
 function focusOwnerQuestionCard(id){
   const form=[...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===id);
-  [...(form?.querySelectorAll('[data-question-option]')||[])].find(input=>!input.disabled)?.focus?.();
+  const option=[...(form?.querySelectorAll('[data-question-option]')||[])].find(input=>!input.disabled);
+  option?.focus?.();
+  return Boolean(option);
 }
 // After the shown question is answered, move on to the next open question after it (or the nearest earlier one when it was the last).
 function nextOpenQuestionAfter(before){

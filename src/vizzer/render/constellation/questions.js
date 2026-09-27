@@ -485,7 +485,12 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   const moveOn=navigatorBefore&&(decisions||[]).some(decision=>decision.question?.id===navigatorBefore.current.id)
     ?nextOpenQuestionAfter(navigatorBefore):null;
   if(moveOn){showOwnerQuestion(moveOn);focusOwnerQuestionCard(moveOn.id);}
-  else if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
+  else if(showFromTop&&sel>=0){
+    // Still answering this Story: its first open card; nothing left: the
+    // panel's close button, so focus never falls to the page.
+    openNode(sel);
+    if(!focusOwnerQuestionCard(ownerQuestions(sel)[0]?.id))document.getElementById('close')?.focus?.();
+  }else refreshDossier();
 }
 
 // Owner revisions are review candidates, with exact source identity and durable diffs.

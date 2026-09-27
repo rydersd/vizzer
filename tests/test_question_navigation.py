@@ -142,7 +142,7 @@ DRIVER = r"""
     const child=selector=>{
       if(!present(selector))return null;
       if(!kids.has(selector)){
-        const kid=fake(name+' '+selector,html);
+        const kid=fake(name+' '+selector,html,el);
         const attribute=selector.match(/^\[([\w-]+)\]$/);
         if(attribute)kid.disabled=new RegExp(`${attribute[1]}[^>]*disabled`).test(html);
         kids.set(selector,kid);
@@ -155,8 +155,12 @@ DRIVER = r"""
   for(const id of ['dossieridentity','dbody','dossierfooter']){
     const host=document.getElementById(id), original={qs:host.querySelector,qsa:host.querySelectorAll};
     let html='',generation=0;const cache=new Map();
-    Object.defineProperty(host,'innerHTML',{get:()=>html,set:value=>{html=String(value);generation++;cache.clear();}});
-    const memo=(key,make)=>{if(!cache.has(key))cache.set(key,make());return cache.get(key);};
+    // Rebuilding a region drops focus from anything inside it, as in a browser.
+    const inRegion=el=>{for(let node=el;node;node=node.parent)if(node.region===id)return true;return false;};
+    Object.defineProperty(host,'innerHTML',{get:()=>html,set:value=>{
+      if(inRegion(document.activeElement))document.activeElement=null;
+      html=String(value);generation++;cache.clear();}});
+    const memo=(key,make)=>{if(!cache.has(key)){const made=make();[].concat(made).forEach(el=>{el.region=id;});cache.set(key,made);}return cache.get(key);};
     host.querySelector=selector=>{
       if(id==='dossieridentity'&&selector==='[data-question-nav]')
         return html.includes('data-question-nav')?memo('nav',()=>fake(`nav#${generation}`,html)):null;
@@ -281,7 +285,9 @@ DRIVER = r"""
 
   // Scenario 3: a chosen option survives a step away and back.
   reset();openNode(a);
-  questionDrafts.set('question:nav-a1',{kind:'option',optionId:'opt-b',text:''});
+  // Choose Option B on a1's card through its real radio and change event.
+  const chosen=forms().find(form=>form.dataset.questionId==='question:nav-a1')?.querySelectorAll('[data-question-option]').find(input=>input.value==='opt-b');
+  if(chosen){chosen.checked=true;(chosen.listeners.change||[]).forEach(handler=>handler({currentTarget:chosen}));}
   // A suggestion typed in the editor, then Back, travels too.
   const stored={};localStorage.setItem=(key,value)=>{stored[key]=value;};
   const createEditor=document.createElement;let draftPanel=null;
@@ -347,10 +353,15 @@ DRIVER = r"""
   questionNavFocusId='';
   const before=(openNode(b),position());
   const middleDisabled=await provide(b);
-  const focusedCard=()=>[document.activeElement?.parent?.dataset.questionId||null,document.activeElement?.value||null];
+  const closeButton=document.getElementById('close');closeButton.focus=()=>{document.activeElement=closeButton;};
+  const focusedCard=()=>document.activeElement===closeButton?['close']:[document.activeElement?.parent?.dataset.questionId||null,document.activeElement?.value||null];
   const afterMiddle={sel,position:position(),focus:focusedCard()};
   const lastDisabled=await provide(c);
   out.answered={before,middleDisabled,lastDisabled,afterMiddle,afterLast:{sel,position:position(),focus:focusedCard()}};
+  // Answering the last open questions: nothing to move to, focus goes to the
+  // panel's close button.
+  await provide(a);
+  out.answered.none={sel,hasNav:hasNav(),focus:focusedCard()};
   // The editor answers one question: submitting the shown one moves on from it,
   // though its Story still has an earlier open question.
   allOpen();fixture.forEach(q=>open.add(q.id));reset();
@@ -502,6 +513,7 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
         "afterMiddle": {"sel": c, "position": "3 of 3", "focus": ["question:nav-c1", "opt-a"]},
         # c (the last) answered: the nearest earlier open question, a's second.
         "afterLast": {"sel": a, "position": "2 of 2", "focus": ["question:nav-a2", "opt-a"]},
+        "none": {"sel": a, "hasNav": False, "focus": ["close"]},
         # The editor answers a's second question alone: on to b's, not back to a's first.
         "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
     }
