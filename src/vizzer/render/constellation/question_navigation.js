@@ -53,13 +53,25 @@ function showOwnerQuestion(target){
   [...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===target.id)
     ?.scrollIntoView?.({block:'start'});
 }
+// The panel stops showing a Story (closed, or taken over by planning or a
+// hierarchy node): forget the counted question and clear the announcement.
+function leaveOwnerQuestions(){
+  questionNavFocusId='';announceOwnerQuestion();
+}
 // The header is rebuilt on every render, and a live region rendered with its
 // text already in place is not announced. The shell's persistent status node
-// is, so openNode (every step renders through it) and card focus write the
-// position there; closing the panel clears it.
+// is, so openNode (every step renders through it, once the panel is exposed)
+// and card focus write the position there; closing the panel clears it.
 function announceOwnerQuestion(){
   const status=document.getElementById('questionnavstatus'), state=questionNavigatorState();
   if(status)status.textContent=state?`Owner question ${state.position+1} of ${state.total}`:'';
+}
+// After an answer moves the panel on, keyboard focus goes to the next card's
+// first option: the answered card and its button are gone, and focus would
+// otherwise fall to the page.
+function focusOwnerQuestionCard(id){
+  const form=[...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===id);
+  [...(form?.querySelectorAll('[data-question-option]')||[])].find(input=>!input.disabled)?.focus?.();
 }
 // After the shown question is answered, move on to the next open question after it (or the nearest earlier one when it was the last).
 function nextOpenQuestionAfter(before){

@@ -484,7 +484,7 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   // Story) or by the editor (that one question).
   const moveOn=navigatorBefore&&(decisions||[]).some(decision=>decision.question?.id===navigatorBefore.current.id)
     ?nextOpenQuestionAfter(navigatorBefore):null;
-  if(moveOn)showOwnerQuestion(moveOn);
+  if(moveOn){showOwnerQuestion(moveOn);focusOwnerQuestionCard(moveOn.id);}
   else if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
 }
 

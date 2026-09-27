@@ -118,13 +118,19 @@ DRIVER = r"""
   // generation, and elements are looked up (and their listeners recorded) per
   // generation, exactly as a real innerHTML rebuild replaces the elements.
   let focused='';
-  const fake=(name,html)=>{
-    const el={name,listeners:{},dataset:{},hidden:false,disabled:false,checked:false,textContent:'',value:'',
+  const fake=(name,html,parent=null)=>{
+    const el={name,parent,listeners:{},dataset:{},hidden:false,disabled:false,checked:false,textContent:'',value:'',
       classList:{add(){},remove(){},toggle(){},contains(){return false;}},style:{},
       addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
-      setAttribute(){},removeAttribute(){},focus(){focused=name;},scrollIntoView(){el.scrolled=true;},
+      setAttribute(){},removeAttribute(){},focus(){focused=name;document.activeElement=el;},scrollIntoView(){el.scrolled=true;},
       replaceWith(){},prepend(){},appendChild(){},remove(){},
-      querySelector(selector){return child(selector);},querySelectorAll(){return [];}};
+      querySelector(selector){return child(selector);},
+      querySelectorAll(selector){
+        if(selector!=='[data-question-option]')return [];
+        if(!el.options)el.options=[...html.matchAll(/<input class="questionradio"[^>]*value="([^"]*)" data-question-option[^>]*>/g)]
+          .map(match=>{const input=fake(`${name} option ${match[1]}`,match[0],el);input.value=match[1];input.disabled=/\bdisabled\b/.test(match[0]);return input;});
+        return el.options;
+      }};
     // A selector finds something only when the element's own markup has it,
     // so a renamed or missing control reads as null, never as a free stand-in.
     const kids=new Map();
@@ -188,6 +194,17 @@ DRIVER = r"""
     addEventListener(type,handler){(el.listeners[type]||(el.listeners[type]=[])).push(handler);},
     querySelector(selector){if(!kids.has(selector))kids.set(selector,loose(name+' '+selector));return kids.get(selector);},
     querySelectorAll(){return [];}};return el;};
+  // Animation frames run when the test flushes them, and every announcement
+  // records whether the panel was exposed when it was written.
+  const frames=[];
+  requestAnimationFrame=callback=>{frames.push(callback);return frames.length;};
+  const flushFrames=()=>frames.splice(0).forEach(callback=>callback(0));
+  const panelAttributes={};const panel=document.getElementById('dossier');
+  panel.setAttribute=(name,value)=>{panelAttributes[name]=String(value);};
+  const statusNode=document.getElementById('questionnavstatus');let statusText='';const hiddenWrites=[];
+  Object.defineProperty(statusNode,'textContent',{get:()=>statusText,set:value=>{
+    statusText=String(value);if(statusText&&panelAttributes['aria-hidden']!=='false')hiddenWrites.push(statusText);}});
+  const announcedNow=()=>{flushFrames();return statusNode.textContent;};
   let workLaneSteps=0;
   navigateWorkLane=()=>{workLaneSteps++;return true;};
 
@@ -222,19 +239,30 @@ DRIVER = r"""
     globalThis.__testResult=out;return;
   }
 
-  // Working on the second card makes it the counted question.
+  // Working on the second card makes it the counted question, and says so.
+  flushFrames();
   (forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
   out.top.secondCardFocused={position:livePosition(),previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled};
   // Closing with the real close button forgets the counted question: the
   // reopened panel counts from the top, and says so.
-  const announced=()=>document.getElementById('questionnavstatus').textContent;
-  const beforeClose=announced();
+  const announced=announcedNow;
+  const beforeClose=statusNode.textContent; // no frame flush: written by the focus itself
   document.getElementById('close').onclick();
   const afterClose=announced();
   openNode(a);
   out.top.reopen={beforeClose,afterClose,position:livePosition(),announced:announced()};
   openNode(byId('story:d'));
   out.top.reopen.storyWithoutQuestions={hasNav:hasNav(),announced:announced()};
+  // Planning and hierarchy views take the panel over: no counted question.
+  const takeovers={};
+  openNode(a);(forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  openPlanningArea('question-nav-probe');
+  takeovers.planning={announced:announced(),focus:questionNavFocusId};
+  openNode(a);(forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
+  openHierarchyDetails(DATA.groups[0].id);
+  takeovers.hierarchy={announced:announced(),focus:questionNavFocusId};
+  openNode(a);takeovers.reopened=livePosition();
+  out.top.reopen.takeovers=takeovers;
 
   // Scenario 2: click Next three times, then Previous, across stories.
   reset();openNode(a);
@@ -242,7 +270,7 @@ DRIVER = r"""
   const announcer=document.getElementById('questionnavstatus');
   const scrolledTo=()=>forms().filter(form=>form.scrolled).map(form=>form.dataset.questionId);
   const record=()=>walk.push({sel,position:position(),open:document.getElementById('dossier').classList.contains('open'),scrolledTo:scrolledTo(),
-    announced:document.getElementById('questionnavstatus')===announcer?announcer.textContent:'(replaced)'});
+    announced:document.getElementById('questionnavstatus')===announcer?announcedNow():'(replaced)'});
   clickNav('next');record();clickNav('next');record();clickNav('next');record();clickNav('previous');record();
   out.walk=walk;
   // A reference item's question is not in the order: its dossier cannot answer.
@@ -319,9 +347,10 @@ DRIVER = r"""
   questionNavFocusId='';
   const before=(openNode(b),position());
   const middleDisabled=await provide(b);
-  const afterMiddle={sel,position:position()};
+  const focusedCard=()=>[document.activeElement?.parent?.dataset.questionId||null,document.activeElement?.value||null];
+  const afterMiddle={sel,position:position(),focus:focusedCard()};
   const lastDisabled=await provide(c);
-  out.answered={before,middleDisabled,lastDisabled,afterMiddle,afterLast:{sel,position:position()}};
+  out.answered={before,middleDisabled,lastDisabled,afterMiddle,afterLast:{sel,position:position(),focus:focusedCard()}};
   // The editor answers one question: submitting the shown one moves on from it,
   // though its Story still has an earlier open question.
   allOpen();fixture.forEach(q=>open.add(q.id));reset();
@@ -351,14 +380,15 @@ DRIVER = r"""
   // Previous is disabled, so focus lands on Next.
   const right=key('ArrowRight');
   keyboard.right={prevented:right.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
-    announced:document.getElementById('questionnavstatus').textContent};
+    announced:announcedNow()};
   const left=key('ArrowLeft');
   keyboard.left={prevented:left.defaultPrevented,position:position(),focus:focused.replace(/^nav#\d+ /,''),
-    announced:document.getElementById('questionnavstatus').textContent};
+    announced:announcedNow()};
   keyboard.other=key('ArrowUp').defaultPrevented;keyboard.sel=sel;
   keyboard.workLaneSteps=workLaneSteps;
   out.keyboard=keyboard;
 
+  out.hiddenAnnouncements=hiddenWrites;
   globalThis.__testResult=out;
 })();
 """
@@ -419,7 +449,10 @@ def test_segmented_control_is_pinned_at_the_top_with_position_and_count(runs):
                    "secondCardFocused": {"position": "2 of 4", "previousDisabled": False},
                    "reopen": {"beforeClose": "Owner question 2 of 4", "afterClose": "",
                               "position": "1 of 4", "announced": "Owner question 1 of 4",
-                              "storyWithoutQuestions": {"hasNav": False, "announced": ""}}}
+                              "storyWithoutQuestions": {"hasNav": False, "announced": ""},
+                              "takeovers": {"planning": {"announced": "", "focus": ""},
+                                            "hierarchy": {"announced": "", "focus": ""},
+                                            "reopened": "1 of 4"}}}
 
 
 def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs):
@@ -465,9 +498,10 @@ def test_providing_answers_updates_the_count_and_moves_to_the_next_question(runs
     assert result["answered"] == {
         "before": "3 of 4", "middleDisabled": False, "lastDisabled": False,
         # b answered: the dossier moves on to c, now 3 of 3.
-        "afterMiddle": {"sel": c, "position": "3 of 3"},
+        # Keyboard focus lands on the next card's first option, not the page.
+        "afterMiddle": {"sel": c, "position": "3 of 3", "focus": ["question:nav-c1", "opt-a"]},
         # c (the last) answered: the nearest earlier open question, a's second.
-        "afterLast": {"sel": a, "position": "2 of 2"},
+        "afterLast": {"sel": a, "position": "2 of 2", "focus": ["question:nav-a2", "opt-a"]},
         # The editor answers a's second question alone: on to b's, not back to a's first.
         "editor": {"opened": True, "before": "2 of 4", "sel": result["stories"][1], "position": "2 of 3"},
     }
@@ -488,6 +522,8 @@ def test_control_is_keyboard_reachable_with_accessible_names(runs):
     # The position is announced through a live region that outlives the rebuilt
     # header: it sits in the shell beside the identity region, and starts empty
     # so every step's text is a change a screen reader reads.
+    # Every announcement was written while the panel was exposed.
+    assert result["hiddenAnnouncements"] == []
     assert ('<div id="dossieridentity"></div><p id="questionnavstatus" class="sr-only" '
             'role="status" aria-live="polite"></p>') in runs["html"]
 

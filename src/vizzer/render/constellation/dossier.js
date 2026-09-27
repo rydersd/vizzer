@@ -120,7 +120,7 @@ function dismissDossier({focusCanvas=true}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
   // A closed panel has no counted question: reopening starts at the top.
-  questionNavFocusId='';announceOwnerQuestion();
+  leaveOwnerQuestions();
   activePlanningArea=null;areaRequest++;
   dossier.classList.remove('open');
   dossier.setAttribute('aria-hidden','true');
@@ -305,7 +305,6 @@ function openNode(i,{inPlace=false}={}){
   });
   bindQuestionControls(n);
   bindQuestionNavigator();
-  announceOwnerQuestion();
   bindPlanControls(n);
   bindStorySidebar(dbody);
   if(n.role==='reference'){
@@ -324,6 +323,9 @@ function openNode(i,{inPlace=false}={}){
   dbody.scrollTop=previousScroll;
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
   document.documentElement.classList.add('dossier-open');
+  // Announce after the panel is exposed: a live region inside a hidden
+  // subtree is not heard.
+  requestAnimationFrame(announceOwnerQuestion);
 }
 
 // Product-area discussions use repository files, read by the desktop timer.
@@ -353,6 +355,7 @@ function renderPlanningAreaLinks(){
 }
 async function openPlanningArea(id){
   const ticket=++areaRequest;activePlanningArea=id;sel=-1;
+  if(typeof leaveOwnerQuestions==='function')leaveOwnerQuestions();
   dossierIdentity.innerHTML='<h2>Capability planning</h2>';
   dossierFooter.innerHTML='';dbody.innerHTML='<p>Loading purpose, plans and discussion…</p>';
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');document.documentElement.classList.add('dossier-open');
@@ -412,6 +415,7 @@ function openHierarchyDetails(groupId){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   const group=(DATA.groups||[]).find(candidate=>candidate.id===groupId);if(!group)return;
   activePlanningArea=null;areaRequest++;sel=-1;
+  if(typeof leaveOwnerQuestions==='function')leaveOwnerQuestions();
   const nodes=deliveryNodes.filter(node=>nodeBelongsToGroup(node,groupId));
   const shipped=nodes.filter(node=>node.g==='shipped').length;
   const remaining=typeof foundationRemaining==='function'?foundationRemaining(nodes):0;
