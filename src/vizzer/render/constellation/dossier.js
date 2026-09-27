@@ -119,6 +119,8 @@ addEventListener('resize',()=>{
 function dismissDossier({focusCanvas=true}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
+  // A closed panel has no counted question: reopening starts at the top.
+  questionNavFocusId='';announceOwnerQuestion();
   activePlanningArea=null;areaRequest++;
   dossier.classList.remove('open');
   dossier.setAttribute('aria-hidden','true');
@@ -303,6 +305,7 @@ function openNode(i,{inPlace=false}={}){
   });
   bindQuestionControls(n);
   bindQuestionNavigator();
+  announceOwnerQuestion();
   bindPlanControls(n);
   bindStorySidebar(dbody);
   if(n.role==='reference'){

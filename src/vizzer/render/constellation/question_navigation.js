@@ -52,11 +52,11 @@ function showOwnerQuestion(target){
   if(target.n!==sel)openNode(target.n);else refreshDossier();
   [...dbody.querySelectorAll('form[data-question-id]')].find(form=>form.dataset.questionId===target.id)
     ?.scrollIntoView?.({block:'start'});
-  announceOwnerQuestion();
 }
-// The header is rebuilt on every step, and a live region rendered with its
+// The header is rebuilt on every render, and a live region rendered with its
 // text already in place is not announced. The shell's persistent status node
-// is, so each step writes the new position there.
+// is, so openNode (every step renders through it) and card focus write the
+// position there; closing the panel clears it.
 function announceOwnerQuestion(){
   const status=document.getElementById('questionnavstatus'), state=questionNavigatorState();
   if(status)status.textContent=state?`Owner question ${state.position+1} of ${state.total}`:'';
@@ -94,6 +94,6 @@ function bindQuestionNavigator(){
   // Working on a card makes it the shown question, so "N of M" stays true.
   (dbody.querySelectorAll?.('form[data-question-id]')||[]).forEach(form=>form.addEventListener('focusin',()=>{
     if(questionNavFocusId===form.dataset.questionId)return;
-    questionNavFocusId=form.dataset.questionId;syncQuestionNavigator();
+    questionNavFocusId=form.dataset.questionId;syncQuestionNavigator();announceOwnerQuestion();
   }));
 }

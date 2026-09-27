@@ -207,7 +207,7 @@ DRIVER = r"""
   const hasNav=()=>identity().includes('data-question-nav');
   const livePosition=()=>nav()?.querySelector('[data-question-nav-position]')?.textContent||position();
   const forms=()=>regions.dbody.host.querySelectorAll('form[data-question-id]');
-  const reset=()=>{if(sel>=0)dismissDossier({focusCanvas:false});questionNavFocusId='';questionDrafts.clear();};
+  const reset=()=>{if(sel>=0)dismissDossier({focusCanvas:false});questionDrafts.clear();};
   const out={served:SERVED,stories};
   allOpen();
 
@@ -225,6 +225,16 @@ DRIVER = r"""
   // Working on the second card makes it the counted question.
   (forms()[1]?.listeners.focusin||[]).forEach(handler=>handler({}));
   out.top.secondCardFocused={position:livePosition(),previousDisabled:nav().querySelector('[data-question-nav-previous]').disabled};
+  // Closing with the real close button forgets the counted question: the
+  // reopened panel counts from the top, and says so.
+  const announced=()=>document.getElementById('questionnavstatus').textContent;
+  const beforeClose=announced();
+  document.getElementById('close').onclick();
+  const afterClose=announced();
+  openNode(a);
+  out.top.reopen={beforeClose,afterClose,position:livePosition(),announced:announced()};
+  openNode(byId('story:d'));
+  out.top.reopen.storyWithoutQuestions={hasNav:hasNav(),announced:announced()};
 
   // Scenario 2: click Next three times, then Previous, across stories.
   reset();openNode(a);
@@ -370,7 +380,7 @@ def _graph():
         vocab=Config(data=DEFAULTS).vocab,
         items=[Item(id=f"story:{slug}", title=slug.upper(), status="specced", release="R0",
                     group="capability:c", source={"adapter": "spec_tree", "path": f"s/{slug}.md"})
-               for slug in ("a", "b", "c")],
+               for slug in ("a", "b", "c", "d")],
     )
     graph.owner_questions = [
         _question("question:nav-a1", "story:a"), _question("question:nav-a2", "story:a"),
@@ -406,7 +416,10 @@ def test_segmented_control_is_pinned_at_the_top_with_position_and_count(runs):
     top = _served(runs)["top"]
     assert top == {"hasNav": True, "navBeforeTitle": True, "position": "1 of 4", "segments": 2,
                    # Focusing the second card makes it the counted question.
-                   "secondCardFocused": {"position": "2 of 4", "previousDisabled": False}}
+                   "secondCardFocused": {"position": "2 of 4", "previousDisabled": False},
+                   "reopen": {"beforeClose": "Owner question 2 of 4", "afterClose": "",
+                              "position": "1 of 4", "announced": "Owner question 1 of 4",
+                              "storyWithoutQuestions": {"hasNav": False, "announced": ""}}}
 
 
 def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs):
