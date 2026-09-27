@@ -19,6 +19,7 @@ import json
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -217,7 +218,7 @@ DRIVER = r"""
   const [a,b,c]=['story:a','story:b','story:c'].map(byId);
   const stories=[a,b,c];
   const qIndex=id=>DATA.questions.findIndex(q=>q.id===id);
-  const fixture=['question:nav-a1','question:nav-a2','question:nav-b1','question:nav-c1'].map(id=>DATA.questions[qIndex(id)]);
+  const fixture=['question:nav-a1','question:nav-a2','question:nav-0b1','question:nav-c1'].map(id=>DATA.questions[qIndex(id)]);
   DATA.decisions=DATA.decisions||[];
   const pin=sets=>{
     DATA.nodes.forEach(n=>{n.oq=[];});
@@ -444,7 +445,7 @@ def _graph():
     )
     graph.owner_questions = [
         _question("question:nav-a1", "story:a"), _question("question:nav-a2", "story:a"),
-        _question("question:nav-b1", "story:b"), _question("question:nav-c1", "story:c"),
+        _question("question:nav-0b1", "story:b"), _question("question:nav-c1", "story:c"),
     ]
     return graph
 
@@ -493,7 +494,7 @@ def test_next_and_previous_walk_open_questions_across_stories_in_list_order(runs
     assert [s["announced"] for s in result["walk"]] == [f"Owner question {n} of 4" for n in (2, 3, 4, 3)]
     # Each step brings the counted question's own card into view.
     assert [s["scrolledTo"] for s in result["walk"]] == [
-        ["question:nav-a2"], ["question:nav-b1"], ["question:nav-c1"], ["question:nav-b1"]]
+        ["question:nav-a2"], ["question:nav-0b1"], ["question:nav-c1"], ["question:nav-0b1"]]
     # With b a reference item, its question is skipped: a1, a2, then c.
     assert result["referenceWalk"] == ["1 of 3", "2 of 3", [c, "3 of 3"]]
 
@@ -568,3 +569,28 @@ def test_static_file_build_boots_and_hides_the_control(runs):
     assert static["result"]["served"] is False
     assert static["result"]["top"]["hasNav"] is False
     assert static["result"]["single"] == {"state": None}
+
+
+def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
+    # Headless Chrome on a loopback-served page: Shift+Tab reaches the control,
+    # a real pointer click at Next's centre hits Next and steps, and the arrow
+    # keys step from the focused control.
+    chrome = next((candidate for candidate in (
+        shutil.which("google-chrome"), shutil.which("chromium"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ) if candidate and Path(candidate).is_file()), None)
+    if chrome is None:
+        pytest.skip("Chrome is required for the physical question-navigation check")
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})["constellation.html"]
+    script = Path(__file__).with_name("browser_question_navigation_smoke.js")
+    completed = subprocess.run([shutil.which("node") or "node", str(script), chrome], input=html,
+                               text=True, capture_output=True, timeout=60)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout) == {
+        "opened": {"story": "story:a", "position": "1 of 4", "focus": "BODY"},
+        "tabbed": {"story": "story:a", "position": "1 of 4", "focus": "data-question-nav-next"},
+        "box": {"visible": True, "hit": True},
+        "clicked": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-next"},
+        "right": {"story": "story:b", "position": "3 of 4", "focus": "data-question-nav-next"},
+        "left": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-previous"},
+    }
