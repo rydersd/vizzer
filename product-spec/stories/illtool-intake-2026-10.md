@@ -19,6 +19,8 @@ opt-in, adapter-driven, no host literals. Where upstream already has a neutral
 contract that superseded the IllTool mechanism (review contract/service/adapters),
 IllTool's behaviors extend that contract; no second review system is imported.
 
+Owner confirmed the slice list below on 2026-10-17.
+
 ## Slices
 
 Each slice is its own story, one user-visible behavior, merged separately.

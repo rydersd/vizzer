@@ -18,6 +18,8 @@ area_planning, chip_layout, panel_resize, view_tables, notices, symbols.
   are not redistributed. Upstream ships the same glyph slots from a permissively
   licensed set, recorded in THIRD-PARTY-NOTICES; a project may supply its own
   glyph file.
+- Owner ruling 2026-10-17: Lucide (ISC) is the default set; the owner will
+  customize later.
 
 ## Tests
 
