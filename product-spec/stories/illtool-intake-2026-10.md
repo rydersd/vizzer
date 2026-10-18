@@ -36,7 +36,7 @@ Each slice is its own story, one user-visible behavior, merged separately.
 | intake-served-write-durability | Opt-in local commit of accepted served writes, hooks honored |
 | intake-review-gate | Review holds, consolidated review sheet, archive, on the neutral contract |
 | intake-review-launch | Launch the project's app for review via declared adapter operations, incl. preverify |
-| hermes-integration | Hermes Agent discovers, refreshes and answers through Vizzer |
+| hermes-integration | Hermes Agent discovers, refreshes and answers through Vizzer (see story) |
 
 ## Gates (all slices)
 
