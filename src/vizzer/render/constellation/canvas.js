@@ -96,7 +96,7 @@ function project(){
   const F = 900*zoom, cxp=W/2+40+panX, cyp=H/2+panY;
   const bounds=canvasInteractionBounds();
   DATA.nodes.forEach((n,i)=>{
-    const nx = n.x-cc.x, ny = n.y-cc.y, nz = n.z-cc.z;
+    const q = spreadPos(n), nx = q.x-cc.x, ny = q.y-cc.y, nz = q.z-cc.z;
     const x1 = nx*cy + nz*sy, z1 = -nx*sy + nz*cy;
     const y2 = ny*cx - z1*sx, z2 = ny*sx + z1*cx;
     const w = F/(F+z2+520);
@@ -381,7 +381,7 @@ function computeCapabilityHulls(){
 function capabilityHulls(){
   let onCount=0,onSum=0;
   for(let i=0;i<P.length;i++)if(P[i].on){onCount++;onSum+=i;}
-  const key=[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,W,H,sizeMode,clusterFocus,onCount,onSum].join(',');
+  const key=[rx,ry,zoom,panX,panY,cc.x,cc.y,cc.z,W,H,sizeMode,clusterFocus,clusterSpread,onCount,onSum].join(',');
   if(key!==hullCache.key)hullCache={key,hulls:computeCapabilityHulls()};
   return hullCache.hulls;
 }
@@ -714,6 +714,7 @@ const markInteraction=()=>{lastInteractionAt=performance.now();};
 for(const type of ['pointerdown','pointermove','wheel','keydown','resize'])
   addEventListener(type,markInteraction,{capture:true,passive:true});
 const cameraSettling=()=>Math.abs(vx)+Math.abs(vy)>1e-5
+  ||Math.abs(clusterSpreadTarget-clusterSpread)>1e-3
   ||Math.abs(ct.x-cc.x)+Math.abs(ct.y-cc.y)+Math.abs(ct.z-cc.z)>1e-3;
 function frame(now=performance.now()){
   const idle=!pointerDown&&!cameraSettling()&&now-lastInteractionAt>IDLE_AFTER_MS;
@@ -722,6 +723,7 @@ function frame(now=performance.now()){
   ry+=vy; rx+=vx; vx*=.9; vy*=.9;
   const e = snapCam ? 1 : .07; // ease the camera centre toward the visible centroid
   cc.x += (ct.x-cc.x)*e; cc.y += (ct.y-cc.y)*e; cc.z += (ct.z-cc.z)*e;
+  stepClusterSpread();
   project(); if(pointerActive&&!orbiting)updatePointerAt(pointerX,pointerY); draw(); requestAnimationFrame(frame); }
 // ---- input ----
 let pointerDown=false, orbiting=false, downTarget=-1, lx=0, ly=0, downX=0, downY=0,
@@ -938,7 +940,7 @@ cv.addEventListener('dblclick',e=>{
 });
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   if (e.ctrlKey){ // trackpad pinch arrives as ctrl+wheel
-    zoom = Math.min(3.4, Math.max(.45, zoom * (e.deltaY<0?1.06:.94)));
+    zoom = Math.min(clusterFocus?8:3.4, Math.max(.45, zoom * (e.deltaY<0?1.06:.94)));
   } else if (e.metaKey){ // Command + two-finger scroll pans in screen space
     panX -= e.deltaX; panY -= e.deltaY;
   } else { // two-finger scroll orbits

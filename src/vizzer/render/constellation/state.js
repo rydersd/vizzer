@@ -336,6 +336,55 @@ const matchesSearch = n => searchTerms.length===0 || (!n.foundation &&
   searchTerms.every(token=>n.q.toLocaleLowerCase().includes(token)));
 // camera centre: eases toward the centroid of whatever is visible
 let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
+// ---- focus spread (owner 2026-10-24) ----
+// "when i zoom in on a capability, let me zoom in further to see the separate
+// nodes ... OR expand the selection and dim the rest of the cluster. (push them
+// apart to discern the separate stories." / "repel gracefully". Zooming alone
+// never separates a dense cluster, because star size grows with zoom too. So
+// focus eases the target cluster's members radially apart around the centroid
+// captured at entry (CLUSTER_SPREAD x), while nodes of other capabilities near
+// it are pushed outward with a falloff so none ends up under the expanded
+// cluster. The displacement is monotonic in distance (slope >= 1-(s-1)/2 > 0),
+// so it never reorders nodes along a ray. View state only: layout n.x/y/z are
+// untouched, and every reader of on-screen position goes through spreadPos().
+const CLUSTER_SPREAD=2.6, CLUSTER_SPREAD_EASE=.08;
+let clusterSpread=1, clusterSpreadTarget=1, spreadCenter=null, spreadRadius=1, spreadCapability=null;
+function beginClusterSpread(capability,centre){
+  let r=0;
+  for(const n of DATA.nodes)if(n.c===capability&&visible(n))
+    r=Math.max(r,Math.hypot(n.x-centre.x,n.y-centre.y,n.z-centre.z));
+  // A transfer collapses the old cluster and spreads the new one from rest.
+  if(spreadCapability!==capability)clusterSpread=1;
+  spreadCenter={...centre};spreadRadius=Math.max(r,1);spreadCapability=capability;
+  clusterSpreadTarget=CLUSTER_SPREAD;
+  if(reducedMotion)clusterSpread=clusterSpreadTarget;
+}
+function endClusterSpread(){
+  clusterSpreadTarget=1;
+  if(reducedMotion)clusterSpread=1;
+}
+// Advance the ease one frame; true while still moving (keeps the loop awake).
+function stepClusterSpread(){
+  const d=clusterSpreadTarget-clusterSpread;
+  if(Math.abs(d)<1e-3){
+    clusterSpread=clusterSpreadTarget;
+    if(clusterSpread===1)spreadCapability=null;
+    return false;
+  }
+  clusterSpread+=d*CLUSTER_SPREAD_EASE;
+  return true;
+}
+function spreadPos(n){
+  if(!spreadCapability||clusterSpread===1)return n;
+  const c=spreadCenter,s=clusterSpread,R=spreadRadius;
+  const dx=n.x-c.x,dy=n.y-c.y,dz=n.z-c.z;
+  if(n.c===spreadCapability)return {x:c.x+dx*s,y:c.y+dy*s,z:c.z+dz*s};
+  const d=Math.hypot(dx,dy,dz);
+  if(d<1e-9)return n;
+  const push=(s-1)*R*(d<=R?1:Math.exp(-(d-R)/(2*R)));
+  const k=(d+push)/d;
+  return {x:c.x+dx*k,y:c.y+dy*k,z:c.z+dz*k};
+}
 const nodeHasOwnerQuestions = n => (n.oq||[]).length>0;
 const hierarchyGroups=new Map((DATA.groups||[]).map(group=>[group.id,group]));
 const nodeBelongsToGroup=(node,groupId)=>{
@@ -378,7 +427,7 @@ function clusterCentroid(capability){
 function enterClusterFocus(capability){
   const centroid=clusterCentroid(capability);if(!centroid)return false;
   if(clusterFocus===null)clusterFocusReturnZoom=zoom;
-  clusterFocus=capability;ct=centroid;
+  clusterFocus=capability;ct=centroid;beginClusterSpread(capability,centroid);
   zoom=Math.min(3.4,Math.max(1.25,190/Math.max(48,capExtent[capability]||48)));
   if(reducedMotion)cc={...ct};
   if(typeof clearPointerState==='function')clearPointerState();
@@ -386,7 +435,7 @@ function enterClusterFocus(capability){
 }
 function exitClusterFocus(){
   if(clusterFocus===null)return false;
-  clusterFocus=null;
+  clusterFocus=null;endClusterSpread();
   if(clusterFocusReturnZoom!==null){zoom=clusterFocusReturnZoom;clusterFocusReturnZoom=null;}
   retarget();if(reducedMotion)cc={...ct};
   if(typeof clearPointerState==='function')clearPointerState();
