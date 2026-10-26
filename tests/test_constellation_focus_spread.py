@@ -53,3 +53,52 @@ def test_focus_spreads_cluster_and_restores_on_exit(tmp_path) -> None:
     assert result["memberRatioOk"], "members spread radially by CLUSTER_SPREAD"
     assert result["otherOk"], "other capabilities are pushed out, never pulled inside"
     assert result["restored"], "exit returns every node to its layout position"
+
+
+def _relayout_probe(tmp_path) -> dict:
+    """Focus a cluster, then click the inactive size chip (layout(); retarget();)."""
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute the rendered constellation"
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})["constellation.html"]
+    driver = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+        "sandbox.window=sandbox;",
+        "sandbox.Element=Element;sandbox.window=sandbox;",
+    ).replace(
+        "process.stdout.write(JSON.stringify(out));",
+        "const all=r=>r.children.flatMap(c=>[c,...all(c)]);"
+        "const other=ev('sizeMode')==='time'?'delivery':'time';"
+        "const chip=all(ids.get('chips')).find(e=>e.textContent==='size: '+other);"
+        "if(!chip)throw new Error('size chip missing: '+other);"
+        "const before=ev(`(()=>{document.body=document.body||{appendChild(){}};"
+        "enterClusterFocus('canvas');for(let f=0;f<400&&stepClusterSpread();f++);"
+        "return {...spreadCenter};})()`);"
+        "chip.click();"
+        "const result=ev(`(()=>{const c=clusterCentroid('canvas');let r=0;"
+        "for(const n of DATA.nodes)if(n.c==='canvas'&&visible(n))"
+        "r=Math.max(r,Math.hypot(n.x-c.x,n.y-c.y,n.z-c.z));"
+        "const near=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<1e-6;"
+        "return {mode:sizeMode,focus:clusterFocus,spread:clusterSpread,"
+        "centreMoved:!near(c,${JSON.stringify(before)}),"
+        "centreOk:near(spreadCenter,c),radiusOk:Math.abs(spreadRadius-Math.max(r,1))<1e-6,"
+        "cameraOk:near(ct,c)};})()`);"
+        "process.stdout.write(JSON.stringify({other,...result}));",
+    )
+    run = subprocess.run(
+        [node, "-e", driver], input=html, text=True, capture_output=True,
+        timeout=10, check=False,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    return json.loads(run.stdout)
+
+
+def test_relayout_while_focused_respreads_around_new_layout(tmp_path) -> None:
+    result = _relayout_probe(tmp_path)
+    assert result["mode"] == result["other"], "the size chip switched modes"
+    assert result["focus"] == "canvas", "relayout keeps the cluster focused"
+    # Precondition: the size switch must actually move the cluster, or this
+    # test cannot tell a stale spread centre from a fresh one.
+    assert result["centreMoved"], "size switch relaid the focused cluster"
+    assert result["spread"] > 1, "the cluster stays spread after relayout"
+    assert result["centreOk"], "spread centre follows the new layout"
+    assert result["radiusOk"], "spread radius follows the new layout"
+    assert result["cameraOk"], "camera stays on the focused cluster"

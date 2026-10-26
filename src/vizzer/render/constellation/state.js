@@ -85,6 +85,10 @@ const epicAnchor = {};             // epicKey -> [x,y,z], rebuilt by layout()
 const epicRadius = {};             // capability -> radius of its epic sphere, sized by layout()
 const capExtent = {};              // capability -> MEDIAN member distance from its anchor (a robust radius: a few dependency-pulled or epic-less outliers must not dictate the cluster-focus frame)
 const capReach = {};               // capability -> epic radius + 2 sigma story spread: the room it claims on the capability sphere
+// Focus-spread view state (see "focus spread" below). Declared before layout()
+// so a relayout can re-derive the spread geometry from the new coordinates.
+const CLUSTER_SPREAD=2.6, CLUSTER_SPREAD_EASE=.08;
+let clusterSpread=1, clusterSpreadTarget=1, spreadCenter=null, spreadRadius=1, spreadCapability=null;
 // World-space node radius: nodeRadius() is p.s*weight where p.s ~ 4.6 at the
 // viewport centre, so 4.6*weight approximates the drawn size in layout units.
 const layoutRadius = n => 4.6*(sizeMode==='time' ? (n.tw||1) : (n.w||1));
@@ -280,6 +284,9 @@ function scatterAndRelax(members,mul){
     }
   }
   DATA.nodes.forEach((n,i)=>{ n.x=xs[i]; n.y=ys[i]; n.z=zs[i]; });
+  // A focused (or still-collapsing) spread is anchored to layout coordinates;
+  // re-derive it here or it would spread the new layout around the old centre.
+  refreshClusterSpread();
 }
 // Activity weights feed layoutRadius, so they are computed before the first layout.
 recomputeActivityWeights();
@@ -347,17 +354,25 @@ let cc = {x:0,y:0,z:0}, ct = {x:0,y:0,z:0};
 // cluster. The displacement is monotonic in distance (slope >= 1-(s-1)/2 > 0),
 // so it never reorders nodes along a ray. View state only: layout n.x/y/z are
 // untouched, and every reader of on-screen position goes through spreadPos().
-const CLUSTER_SPREAD=2.6, CLUSTER_SPREAD_EASE=.08;
-let clusterSpread=1, clusterSpreadTarget=1, spreadCenter=null, spreadRadius=1, spreadCapability=null;
-function beginClusterSpread(capability,centre){
+function clusterSpreadRadius(capability,centre){
   let r=0;
   for(const n of DATA.nodes)if(n.c===capability&&visible(n))
     r=Math.max(r,Math.hypot(n.x-centre.x,n.y-centre.y,n.z-centre.z));
+  return Math.max(r,1);
+}
+function beginClusterSpread(capability,centre){
   // A transfer collapses the old cluster and spreads the new one from rest.
   if(spreadCapability!==capability)clusterSpread=1;
-  spreadCenter={...centre};spreadRadius=Math.max(r,1);spreadCapability=capability;
+  spreadCenter={...centre};spreadRadius=clusterSpreadRadius(capability,centre);spreadCapability=capability;
   clusterSpreadTarget=CLUSTER_SPREAD;
   if(reducedMotion)clusterSpread=clusterSpreadTarget;
+}
+// Relayout keeps the spread factor and target; only the anchor geometry moves.
+function refreshClusterSpread(){
+  if(!spreadCapability)return;
+  const centre=clusterCentroid(spreadCapability);
+  if(!centre)return;
+  spreadCenter=centre;spreadRadius=clusterSpreadRadius(spreadCapability,centre);
 }
 function endClusterSpread(){
   clusterSpreadTarget=1;
@@ -416,6 +431,8 @@ function retarget(){
   for (const n of DATA.nodes) if (visible(n)){ sx+=n.x; sy+=n.y; sz+=n.z; k++; }
   const all = k===0 || (!questionOnly && !capFocus && !hasAreaFacets && roleFocus==='all' && Object.values(filt).every(v=>v) && Object.values(rfilt).every(v=>v));
   ct = all ? {x:0,y:0,z:0} : {x:sx/k, y:sy/k, z:sz/k};
+  // A focused cluster owns the camera until exit (exitClusterFocus clears it first).
+  if(clusterFocus!==null){ const c=clusterCentroid(clusterFocus); if(c) ct=c; }
 }
 const clusterTier=capability=>clusterFocus===null||capability===clusterFocus?1:.18;
 const focusBackground=index=>clusterFocus!==null&&DATA.nodes[index]?.c!==clusterFocus;
