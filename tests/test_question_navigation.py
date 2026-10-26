@@ -640,12 +640,15 @@ _REAL_SERVER_RUNNER = _RUNNER.replace(
     # `cache` is a browser-only hint. A browser also opens at most six
     # connections per host; Node's fetch opens one per request, and the page's
     # boot burst then overflows the server's listen backlog (ECONNRESET).
+    # The page stubs timers out; the driver waits on the host's real clock.
+    "__hostWait: ms => new Promise(resolve => setTimeout(resolve, ms)), "
     "fetch: (() => { let active = 0; const waiting = []; "
     "return async (url, {cache, ...init} = {}) => { "
+    "context.__vizzerPending = (context.__vizzerPending || 0) + 1; "
     "while (active >= 6) await new Promise(resolve => waiting.push(resolve)); active++; "
     "try { return await globalThis.fetch(new URL(url, process.env.VIZZER_BASE), "
     "{...init, headers: {...(init.headers || {}), Origin: process.env.VIZZER_BASE}}); } "
-    "finally { active--; waiting.shift()?.(); } }; })()",
+    "finally { active--; context.__vizzerPending--; waiting.shift()?.(); } }; })()",
 ).replace(  # name the network cause of a failed fetch, not just "fetch failed"
     "`${error.name}: ${error.message}`",
     "`${error.name}: ${error.message} ${error.cause ? String(error.cause) : ''}`",
@@ -659,10 +662,16 @@ _REAL_SERVER_DRIVER = _HARNESS + r"""
   };
   const position=()=>{const m=dossierIdentity.innerHTML.match(/data-question-nav-position>(\d+) of (\d+)</);return m?`${m[1]} of ${m[2]}`:null;};
   const story=()=>sel>=0?DATA.nodes[sel].id:null;
-  // What the served page does on load: read the live answer authority.
-  const authority=await (await fetch('/api/questions')).json();
-  adoptQuestionAuthority(authority);
-  const out={authorityRevision:authority.revision,
+  // Let the page's own load finish: its /api/questions read adopts the live
+  // answer authority, and every other boot request settles, so no late
+  // callback can roll the revision back or re-render the panel mid-answer.
+  const settle=async()=>{
+    for(let i=0;i<2000&&(!questionContext||(globalThis.__vizzerPending||0)>0);i++)
+      await __hostWait(5);
+    await __hostWait(0);
+  };
+  await settle();
+  const out={authorityRevision:questionContext?.revision??null,
     order:openOwnerQuestionOrder().map(entry=>[DATA.nodes[entry.n].id,entry.id])};
   const first=openOwnerQuestionOrder()[0];
   openNode(first.n);
