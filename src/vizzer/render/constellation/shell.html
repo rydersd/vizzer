@@ -5,6 +5,7 @@
 __VIZZER_TOKENS_CSS__
 __VIZZER_LAYOUT_CSS__
 __VIZZER_VIEWS_CSS__
+__VIZZER_BACKGROUND_CSS__
 __VIZZER_SESSION_HISTORY_CSS__
 </style>
 <svg class="symbol-defs" aria-hidden="true">
@@ -12,6 +13,7 @@ __VIZZER_SESSION_HISTORY_CSS__
   <symbol id="sym-star-fill" viewBox="0 0 16 16"><path d="M8 1.5l1.92 3.9 4.3.62-3.11 3.03.73 4.28L8 11.31l-3.84 2.02.73-4.28-3.11-3.03 4.3-.62z"/></symbol>
   <symbol id="sym-arrow-up-right" viewBox="0 0 16 16"><path d="M4 12 12 4m-6 0h6v6"/></symbol>
 </svg>
+<img id="cluster-background" alt="" hidden>
 <canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
@@ -26,6 +28,9 @@ __VIZZER_SESSION_HISTORY_CSS__
     <button type="button" data-theme-choice="dark" aria-label="Dark mode" title="Dark mode">☾</button>
     <button type="button" data-theme-choice="system" aria-label="System mode" title="Follow computer appearance"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="16" height="11" rx="1.5"/><path d="M10 14v3m-4 0h8"/></svg></button>
   </div>
+  <button id="background-open" type="button" aria-expanded="false" aria-controls="background-panel">Background</button>
+  <button id="restart-service" type="button" hidden>Restart Vizzer</button>
+  <span id="restart-service-status" role="status" aria-live="polite"></span>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -58,6 +63,15 @@ __VIZZER_RADAR_LINK__
        inside the scrolling meter row (an off-screen alarm is no alarm). -->
   <div id="runners" role="group" aria-label="CI runners" hidden></div>
 </div>
+<section id="background-panel" aria-label="Cluster background" hidden>
+  <header><b>Cluster background</b><button id="background-close" type="button" aria-label="Close background settings">×</button></header>
+  <p>Choose a browser-local image behind the constellation. It stays on this device and is saved for this project.</p>
+  <label class="background-picker">Choose image<input id="background-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+  <label for="background-opacity">Image strength <output id="background-value">25%</output></label>
+  <input id="background-opacity" type="range" min="0" max="50" step="1" value="25" disabled>
+  <button id="background-remove" type="button" disabled>Remove image</button>
+  <p id="background-status" role="status" aria-live="polite">PNG, JPEG or WebP, up to 5 MB.</p>
+</section>
 <!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
 <form id="search" role="search">
   <label class="sr-only" for="searchinput">Search work items</label>
@@ -113,5 +127,6 @@ __VIZZER_WORK_NAVIGATION_JS__
 __VIZZER_RUNNERS_JS__
 __VIZZER_CANVAS_JS__
 __VIZZER_SESSION_HISTORY_JS__
+__VIZZER_BACKGROUND_JS__
 __VIZZER_BOOTSTRAP_JS__
 </script>

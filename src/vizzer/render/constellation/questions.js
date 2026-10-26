@@ -196,7 +196,7 @@ function bindDiscussionControls(n,actions){
     currentActions?.querySelectorAll('[data-chat-primary],[data-chat-overflow],[data-chat-provider]').forEach(button=>button.disabled=true);
     try{
       const authority=await preflightDiscussionAuthority();
-      const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id)
+      const liveQuestions=(authority.questions||[]).filter(question=>questionTargetsStory(question,n.id))
         .map(question=>({id:question.id,fingerprint:question.fingerprint}));
       const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({
         expectedRevision:discussionContext.queue.revision,provider,storyId:n.id,questions:liveQuestions,

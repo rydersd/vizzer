@@ -1,22 +1,50 @@
+let restartCsrfToken='';
+const restartServiceButton=document.getElementById('restart-service');
+const restartServiceStatus=document.getElementById('restart-service-status');
+function offerServerRestart(body){
+  if(body?.csrfToken&&body?.renderId&&body.renderId!==RENDER_ID){
+    restartCsrfToken=body.csrfToken;
+    if(restartServiceButton)restartServiceButton.hidden=false;
+    if(restartServiceStatus)restartServiceStatus.textContent='This page and server use different Vizzer builds.';
+  }
+}
+restartServiceButton?.addEventListener('click',async()=>{
+  if(!restartCsrfToken)return;
+  restartServiceButton.disabled=true;
+  if(restartServiceStatus)restartServiceStatus.textContent='Checking the project service…';
+  try{
+    const response=await fetch('/api/server/restart',{method:'POST',headers:{'X-Vizzer-CSRF':restartCsrfToken}});
+    const body=await response.json();
+    if(!response.ok)throw new Error(body.error||'Could not restart Vizzer.');
+    if(restartServiceStatus)restartServiceStatus.textContent=`Restarting ${body.service||'this project service'}…`;
+    setTimeout(()=>location.reload(),1500);
+  }catch(error){
+    if(restartServiceStatus)restartServiceStatus.textContent=error.message||String(error);
+    restartServiceButton.disabled=false;
+  }
+});
 if(SERVED){
   fetch('/api/plan').then(async response=>{
+    const body=await response.json();offerServerRestart(body);
     if(!response.ok){
       if(response.status===404){planError='Planning controls are disabled for this project.';refreshDossier();return;}
-      throw new Error((await response.json()).error||'planning unavailable');
+      throw new Error(body.error||'planning unavailable');
     }
-    planContext=await response.json();
+    planContext=body;
     if(planContext.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${planContext.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve.`);
     planDraft=JSON.parse(JSON.stringify(planContext.overlay.state));
     refreshDossier();
   }).catch(error=>{ planError=error.message||String(error); refreshDossier(); });
   fetch('/api/questions').then(async response=>{
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'question answers unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve before answering.`);
     adoptQuestionAuthority(body);
   }).catch(error=>{questionError=error.message||String(error);refreshDossier();});
   fetch('/api/discussions').then(async response=>{
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'discussion queue unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve before queuing discussion.`);
     discussionContext=body;discussionError='';refreshDossier();
@@ -24,6 +52,7 @@ if(SERVED){
   fetch('/api/workstreams').then(async response=>{
     if(response.status===404)return null;
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'workstreams unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve.`);
     DATA.workstreams=body.workstreams||{};

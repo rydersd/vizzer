@@ -185,6 +185,7 @@ The one file you edit. Keys and defaults:
 | Key | Default | Meaning |
 |---|---|---|
 | `project.name` | `"project"` | Used in view titles. |
+| `project.id` | `""` | Stable unique browser-storage scope. Set when enabling per-project background persistence or rail expansion memory. |
 | `server.port` | `0` | Default loopback port for `serve`; set a distinct nonzero value per project for a bookmarkable URL. `--port` overrides it. |
 | `sources.spec_tree.glob` | `""` | Story-file glob; each `*` directory is a hierarchy level. |
 | `sources.spec_tree.levels` | `[]` | Names for those levels, e.g. `["capability", "epic"]`. |
@@ -200,6 +201,8 @@ The one file you edit. Keys and defaults:
 | `render.releases` | `["R0","R1","R2","R3"]` | Release wave names/order. |
 | `render.recommended` | `[]` | Item ids highlighted as next steps in the constellation. |
 | `render.title` | `""` | Constellation title override. |
+| `render.background_project_id` | `""` | Optional stable unique browser-storage scope override; takes precedence over `project.id`. |
+| `render.story_aliases` | `""` | Optional repo-relative schema-1 JSON mapping retired `story:` IDs to current Story IDs. Validated aliases resolve UI deep links, activity, and workstream references. |
 | `render.obsidian_links` | `false` | Embed absolute-path `obsidian://` links (local vaults only). |
 | `render.repo_url` | `""` | Base URL for source links in the constellation. |
 | `reconcile.precedence` | `["spec_tree","dag_import","ledgers","todos","loose_docs"]` | Who wins disagreements. |
@@ -575,6 +578,41 @@ for plan, adapter-registry, evidence, CLI, and security contracts.
 The title bar's 14/18/22-point A control changes sidebar and dossier reading text without inflating
 chips. The left rail is pointer- and keyboard-resizable. Both settings are session-scoped so a
 glasses-on choice does not mutate project data.
+
+Nested specification groups can be expanded down to individual Story links. Expansion state and
+the optional background reference image are isolated by the browser origin and configured
+project identity. Set a unique `project.id` (or `render.background_project_id`) to remember rail
+expansion within the browser session and save the background between visits. IDs accept 1–120
+letters, digits, dots, underscores, colons, or hyphens; keep an ID stable when renaming a project.
+Without an explicit ID, the picker remains available for the current page,
+but Vizzer does not persist project-specific browser state because two same-named projects at the
+same URL cannot be distinguished safely.
+
+**Background** accepts PNG, JPEG, or WebP images up to 5 MiB and 24 million pixels, with adjustable
+0–50% strength. The image stays in this browser's IndexedDB storage; it is not uploaded or written
+into project sources. It appears behind the constellation and stays hidden in other views.
+A failed replacement retains the previous image; **Remove image** clears the saved background.
+
+Projects that rename Stories can opt into `render.story_aliases`, a project-local schema-1 JSON
+file such as:
+
+```json
+{
+  "schema": 1,
+  "aliases": {
+    "story:old-name": "story:new-name"
+  },
+  "historical_question_ids": [],
+  "historical_questions": []
+}
+```
+
+Aliases must resolve to current Story IDs. Cycles, unknown targets, aliases that shadow current
+IDs, malformed files, and paths outside the project are rejected with warnings. Historical owner
+questions are opt-in: list their exact `question:` IDs and provide matching entries with the
+original `story_id`, validated `canonical_target`, `status: "historical"`, and a `source_reason`.
+Vizzer keeps those questions visible in a separate historical section and preserves their source
+identity; it never infers that an unlinked question is obsolete.
 
 Constellation file mode uses portable repo-relative Markdown links. `serve` binds
 only `127.0.0.1` (an ephemeral port by default); its POST-only item-id endpoint

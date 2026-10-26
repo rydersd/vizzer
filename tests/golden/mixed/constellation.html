@@ -225,11 +225,18 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 .cap{display:block;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:inherit;text-align:left;font:inherit}
 .cap:hover{background:var(--bg2)}
 .cap.on{border-color:var(--line);background:var(--bg2)}
-.caphead{font-size:var(--sidebar-type-size);font-weight:600;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;line-height:1.25}
+.caphead{font-size:var(--sidebar-type-size);font-weight:600;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:3px;line-height:1.25}
 .caplabel{min-width:0;display:grid;gap:1px;color:var(--ink)}
 .caplabel>span{overflow-wrap:anywhere}
 .caplabel small{color:var(--mut);font:10px/1.15 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
-.capcount{flex:none;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:var(--sidebar-type-size);font-variant-numeric:tabular-nums}
+.capcount{min-width:0;color:var(--mut);font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:calc(var(--sidebar-type-size) - 1px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.capactivity{min-width:0;color:var(--mut);font-size:calc(var(--sidebar-type-size) - 2px);line-height:1.25;overflow-wrap:anywhere}
+.groupstatus{display:grid;gap:3px;padding-left:20px;color:var(--mut)}
+.groupstucklist{display:grid;gap:10px;margin:14px 0}
+.groupstuck{display:grid;gap:5px;padding:10px;border:1px solid var(--line);border-radius:8px}
+.groupstuck>button{justify-self:start;border:0;padding:0;background:transparent;color:var(--ink);text-align:left}
+.groupstuck>div{min-width:0;overflow-wrap:anywhere}
+.groupstuck ul{margin:4px 0;padding-left:20px}
 .capbar{height:5px;background:var(--progress-track);border-radius:2px;margin-top:5px;overflow:hidden;display:flex}
 .capbar i{height:100%;background:var(--progress-fill)}
 .capbar b{height:100%;background:var(--buggap)}
@@ -240,9 +247,17 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 .railcapability>summary::before{content:'';position:absolute;left:12px;top:calc(7px + var(--sidebar-type-size)*.625 - 8px);width:16px;height:16px;background:var(--ink);mask:var(--accordion-chevron) center / 12px 12px no-repeat;transform-origin:50% 50%;transition:transform .16s ease}
 .railcapability[open]>summary::before{transform:rotate(90deg)}
 .railcapability>summary .caphead,.railcapability>summary .capbar{margin-left:38px}
-.railcapabilitybody{display:grid;gap:1px;padding:0 5px 6px 34px;border-top:1px solid color-mix(in srgb,var(--line) 62%,transparent)}
+.railcapabilitybody{display:grid;gap:1px;padding:0 5px 6px 6px;border-top:1px solid color-mix(in srgb,var(--line) 62%,transparent)}
 .railcapabilitybody .cap{padding:7px 6px}
 .railcapabilitybody .cap:first-child{margin-top:4px}
+.railgroup{min-width:0;margin:2px 0;border-left:1px solid var(--line)}
+.railgroup>summary{list-style:none;cursor:pointer;padding:3px 2px}
+.railgroup>summary::-webkit-details-marker{display:none}
+.railgroupbody{display:grid;gap:1px;padding:1px 0 3px 5px}
+.railgroup .cap{padding:5px 4px}
+.railstory{display:block;width:100%;min-width:0;padding:5px 5px 5px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);text-align:left;font:inherit;line-height:1.25;overflow-wrap:anywhere;cursor:pointer}
+.railstory:hover,.railstory:focus-visible{background:var(--bg2)}
+.railgroup .caphead{font-size:calc(var(--sidebar-type-size) - 1px)}
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
 .railseg button{flex:1;padding-left:6px;padding-right:6px}
@@ -404,6 +419,33 @@ input::placeholder{color:var(--mut);opacity:1}
 
 .structurebody>.structuregroup{margin-left:24px}.foundationchip{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;margin-left:6px;padding:0 3px;border:1px solid currentColor;border-radius:4px;color:var(--foundation);background:var(--panel);font:700 11px/1 ui-monospace,monospace;vertical-align:middle;letter-spacing:0}.caplabel>span{overflow-wrap:anywhere}
 
+/* Optional local reference image. It is a browser preference, never graph data. */
+#cluster-background{position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;object-position:center;opacity:.25;pointer-events:none;z-index:0}
+#cluster-background[hidden]{display:none}
+#background-open{height:var(--toolbar-control-height);padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer}
+#background-open:hover,#background-open[aria-expanded="true"]{border-color:var(--accent)}
+#background-open:focus-visible,#background-panel button:focus-visible,#background-panel input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#background-panel{position:fixed;z-index:20;top:48px;right:16px;width:min(340px,calc(100vw - 24px));display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);box-shadow:0 12px 32px #0007;font-size:12px}
+#background-panel[hidden]{display:none}
+#background-panel header{display:flex;justify-content:space-between;align-items:center;font:12px ui-monospace,"SF Mono",Menlo,monospace}
+#background-panel header button{width:26px;height:26px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:18px;cursor:pointer}
+#background-panel p{color:var(--mut);line-height:1.45}
+#background-panel .background-picker{display:inline-flex;justify-content:center;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);cursor:pointer}
+#background-file{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+#background-panel label[for="background-opacity"]{display:flex;justify-content:space-between;align-items:center}
+#background-opacity{width:100%;accent-color:var(--accent)}
+#background-remove{justify-self:start;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font:11px ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer}
+#background-panel button:disabled,#background-opacity:disabled{opacity:.45;cursor:default}
+#background-status{min-height:1.4em;font-size:11px}
+#top{grid-template-columns:minmax(0,1fr) repeat(5,max-content)}
+@media(max-width:760px){
+  #top{grid-template-columns:minmax(0,1fr) repeat(3,max-content)}
+  #background-open{grid-column:2;grid-row:1}
+  #viewmenu{grid-column:3;grid-row:1}
+  #exportmenu{grid-column:4;grid-row:1}
+  #background-panel{top:54px;right:8px}
+}
+
 #historydock{position:fixed;left:calc(var(--rail-width) + 12px);right:16px;bottom:28px;z-index:var(--z-topbar);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--ink);font:12px/1.4 var(--sans)}
 html.dossier-open #historydock{right:calc(var(--dossier-width) + 12px)}
 html:not([data-view="constellation"]) #historydock{display:none}
@@ -424,6 +466,7 @@ html:not([data-view="constellation"]) #historydock{display:none}
   <symbol id="sym-star-fill" viewBox="0 0 16 16"><path d="M8 1.5l1.92 3.9 4.3.62-3.11 3.03.73 4.28L8 11.31l-3.84 2.02.73-4.28-3.11-3.03 4.3-.62z"/></symbol>
   <symbol id="sym-arrow-up-right" viewBox="0 0 16 16"><path d="M4 12 12 4m-6 0h6v6"/></symbol>
 </svg>
+<img id="cluster-background" alt="" hidden>
 <canvas id="bgcv" aria-hidden="true"></canvas>
 <canvas id="cv" role="application" tabindex="0" aria-label="Interactive Vizzer story constellation"></canvas>
 <div id="top">
@@ -438,6 +481,9 @@ html:not([data-view="constellation"]) #historydock{display:none}
     <button type="button" data-theme-choice="dark" aria-label="Dark mode" title="Dark mode">☾</button>
     <button type="button" data-theme-choice="system" aria-label="System mode" title="Follow computer appearance"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="16" height="11" rx="1.5"/><path d="M10 14v3m-4 0h8"/></svg></button>
   </div>
+  <button id="background-open" type="button" aria-expanded="false" aria-controls="background-panel">Background</button>
+  <button id="restart-service" type="button" hidden>Restart Vizzer</button>
+  <span id="restart-service-status" role="status" aria-live="polite"></span>
   <details id="viewmenu"><summary>Views</summary><div>
     <a href="#constellation" data-view="constellation" aria-current="page">Constellation</a>
     <a href="#dashboard" data-view="dashboard">Dashboard</a>
@@ -470,6 +516,15 @@ html:not([data-view="constellation"]) #historydock{display:none}
        inside the scrolling meter row (an off-screen alarm is no alarm). -->
   <div id="runners" role="group" aria-label="CI runners" hidden></div>
 </div>
+<section id="background-panel" aria-label="Cluster background" hidden>
+  <header><b>Cluster background</b><button id="background-close" type="button" aria-label="Close background settings">×</button></header>
+  <p>Choose a browser-local image behind the constellation. It stays on this device and is saved for this project.</p>
+  <label class="background-picker">Choose image<input id="background-file" type="file" accept="image/png,image/jpeg,image/webp"></label>
+  <label for="background-opacity">Image strength <output id="background-value">25%</output></label>
+  <input id="background-opacity" type="range" min="0" max="50" step="1" value="25" disabled>
+  <button id="background-remove" type="button" disabled>Remove image</button>
+  <p id="background-status" role="status" aria-live="polite">PNG, JPEG or WebP, up to 5 MB.</p>
+</section>
 <!-- codex-sequence-2026-08-08: local search is native page state; file:// needs no service. -->
 <form id="search" role="search">
   <label class="sr-only" for="searchinput">Search work items</label>
@@ -563,7 +618,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"engineVersion":"0.8.39","renderId":"dc009c0beadbadb1","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
+const DATA={"projectId":"project","projectIdConfigured":false,"storyAliases":{},"historicalQuestions":[],"warnings":[],"engineVersion":"0.8.39","renderId":"297bd1988dbef9cc","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -1016,6 +1071,11 @@ const actionableQuestion = i => ownerQuestions(i).length>0
   && (questionStopsWork(i)||Boolean(DATA.nodes[i].rec));
 const ownerDecisions = i =>
   (DATA.nodes[i].od||[]).map(di=>(DATA.decisions||[])[di]).filter(Boolean);
+const historicalQuestions = i =>
+  (DATA.historicalQuestions||[]).filter(question=>question.n===i);
+const questionTargetsStory = (question,storyId) =>
+  !(DATA.historicalQuestions||[]).some(historical=>historical.id===question.id)
+  && (DATA.storyAliases?.[question.storyId]||question.storyId)===storyId;
 const nodeProgress = i => (DATA.nodes[i].aw||[]).reduce((p,wi)=>{
   const w=DATA.work[wi]; p.done+=w.done; p.total+=w.total; return p;
 },{done:0,total:0});
@@ -1540,7 +1600,8 @@ function switchView(view,focus=false){
 function openRequestedStory(){
   const id=requestedViewParams().get('story');
   if(!id)return false;
-  const index=nodeById.get(id);
+  const canonicalId=DATA.storyAliases?.[id]||id;
+  const index=nodeById.get(canonicalId);
   if(index===undefined)return false;
   openNode(index);return true;
 }
@@ -1857,6 +1918,12 @@ chips.appendChild(lensSeg);
 const rail = document.getElementById('rail');
 const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
 const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
+const railStorageScope=`${String(DATA.projectId||DATA.title||'project')}|${String(location.pathname||'')}`;
+const railDisclosureKey=`vizzer.rail.expanded.${encodeURIComponent(railStorageScope)}`;
+let savedRailDisclosure={};
+if(DATA.projectIdConfigured){try{savedRailDisclosure=JSON.parse(sessionStorage.getItem(railDisclosureKey)||'{}');if(!savedRailDisclosure||typeof savedRailDisclosure!=='object'||Array.isArray(savedRailDisclosure))savedRailDisclosure={};}catch(_){savedRailDisclosure={};}}
+function railDisclosureOpen(id,fallback=false){return Object.prototype.hasOwnProperty.call(savedRailDisclosure,id)?Boolean(savedRailDisclosure[id]):fallback;}
+function saveRailDisclosure(id,open){savedRailDisclosure[id]=Boolean(open);if(DATA.projectIdConfigured){try{sessionStorage.setItem(railDisclosureKey,JSON.stringify(savedRailDisclosure));}catch(_){}}}
 const capTail=id=>id.includes(':')?id.slice(id.indexOf(':')+1):id;
 function foundationalGroup(group,nodes=[]){
   const seen=new Set();let current=group;
@@ -1884,9 +1951,31 @@ function foundationRemaining(nodes=[]){
   return new Set(nodes.filter(node=>!node.foundation&&(node.role||'delivery')==='delivery'&&node.g!=='shipped'&&nodeFoundationTier(node)!==null).map(node=>node.id)).size;
 }
 const foundationCountMarkup=(count,show=false)=>show||count?`<span class="foundationcount" title="${count} unfinished foundational ${count===1?'story':'stories'}">${count} F</span>`:'';
+function groupProgressDetails(nodes=[]){
+  const ids=new Set(nodes.map(node=>node.id));
+  const prerequisites=new Set();
+  for(const [from,to] of DATA.edges||[]){
+    const dependency=DATA.nodes[from],dependent=DATA.nodes[to];
+    if(dependent&&ids.has(dependent.id)&&dependency&&dependency.g!=='shipped')prerequisites.add(dependent.id);
+  }
+  const work=nodes.flatMap(node=>(node.aw||[]).map(index=>DATA.work[index]).filter(Boolean));
+  const blockedTasks=work.filter(entry=>entry.state==='blocked').length;
+  const checkpointDone=work.reduce((sum,entry)=>sum+(Number.isFinite(entry.done)?entry.done:0),0);
+  const checkpointTotal=work.reduce((sum,entry)=>sum+(Number.isFinite(entry.total)?entry.total:0),0);
+  return {declaredBlockers:nodes.filter(node=>Boolean(node.blockers)).length,
+    blockedTasks,unmetPrerequisites:prerequisites.size,
+    workStories:nodes.filter(node=>(node.aw||[]).length>0).length,
+    checkpointDone,checkpointTotal,prerequisites};
+}
 function meterMarkup(label,total,shipped,bugs,kind='',foundational=false,nodes=[]){
   const remaining=foundationRemaining(nodes);
-  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${foundationCountMarkup(remaining,foundational)}${shipped}/${total}</span></span>
+  const detail=groupProgressDetails(nodes),signals=[];
+  if(detail.declaredBlockers)signals.push(`${detail.declaredBlockers} declared blocker${detail.declaredBlockers===1?'':'s'}`);
+  if(detail.blockedTasks)signals.push(`${detail.blockedTasks} blocked task${detail.blockedTasks===1?'':'s'}`);
+  if(detail.unmetPrerequisites)signals.push(`${detail.unmetPrerequisites} unmet prerequisite${detail.unmetPrerequisites===1?'':'s'}`);
+  if(detail.workStories)signals.push(`${detail.workStories} stories with agent work`);
+  if(detail.checkpointTotal)signals.push(`${detail.checkpointDone}/${detail.checkpointTotal} checkpoints`);
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${foundationCountMarkup(remaining,foundational)}${shipped}/${total} delivery shipped</span>${signals.length?`<span class="capactivity">${signals.map(esc).join(' · ')}</span>`:''}</span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
 }
 function registerMeter(key,element,label,matches,foundational=false){
@@ -1933,7 +2022,7 @@ addEventListener('keydown',event=>{
   if(exitClusterFocus()){event.preventDefault();syncFocusExitControl();}
 });
 function renderCapabilityAccordions(){
-  const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
+  const heading=document.createElement('h2');heading.className='railhead';heading.textContent=(DATA.groups||[]).some(group=>!group.parent&&group.kind==='platform')?'Platforms':'Capabilities';rail.appendChild(heading);
   const groups=DATA.groups||[];
   const roots=new Map(groups.filter(group=>!group.parent).map(group=>[capTail(group.id),group]));
   const orderedCaps=[...caps].sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total||a.localeCompare(b));
@@ -1943,7 +2032,8 @@ function renderCapabilityAccordions(){
     const summaryShipped=summaryNodes.filter(node=>node.g==='shipped').length;
     const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
     const details=document.createElement('details');details.className='railcapability';
-    if(capFocus===capability||(!capFocus&&index===0))details.open=true;
+    details.open=capFocus===capability||railDisclosureOpen(`root:${root?.id||capability}`,!capFocus&&index===0);
+    details.setAttribute('data-rail-id',`root:${root?.id||capability}`);
     const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes),summaryNodes);
     summary.addEventListener('click',event=>{
       if(typeof questionEditor!=='undefined'&&questionEditor){event.preventDefault();return;}
@@ -1953,26 +2043,49 @@ function renderCapabilityAccordions(){
     });
     details.appendChild(summary);
     registerMeter(`capability:${capability}`,summary,root?.title||capability||'Project',summaryMatches,foundationalGroup(root,summaryNodes));
-    details.addEventListener('toggle',()=>{
-      if(!details.open)return;
-      rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});
-    });
+    details.addEventListener('toggle',()=>saveRailDisclosure(details.getAttribute('data-rail-id'),details.open));
     const children=document.createElement('div');children.className='railcapabilitybody';
+    const appendStoryLeaf=(container,node)=>{
+      const story=document.createElement('button');story.type='button';story.className='railstory';story.setAttribute('data-story-id',node.id);story.textContent=node.t;story.title=node.t;story.setAttribute('aria-label',`Open story: ${node.t}`);
+      story.onclick=()=>{const nodeIndex=nodeById.get(node.id);if(nodeIndex!==undefined)openNode(nodeIndex);};container.appendChild(story);
+    };
     meterButton(`all:${capability}`,'All work',summaryMatches,summaryNodes.length,summaryShipped,summaryBugs,
       button=>selectHierarchy(button,capability),children,'capability');
-    const kindOrder={capability:0,tool:1,subcapability:2,utility:3,assistance:4};
-    groups.filter(group=>group.parent===root?.id)
-      .map(group=>({group,matches:node=>nodeBelongsToGroup(node,group.id)}))
-      .map(entry=>({...entry,nodes:deliveryNodes.filter(entry.matches)}))
-      .filter(entry=>entry.nodes.length)
-      .sort((a,b)=>(kindOrder[a.group.kind]??9)-(kindOrder[b.group.kind]??9)||structuralTitle(a.group).localeCompare(structuralTitle(b.group)))
-      .forEach(({group,matches,nodes})=>{
-        const shipped=nodes.filter(node=>node.g==='shipped').length;
-        const bugs=nodes.filter(node=>node.st==='bug-gap').length;
+    const kindOrder={platform:0,capability:1,epic:2,tool:3,subcapability:4,utility:5,assistance:6};
+    const childrenByParent=new Map();
+    for(const group of groups){const siblings=childrenByParent.get(group.parent)||[];siblings.push(group);childrenByParent.set(group.parent,siblings);}
+    const renderGroup=(group,container,depth)=>{
+      const matches=node=>nodeBelongsToGroup(node,group.id),nodes=deliveryNodes.filter(matches);
+      if(!nodes.length)return;
+      const childGroups=(childrenByParent.get(group.id)||[]).sort((a,b)=>(kindOrder[a.kind]??9)-(kindOrder[b.kind]??9)||structuralTitle(a).localeCompare(structuralTitle(b)));
+      const direct=deliveryNodes.filter(node=>node.group===group.id);
+      const hasChildren=childGroups.length>0||direct.length>0;
+      if(!hasChildren){
+        const shipped=nodes.filter(node=>node.g==='shipped').length,bugs=nodes.filter(node=>node.st==='bug-gap').length;
         const button=meterButton(group.id,structuralTitle(group),matches,nodes.length,shipped,bugs,
-          selected=>selectHierarchy(selected,capability,group.id),children,group.kind);
+          selected=>selectHierarchy(selected,capability,group.id),container,group.kind);
+        button.classList.add('railgroup-leaf');
         if(groupFocus===group.id){button.classList.add('on');button.setAttribute('aria-pressed','true');}
-      });
+        return;
+      }
+      const detailsGroup=document.createElement('details');detailsGroup.className='railgroup';detailsGroup.setAttribute('data-rail-id',`group:${group.id}`);
+      detailsGroup.open=groupFocus===group.id||railDisclosureOpen(detailsGroup.getAttribute('data-rail-id'),false);
+      const summaryGroup=document.createElement('summary');summaryGroup.innerHTML=meterMarkup(structuralTitle(group),nodes.length,nodes.filter(node=>node.g==='shipped').length,nodes.filter(node=>node.st==='bug-gap').length,group.kind,foundationalGroup(group,nodes),nodes);
+      registerMeter(`group-summary:${group.id}`,summaryGroup,structuralTitle(group),matches,foundationalGroup(group,nodes));
+      summaryGroup.addEventListener('click',event=>{if(typeof questionEditor!=='undefined'&&questionEditor)event.preventDefault();else{enterClusterFocus(capability);openHierarchyDetails(group.id);}});
+      detailsGroup.appendChild(summaryGroup);
+      const body=document.createElement('div');body.className='railgroupbody';body.setAttribute('data-depth',String(depth));
+      detailsGroup.addEventListener('toggle',()=>saveRailDisclosure(detailsGroup.getAttribute('data-rail-id'),detailsGroup.open));
+      const selected=meterButton(`all:${group.id}`,`All ${structuralKindLabel(group.kind)||'work'}`,matches,nodes.length,nodes.filter(node=>node.g==='shipped').length,nodes.filter(node=>node.st==='bug-gap').length,
+        button=>selectHierarchy(button,capability,group.id),body,group.kind);
+      detailsGroup.appendChild(body);
+      if(groupFocus===group.id){selected.classList.add('on');selected.setAttribute('aria-pressed','true');}
+      for(const child of childGroups)renderGroup(child,body,depth+1);
+      for(const node of direct)appendStoryLeaf(body,node);
+      container.appendChild(detailsGroup);
+    };
+    for(const node of deliveryNodes.filter(node=>node.group===root?.id||(node.c===capability&&!node.group)))appendStoryLeaf(children,node);
+    (childrenByParent.get(root?.id)||[]).sort((a,b)=>(kindOrder[a.kind]??9)-(kindOrder[b.kind]??9)||structuralTitle(a).localeCompare(structuralTitle(b))).forEach(group=>renderGroup(group,children,1));
     details.appendChild(children);rail.appendChild(details);
   });
 }
@@ -2206,7 +2319,7 @@ function bindDiscussionControls(n,actions){
     currentActions?.querySelectorAll('[data-chat-primary],[data-chat-overflow],[data-chat-provider]').forEach(button=>button.disabled=true);
     try{
       const authority=await preflightDiscussionAuthority();
-      const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id)
+      const liveQuestions=(authority.questions||[]).filter(question=>questionTargetsStory(question,n.id))
         .map(question=>({id:question.id,fingerprint:question.fingerprint}));
       const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({
         expectedRevision:discussionContext.queue.revision,provider,storyId:n.id,questions:liveQuestions,
@@ -2668,7 +2781,9 @@ function storyFullBodyMarkup(n){
 }
 function storySidebarSectionsMarkup(n){
   if(n.foundation)return '';
-  return `<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
+  return `${n.blockers?`<section class="reviewsteps declaredblockers" data-story-section="blockers"><h3>Declared blockers</h3>${storySidebarSectionBody(n.blockers,'')}</section>`:''}`
+    +`${n.nextAction?`<section class="reviewsteps nextaction" data-story-section="next-action"><h3>Next action</h3>${storySidebarSectionBody(n.nextAction,'')}</section>`:''}`
+    +`<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
     +storySidebarSectionBody(n.rs,'No review steps written yet for this item.')+`</section>`
     +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="acceptance" aria-expanded="true">Acceptance criteria</button>`
     +`<div data-story-accordion-panel="acceptance">`
@@ -2826,7 +2941,7 @@ async function queueTestDesignRequest(i,button){
   const prompt=testDesignRequest(n);
   try{
     button.disabled=true;button.textContent='Queuing…';const authority=await preflightDiscussionAuthority();
-    const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id).map(question=>({id:question.id,fingerprint:question.fingerprint}));
+    const liveQuestions=(authority.questions||[]).filter(question=>questionTargetsStory(question,n.id)).map(question=>({id:question.id,fingerprint:question.fingerprint}));
     const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({expectedRevision:discussionContext.queue.revision,provider:'codex',storyId:n.id,questions:liveQuestions,request:{kind:'test-design',prompt}})});
     const body=await response.json();if(!response.ok)throw new Error(body.error||'test-design queue failed');discussionContext.queue=body.queue;
     button.textContent=body.changed?'Test review queued':'Already queued';refreshDossier();
@@ -2865,6 +2980,9 @@ function openNode(i,{inPlace=false}={}){
     ?`<div class="questionblocker" role="status"><strong>Blocked — answer required</strong><span>${unresolvedOwnerQuestions.length} owner decision${unresolvedOwnerQuestions.length===1?'':'s'} must be resolved before this story is dispatchable. Select an option below or suggest something else.</span></div>`:'';
   const storyActions=storyDiscussionActions(n,unresolvedOwnerQuestions);
   const ownerDecisionCards=ownerDecisions(i).map(decisionCard).join('');
+  const historicalQuestionCards=historicalQuestions(i).map(question=>
+    `<article class="historicalquestion"><h4>Historical owner question</h4><b>${esc(question.owner)}</b><p>${esc(question.prompt)}</p><small>${esc(question.storyId)} → ${esc(question.canonicalTarget)} · ${esc(question.sourceReason)}</small></article>`
+  ).join('');
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
   const trail = lens.progress ? progressText(n) : '';
   const assessment=n.assess||null;
@@ -2907,6 +3025,7 @@ function openNode(i,{inPlace=false}={}){
     ${agentWork}
     ${ownerQuestionCards}
     ${ownerDecisionCards}
+    ${historicalQuestionCards?`<section class="historicalquestions"><h3>Historical questions</h3>${historicalQuestionCards}</section>`:''}
     ${planSection(n)}
     ${storyDeepLinkMarkup(n)}
     ${storySidebarSectionsMarkup(n)}
@@ -3053,11 +3172,25 @@ function openHierarchyDetails(groupId){
   activePlanningArea=null;areaRequest++;sel=-1;
   const nodes=deliveryNodes.filter(node=>nodeBelongsToGroup(node,groupId));
   const shipped=nodes.filter(node=>node.g==='shipped').length;
+  const progress=groupProgressDetails(nodes);
+  const stuckRows=nodes.map(node=>{
+    const index=DATA.nodes.indexOf(node);
+    const work=(node.aw||[]).map(workIndex=>DATA.work[workIndex]).filter(entry=>entry?.state==='blocked');
+    const unmet=(DATA.edges||[]).filter(([from,to])=>to===index&&DATA.nodes[from]?.g!=='shipped').map(([from])=>DATA.nodes[from]?.t).filter(Boolean);
+    if(!node.blockers&&!work.length&&!unmet.length)return '';
+    return `<article class="groupstuck"><button type="button" data-j="${index}"><b>${esc(node.t)}</b> · ${esc(node.st)}</button>`
+      +`${node.blockers?`<div><b>Declared blockers</b>${storySidebarSectionBody(node.blockers,'')}</div>`:''}`
+      +`${work.length?`<div><b>Blocked agent work</b><ul>${work.map(entry=>`<li>${esc(entry.agent)}: ${esc(entry.task)}${entry.blockedBy?.length?` · waiting on ${esc(entry.blockedBy.join(', '))}`:''}</li>`).join('')}</ul></div>`:''}`
+      +`${unmet.length?`<div><b>Unmet prerequisites</b><ul>${unmet.map(title=>`<li>${esc(title)}</li>`).join('')}</ul></div>`:''}`
+      +`${node.nextAction?`<div><b>Next action</b>${storySidebarSectionBody(node.nextAction,'')}</div>`:''}</article>`;
+  }).join('');
   const remaining=typeof foundationRemaining==='function'?foundationRemaining(nodes):0;
   const tier=group.foundationTier?` · Foundation tier ${esc(group.foundationTier)}`:'';
   dossierIdentity.innerHTML=`<h2>${esc(group.title)}</h2><p class="dossiersummary">${esc(structuralKindLabel(group.kind))}${tier}</p>`;
   dossierFooter.innerHTML='';
-  dbody.innerHTML=`<p>${remaining?`${foundationCountMarkup(remaining)} `:''}${shipped}/${nodes.length} delivery stories complete</p>`
+  dbody.innerHTML=`<p>${remaining?`${foundationCountMarkup(remaining)} `:''}${shipped}/${nodes.length} delivery stories shipped</p>`
+    +`<ul class="groupstatus"><li>${progress.declaredBlockers} stories with declared blocker notes</li><li>${progress.blockedTasks} blocked agent-work records</li><li>${progress.unmetPrerequisites} stories with unmet prerequisites</li><li>${progress.workStories} stories with agent work</li>${progress.checkpointTotal?`<li>${progress.checkpointDone}/${progress.checkpointTotal} reported checkpoints</li>`:'<li>Checkpoint progress not estimated</li>'}</ul>`
+    +`<section class="groupstucklist"><h3>Blockers and next actions</h3>${stuckRows||'<p>No declared blockers, blocked agent-work records, or unmet prerequisites in this group.</p>'}</section>`
     +`<details open><summary>Purpose & details</summary><div class="storymd">${renderStoryMarkdown(group.purpose||group.summary||'No purpose has been recorded for this group.')}</div></details>`
     +`<details open><summary>Plans</summary><div class="storymd">${renderStoryMarkdown(group.plans||'No candidate plans have been recorded for this group.')}</div></details>`
     +(group.h?`<p><a class="story" href="${esc(group.h)}">Open ${esc(structuralKindLabel(group.kind))} source</a></p>`:'');
@@ -4474,25 +4607,140 @@ if(historyDock){
  }else{document.getElementById('historystatus').textContent='Open the locally served Vizzer to see session history.'}
 }
 
+// Browser-local images are keyed by project identity and never enter the graph.
+// IndexedDB keeps binary images out of localStorage and out of project files.
+(function(){
+  const layer=document.getElementById('cluster-background');
+  const panel=document.getElementById('background-panel');
+  const open=document.getElementById('background-open');
+  const file=document.getElementById('background-file');
+  const slider=document.getElementById('background-opacity');
+  const remove=document.getElementById('background-remove');
+  const status=document.getElementById('background-status');
+  const canPersist=Boolean(DATA.projectIdConfigured);
+  const key='project:'+DATA.projectId+':'+location.pathname;
+  let current=null,objectURL='',revision=0,queue=Promise.resolve();
+  const database=new Promise((resolve,reject)=>{
+    if(!canPersist){resolve(null);return;}
+    if(!window.indexedDB){reject(new Error('Image storage is unavailable in this browser.'));return;}
+    const request=window.indexedDB.open('vizzer-cluster-backgrounds',1);
+    request.onupgradeneeded=()=>request.result.createObjectStore('projects');
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(new Error('Cannot open browser image storage.'));
+    request.onblocked=()=>reject(new Error('Close older Vizzer tabs and try again.'));
+  });
+  // Attach a rejection handler immediately, before the first storage use.
+  database.catch(()=>{});
+  async function storage(mode,record){
+    if(!canPersist)throw new Error('Set a unique project.id to save this image between visits.');
+    const db=await database;
+    return new Promise((resolve,reject)=>{
+      const tx=db.transaction('projects',mode),store=tx.objectStore('projects');
+      const request=mode==='readonly'?store.get(key):record?store.put(record,key):store.delete(key);
+      tx.oncomplete=()=>resolve(request.result);
+      tx.onerror=tx.onabort=()=>reject(new Error('Could not save the image. Browser storage may be full or disabled.'));
+    });
+  }
+  function enqueue(operation){
+    queue=queue.catch(()=>{}).then(operation);
+    queue.catch(error=>{status.textContent=error.message;});
+    return queue;
+  }
+  function syncVisibility(){layer.hidden=!current||document.getElementById('cv').hidden;}
+  function apply(record){
+    if(objectURL)URL.revokeObjectURL(objectURL);
+    current=record;objectURL=record?URL.createObjectURL(record.blob):'';
+    if(record)layer.src=objectURL;else layer.removeAttribute('src');
+    slider.value=String(record?.opacity??25);
+    layer.style.opacity=String(Number(slider.value)/100);
+    document.getElementById('background-value').value=slider.value+'%';
+    remove.disabled=!record;slider.disabled=!record;
+    syncVisibility();
+  }
+  function toggle(show){panel.hidden=!show;open.setAttribute('aria-expanded',String(show));if(show)file.focus();else open.focus();}
+  open.addEventListener('click',()=>toggle(panel.hidden));
+  document.getElementById('background-close').addEventListener('click',()=>toggle(false));
+  panel.addEventListener('keydown',event=>{if(event.key==='Escape'){toggle(false);event.stopPropagation();}});
+  new MutationObserver(syncVisibility).observe(document.getElementById('cv'),{attributes:true,attributeFilter:['hidden']});
+  file.addEventListener('change',async()=>{
+    const selected=file.files[0];file.value='';if(!selected)return;
+    const attempt=++revision;
+    try{
+      if(!['image/png','image/jpeg','image/webp'].includes(selected.type))throw new Error('Choose a PNG, JPEG or WebP image.');
+      if(selected.size>5*1024*1024)throw new Error('Choose an image up to 5 MB.');
+      const url=URL.createObjectURL(selected),image=new Image();
+      try{image.src=url;await image.decode();if(image.naturalWidth*image.naturalHeight>24000000)throw new Error('Choose an image with at most 24 million pixels.');}
+      finally{URL.revokeObjectURL(url);}
+      if(attempt!==revision)return;
+      const record={blob:selected,opacity:Number(slider.value),name:selected.name};
+      await enqueue(async()=>{if(attempt!==revision)return;if(canPersist)await storage('readwrite',record);if(attempt===revision){apply(record);status.textContent=canPersist?'Saved for this project: '+record.name:'Image active for this page. Set a unique project.id to save it between visits.';}});
+    }catch(error){if(attempt===revision)status.textContent=error.message||'Could not read this image.';}
+  });
+  slider.addEventListener('input',()=>{
+    if(!current)return;
+    current={...current,opacity:Number(slider.value)};
+    layer.style.opacity=String(current.opacity/100);
+    document.getElementById('background-value').value=slider.value+'%';
+  });
+  slider.addEventListener('change',()=>{
+    const record=current,attempt=revision;if(!record)return;
+    enqueue(async()=>{if(canPersist&&attempt===revision)await storage('readwrite',record);});
+  });
+  remove.addEventListener('click',()=>{
+    const attempt=++revision;
+    enqueue(async()=>{if(canPersist)await storage('readwrite',null);if(attempt===revision){apply(null);status.textContent='Background removed.';}});
+  });
+  const initial=revision;
+  enqueue(async()=>{const record=canPersist?await storage('readonly'):null;if(initial!==revision)return;if(record){apply(record);status.textContent='Saved for this project: '+record.name;}else{apply(null);if(!canPersist)status.textContent='Set a unique project.id to save images between visits.';}});
+})();
+
+let restartCsrfToken='';
+const restartServiceButton=document.getElementById('restart-service');
+const restartServiceStatus=document.getElementById('restart-service-status');
+function offerServerRestart(body){
+  if(body?.csrfToken&&body?.renderId&&body.renderId!==RENDER_ID){
+    restartCsrfToken=body.csrfToken;
+    if(restartServiceButton)restartServiceButton.hidden=false;
+    if(restartServiceStatus)restartServiceStatus.textContent='This page and server use different Vizzer builds.';
+  }
+}
+restartServiceButton?.addEventListener('click',async()=>{
+  if(!restartCsrfToken)return;
+  restartServiceButton.disabled=true;
+  if(restartServiceStatus)restartServiceStatus.textContent='Checking the project service…';
+  try{
+    const response=await fetch('/api/server/restart',{method:'POST',headers:{'X-Vizzer-CSRF':restartCsrfToken}});
+    const body=await response.json();
+    if(!response.ok)throw new Error(body.error||'Could not restart Vizzer.');
+    if(restartServiceStatus)restartServiceStatus.textContent=`Restarting ${body.service||'this project service'}…`;
+    setTimeout(()=>location.reload(),1500);
+  }catch(error){
+    if(restartServiceStatus)restartServiceStatus.textContent=error.message||String(error);
+    restartServiceButton.disabled=false;
+  }
+});
 if(SERVED){
   fetch('/api/plan').then(async response=>{
+    const body=await response.json();offerServerRestart(body);
     if(!response.ok){
       if(response.status===404){planError='Planning controls are disabled for this project.';refreshDossier();return;}
-      throw new Error((await response.json()).error||'planning unavailable');
+      throw new Error(body.error||'planning unavailable');
     }
-    planContext=await response.json();
+    planContext=body;
     if(planContext.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${planContext.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve.`);
     planDraft=JSON.parse(JSON.stringify(planContext.overlay.state));
     refreshDossier();
   }).catch(error=>{ planError=error.message||String(error); refreshDossier(); });
   fetch('/api/questions').then(async response=>{
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'question answers unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve before answering.`);
     adoptQuestionAuthority(body);
   }).catch(error=>{questionError=error.message||String(error);refreshDossier();});
   fetch('/api/discussions').then(async response=>{
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'discussion queue unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve before queuing discussion.`);
     discussionContext=body;discussionError='';refreshDossier();
@@ -4500,6 +4748,7 @@ if(SERVED){
   fetch('/api/workstreams').then(async response=>{
     if(response.status===404)return null;
     const body=await response.json();
+    offerServerRestart(body);
     if(!response.ok)throw new Error(body.error||'workstreams unavailable');
     if(body.renderId!==RENDER_ID)throw new Error(`Vizzer server is out of date (${body.renderId||'unknown'} vs ${RENDER_ID}). Restart vizzer serve.`);
     DATA.workstreams=body.workstreams||{};

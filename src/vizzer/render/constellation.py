@@ -13,11 +13,13 @@ from .. import __version__, process_render_id, process_render_id_reason
 from ..config import Config
 from ..model import Graph, owner_question_fingerprint
 from ..story_sidebar import object_detail_provider
+from ..story_aliases import load_story_aliases
 from .common import priority_items, source_link_prefix
 from .velocity import velocity_payload, velocity_summary
 
 FRONTEND_DIR = "constellation"
 FRONTEND_RESOURCES = (
+    ("__VIZZER_BACKGROUND_CSS__", "background.css"),
     ("__VIZZER_SESSION_HISTORY_CSS__", "session_history.css"),
     ("__VIZZER_TOKENS_CSS__", "tokens.css"),
     ("__VIZZER_LAYOUT_CSS__", "layout.css"),
@@ -38,8 +40,38 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_RUNNERS_JS__", "runners.js"),
     ("__VIZZER_CANVAS_JS__", "canvas.js"),
     ("__VIZZER_SESSION_HISTORY_JS__", "session_history.js"),
+    ("__VIZZER_BACKGROUND_JS__", "background.js"),
     ("__VIZZER_BOOTSTRAP_JS__", "bootstrap.js"),
 )
+
+
+def engine_badge_text(version: str, current_render_id: str | None) -> str:
+    """Show a known release version, or the concrete render identity."""
+    normalized = version.strip() if isinstance(version, str) else ""
+    if normalized and normalized.lower() not in {"unknown", "v0.0.0-unknown"} \
+            and not normalized.lower().endswith(".unknown"):
+        return normalized
+    render_id = (current_render_id or "").strip()
+    return f"render {render_id[:12]}" if render_id else "render identity unavailable"
+
+
+def project_identity(graph: Graph, cfg: Config) -> str:
+    """Return a deterministic, path-free project identity for browser state."""
+    for configured in (cfg.get("render.background_project_id", ""),
+                       cfg.get("project.id", "")):
+        if isinstance(configured, str) and re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", configured):
+            return configured
+    name = cfg.get("project.name", "project")
+    normalized = re.sub(r"[^A-Za-z0-9._:-]+", "-", str(name).strip()).strip("-")
+    return normalized[:120] or "project"
+
+
+def project_identity_is_configured(cfg: Config) -> bool:
+    """Whether browser-persisted project data has an authored unique scope."""
+    return any(
+        isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9._:-]{1,120}", value))
+        for value in (cfg.get("render.background_project_id", ""), cfg.get("project.id", ""))
+    )
 
 
 def _frontend_text(name: str) -> str:
@@ -60,7 +92,10 @@ def _template_text(cfg: Config) -> str:
         lambda match: resources[match.group(0)],
         shell,
     )
-    composed = composed.replace("__ENGINE_VERSION__", html.escape(__version__))
+    composed = composed.replace(
+        "__ENGINE_VERSION__",
+        html.escape(engine_badge_text(__version__, process_render_id())),
+    )
     composed = composed.replace(
         "__VIZZER_SESSION_HISTORY_HIDDEN__",
         "" if cfg.get("session_history.enabled", False) else "hidden",
@@ -509,6 +544,8 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
                 portfolio_lane.setdefault(item_id, lane)
     nodes, idx = [], {}
     items = sorted(graph.items, key=lambda i: i.id)
+    story_aliases, historical_question_ids, historical_questions, alias_warnings = \
+        load_story_aliases(root, cfg, {item.id for item in items})
     provide_detail = object_detail_provider(root)
     for it in items:
         if it.id in idx:
@@ -529,7 +566,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         node = {
             "id": it.id,
             "s": it.id.split(":", 1)[1].split("/")[-1],
-            "t": it.title[:80],
+            "t": it.title,
             "summary": (it.one_liner or "")[:240],
             "st": it.status,
             # codex-sequence-2026-08-08: one lifecycle role map across views.
@@ -552,6 +589,8 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
             "rs": detail["sections"].get("reviewSteps"),
             "acx": detail["sections"].get("acceptance"),
             "dod": detail["sections"].get("definitionOfDone"),
+            "blockers": detail["sections"].get("blockers"),
+            "nextAction": detail["sections"].get("nextAction"),
             # codex-sequence-2026-08-08: visible canonical on-drive story link.
             "h": _source_href(root, cfg, it.source.get("path")),
             "w": round(0.72 + 0.36 * w, 2),
@@ -753,9 +792,23 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
     # Keeping them separate lets a question survive stale/completed work and lets
     # operational blockers remain honest.
     questions = []
+    historical_question_payloads = []
+    historical_by_id = {item["id"]: item for item in historical_questions}
     for entry in sorted(graph.owner_questions, key=lambda value: value.id):
-        node_index = idx.get(entry.story_id)
+        candidate_disposition = historical_by_id.get(entry.id)
+        disposition = (candidate_disposition
+                       if candidate_disposition
+                       and candidate_disposition["story_id"] == entry.story_id else None)
+        target_story = (disposition["canonical_target"] if disposition
+                        else story_aliases.get(entry.story_id, entry.story_id))
+        node_index = idx.get(target_story)
         if node_index is None:
+            continue
+        if disposition is not None:
+            historical = _question_payload(entry, node_index)
+            historical.update({"canonicalTarget": target_story, "status": "historical",
+                               "sourceReason": disposition["source_reason"]})
+            historical_question_payloads.append(historical)
             continue
         question_index = len(questions)
         questions.append(_question_payload(entry, node_index))
@@ -771,7 +824,7 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         key=lambda value: (value.question.id, value.revision),
     ):
         question = entry.question
-        node_index = idx.get(question.story_id)
+        node_index = idx.get(story_aliases.get(question.story_id, question.story_id))
         if node_index is None:
             continue
         decision_index = len(decisions)
@@ -862,6 +915,11 @@ def render(graph: Graph, cfg: Config, root: Path) -> dict[str, str]:
         rendered_groups.append(entry)
 
     data = {
+        "projectId": project_identity(graph, cfg),
+        "projectIdConfigured": project_identity_is_configured(cfg),
+        "storyAliases": story_aliases,
+        "historicalQuestions": historical_question_payloads,
+        "warnings": list(graph.warnings) + alias_warnings,
         "engineVersion": __version__,
         "renderId": _current_render_id(),
         "nodes": nodes,

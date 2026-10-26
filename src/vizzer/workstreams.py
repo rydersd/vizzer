@@ -16,6 +16,7 @@ import re
 import tempfile
 
 from .model import Graph
+from .story_aliases import load_story_aliases
 
 
 SCHEMA = 1
@@ -293,6 +294,27 @@ def _validate_overlay(value: object, graph: Graph) -> dict:
     return {**value, "state": state, "history": history}
 
 
+def _resolve_story_aliases(value: object, aliases: dict[str, str]) -> object:
+    """Project workstream Story references through validated configured aliases."""
+    if not aliases or not isinstance(value, dict):
+        return value
+    projected = copy.deepcopy(value)
+    states = [projected.get("state")]
+    if "workstreams" in projected:
+        states.append(projected)
+    history = projected.get("history", [])
+    if isinstance(history, list):
+        states.extend(entry.get("state") for entry in history if isinstance(entry, dict))
+    for state in states:
+        if not isinstance(state, dict) or not isinstance(state.get("workstreams"), list):
+            continue
+        for stream in state["workstreams"]:
+            if isinstance(stream, dict) and isinstance(stream.get("storyIds"), list):
+                stream["storyIds"] = [aliases.get(item, item) if isinstance(item, str) else item
+                                      for item in stream["storyIds"]]
+    return projected
+
+
 def read_workstreams(cfg, root: Path, graph: Graph, *, strict: bool = True):
     try:
         path = _configured_path(cfg, root, "definitions_path")
@@ -300,12 +322,28 @@ def read_workstreams(cfg, root: Path, graph: Graph, *, strict: bool = True):
             return empty_workstreams(), []
         if not path.is_file() or path.is_symlink():
             raise WorkstreamError("workstreams file must be a regular file")
-        return _validate_overlay(json.loads(path.read_text(encoding="utf-8")), graph), []
+        aliases, _, _, alias_warnings = load_story_aliases(
+            root, cfg, set(graph.item_map())
+        )
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        projected = _resolve_story_aliases(payload, aliases)
+        return _validate_overlay(projected, graph), alias_warnings
     except (OSError, UnicodeError, json.JSONDecodeError, WorkstreamError) as exc:
         error = exc if isinstance(exc, WorkstreamError) else WorkstreamError(str(exc))
         if strict:
             raise error
         return None, [f"workstreams ignored: {error}"]
+
+
+def snapshot_workstreams_source(cfg, root: Path, graph: Graph) -> dict:
+    """Capture the validated authored representation for exact rollback."""
+    # Validate through the regular projected reader, then preserve source IDs
+    # and historical entries from the authored bytes for a possible rollback.
+    read_workstreams(cfg, root, graph)
+    path = _configured_path(cfg, root, "definitions_path")
+    if not path.exists():
+        return empty_workstreams()
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def apply_workstreams(cfg, root: Path, graph: Graph, state: dict, *,
@@ -316,12 +354,18 @@ def apply_workstreams(cfg, root: Path, graph: Graph, state: dict, *,
         raise WorkstreamConflict(
             f"stale workstream revision {expected_revision}; current is {current['revision']}"
         )
-    normalized = _validate_state(state, graph)
+    aliases, _, _, _ = load_story_aliases(root, cfg, set(graph.item_map()))
+    normalized = _validate_state(_resolve_story_aliases(state, aliases), graph)
     timestamp, _ = _now(now)
     revision = current["revision"] + 1
     actor = _text(actor, "workstream actor")
     rationale = _text(rationale, "workstream rationale")
-    history = list(current.get("history", []))
+    source_path = _configured_path(cfg, root, "definitions_path")
+    try:
+        authored_overlay = json.loads(source_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        authored_overlay = {}
+    history = list(authored_overlay.get("history", [])) if isinstance(authored_overlay, dict) else []
     history.append({
         "revision": revision, "updatedAt": timestamp, "actor": actor,
         "rationale": rationale, "state": normalized,
@@ -337,9 +381,11 @@ def apply_workstreams(cfg, root: Path, graph: Graph, state: dict, *,
 
 def restore_workstreams(cfg, root: Path, graph: Graph, overlay: dict) -> None:
     """Restore a validated snapshot after a derived refresh failure."""
+    aliases, _, _, _ = load_story_aliases(root, cfg, set(graph.item_map()))
+    _validate_overlay(_resolve_story_aliases(overlay, aliases), graph)
     _atomic_write(
         _configured_path(cfg, root, "definitions_path"),
-        _validate_overlay(overlay, graph),
+        overlay,
     )
 
 

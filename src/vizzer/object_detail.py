@@ -15,7 +15,7 @@ from .model import Item
 
 SCHEMA = "vizzer-object-detail/v1"
 MAX_DETAIL_BYTES = 64 * 1024
-SECTION_NAMES = ("reviewSteps", "acceptance", "definitionOfDone")
+SECTION_NAMES = ("reviewSteps", "acceptance", "definitionOfDone", "blockers", "nextAction")
 
 
 class ObjectDetailError(ValueError):

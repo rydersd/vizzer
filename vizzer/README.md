@@ -92,6 +92,24 @@ starts after user login, not before login, and does not open a browser or
 poll/pull other repositories. The downstream startup installer assumes a
 vendored engine; this source checkout instead uses `start_server.py`.
 
+The served constellation can offer **Restart Vizzer** when its page and server
+render identities differ. The endpoint is available only for a same-origin,
+CSRF-checked request from a project server whose matching per-project LaunchAgent
+is installed. It validates the plist label, working directory, engine path, root,
+and port before dispatching `launchctl kickstart` for that one service. If the
+service is missing, manually launched, or mismatched, the UI reports that restart
+is unsupported and gives the reason; it never guesses a process by port. Install
+the macOS per-project login service with the startup module in the engine's Python
+environment:
+
+```sh
+python3 -m vizzer.startup --root /path/to/project --port 8480
+```
+
+This control is macOS LaunchAgent-specific. On other platforms, or for a manually
+started server, restart the server using that platform's process manager or the
+original terminal instead.
+
 ## Project landing page
 
 The dashboard now opens with six project-library shortcuts: product spec,

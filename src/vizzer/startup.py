@@ -8,6 +8,13 @@ import subprocess
 import sys
 
 
+def service_label_for_root(root: Path) -> str:
+    """Return the stable Vizzer server LaunchAgent label for one project root."""
+    resolved = Path(root).resolve()
+    identity = hashlib.sha256(str(resolved).encode()).hexdigest()[:12]
+    return f'com.vizzer.project.{identity}.server'
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path.cwd())
