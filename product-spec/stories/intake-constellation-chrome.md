@@ -21,7 +21,7 @@ area_planning, chip_layout, panel_resize, view_tables, notices, symbols.
 - Owner ruling 2026-10-17: Lucide (ISC) is the default set; the owner will
   customize later.
 
-## Tests
+## Named tests
 
-1. Every glyph slot resolves in the default set; a project override replaces it.
-2. Leak guard: no SF Symbol data in the built distributable.
+- (planned) `tests/test_glyphs.py::test_every_glyph_slot_resolves_and_project_override_replaces_it`
+- (planned) `tests/test_glyphs.py::test_no_sf_symbol_data_in_built_distributable`

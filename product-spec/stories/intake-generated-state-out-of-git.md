@@ -11,11 +11,14 @@ IllTool 2bd3abf86 (#1436), 7469ca7ff, df53d9811.
 
 ## Acceptance
 
-- Generated views, workstream history and review packets are not tracked; any
-  reader regenerates them locally. Legacy tracked history is kept until compaction.
+- Disposable rendered output (generated views, review packets) is regenerated
+  locally by any reader and stays out of Git.
+- Durable records (review plans, agent runs, owner verdicts, the answer ledger)
+  stay tracked and append-only; they are never treated as generated state.
+- Legacy tracked history is kept until compaction.
 - Stored history size is measured and reported, not estimated.
 
-## Tests
+## Named tests
 
-1. Refresh in a fresh clone regenerates views; `check` passes without tracked views.
-2. Legacy history survives until compaction (data-loss guard).
+- (planned) `tests/test_generated_state.py::test_fresh_clone_refresh_regenerates_views_and_check_passes`
+- (planned) `tests/test_generated_state.py::test_durable_records_stay_tracked_and_legacy_history_survives_until_compaction`

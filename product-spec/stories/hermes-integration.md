@@ -33,14 +33,19 @@ receive `AI_AGENT=hermes-agent`, `HERMES_AGENT=true`, `HERMES_SESSION_ID`.
 - Answers written from a Hermes session record provider provenance from the
   environment (`hermes-agent`, session id) without changing decision identity.
 
-## Tests
-
-1. Project with CLAUDE.md + AGENTS.md: block present in the file Hermes loads.
-2. Managed block scanned with Hermes's `context` patterns yields no finding.
-3. Answer recorded under `AI_AGENT=hermes-agent` carries Hermes provenance; same
-   answer from another provider is the same decision.
-
 ## Test plan (RC)
 
 Live Hermes session in an installed project: context visible, skill listed after
 trust, refresh hook and MCP snippet exercised by the owner.
+
+## Named tests
+
+- (planned) `tests/test_install.py::test_managed_block_written_to_the_file_hermes_loads`
+- (planned) `tests/test_install.py::test_managed_block_passes_hermes_injection_scan`
+- (planned) `tests/test_answers.py::test_hermes_provenance_recorded_without_changing_decision_identity`
+
+## Open contract questions
+
+- Context-file precedence when `.hermes.md`, AGENTS.md and CLAUDE.md coexist: which receives the block, which only references it.
+- Provenance trust boundary: are environment-supplied provider values trusted or only advisory?
+- Session-id retention: stored in the ledger, or dropped after the answer is recorded?
