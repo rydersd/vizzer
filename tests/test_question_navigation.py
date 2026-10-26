@@ -668,6 +668,9 @@ _REAL_SERVER_DRIVER = _HARNESS + r"""
   const settle=async()=>{
     for(let i=0;i<2000&&(!questionContext||(globalThis.__vizzerPending||0)>0);i++)
       await __hostWait(5);
+    if(!questionContext||(globalThis.__vizzerPending||0)>0)
+      throw new Error(`page boot did not settle in 10 s: pending=${globalThis.__vizzerPending||0} `+
+        `authority=${questionContext?'adopted':'none'} questionError=${questionError||''}`);
     await __hostWait(0);
   };
   await settle();
