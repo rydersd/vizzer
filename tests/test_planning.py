@@ -180,3 +180,46 @@ def test_analysis_warns_when_order_has_no_target_and_done_promotion_has_no_effec
     assert "story:new" not in analysis["recommendations"]["after"]
     assert any("already done" in warning for warning in analysis["warnings"])
     assert any("not an effective target" in warning for warning in analysis["warnings"])
+
+
+def _write_owner_overlay(tmp_path, promote):
+    state = {"promote": promote, "defer": [], "order": []}
+    overlay = {"schema": 1, "revision": 3, "updatedAt": "2026-09-25T04:58:19Z", "author": "owner",
+               "rationale": "front of the queue", "state": state,
+               "history": [{"revision": 3, "updatedAt": "2026-09-25T04:58:19Z", "author": "owner",
+                            "rationale": "front of the queue", "state": state}]}
+    path = tmp_path / "vizzer/planning-overlay.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(overlay, indent=2) + "\n")
+    return path
+
+
+def test_shipped_promotion_is_satisfied_not_a_warning_while_a_missing_one_still_warns(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "priority": {"enabled": True, "target_items": ["story:target"], "target_manifest": "", "limit": 20},
+        "planning": {"enabled": True, "overlay_path": "vizzer/planning-overlay.json"},
+    }))
+    graph = Graph(items=[
+        _item("target", status="ready"), _item("open", status="ready"), _item("done", status="shipped"),
+    ])
+    promote = ["story:open", "story:done"]
+    path = _write_owner_overlay(tmp_path, promote)
+    before = path.read_bytes()
+
+    apply_priorities(graph, cfg, tmp_path)
+
+    planning = graph.priority["planning"]
+    assert [warning for warning in graph.warnings if "story:done" in warning] == []
+    assert planning["satisfied"] == ["story:done"]
+    assert planning["promote"] == promote, "the owner's course is reported as written"
+    assert "story:done" not in graph.priority["effective_targets"]
+    targets = {entry["item"]: entry["sources"] for entry in graph.priority["targets"]}
+    assert "planning-overlay:promote" in targets["story:open"]
+    assert path.read_bytes() == before, "the overlay is never rewritten"
+
+    # A promotion that names no item in the graph is not satisfied: it still warns.
+    _write_owner_overlay(tmp_path, ["story:open", "story:gone"])
+    missing = Graph(items=[_item("target", status="ready"), _item("open", status="ready")])
+    apply_priorities(missing, cfg, tmp_path)
+    assert any("story:gone" in warning for warning in missing.warnings)
+    assert "satisfied" not in missing.priority["planning"] or missing.priority["planning"]["satisfied"] == []

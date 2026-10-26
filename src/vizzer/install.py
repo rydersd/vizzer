@@ -28,8 +28,10 @@ _MANAGED_BLOCK = """<!-- vizzer:begin (managed — do not hand-edit; `update` re
   when source roles or locations change, and inspect its match-count preview.
 - Update the authoritative source story/issue/ledger first. After completing work,
   finding an issue, or changing a story's status or dependencies, run
-  `python3 vizzer/engine refresh`. A shipped story stays shipped; record follow-up
-  issues as separate work or flags rather than downgrading its source status.
+  `python3 vizzer/engine refresh`. A shipped story stays shipped unless the project's
+  lifecycle policy withdraws the label (e.g. a shipped gate on failing acceptance
+  tests); record other follow-up issues as separate work or flags rather than
+  downgrading its source status.
 - If `activity.path` is configured, update the named checkpoint feed when work
   starts, advances, blocks, pauses, or completes; activity never changes lifecycle
   or priority truth. <!-- codex-sequence-2026-08-08 -->
@@ -92,8 +94,9 @@ description: Regenerate the project work-graph and views; read vizzer/views/dash
 # Vizzer
 
 - Treat configured source stories, issues, and ledgers as authoritative; never edit
-  the generated graph or views. A shipped story stays shipped: capture regressions
-  as separate work or flags, not a source-status downgrade.
+  the generated graph or views. A shipped story stays shipped unless the project's
+  lifecycle policy withdraws the label (e.g. a shipped gate on failing acceptance
+  tests): capture other regressions as separate work or flags, not a downgrade.
 - Run `python3 vizzer/engine refresh` after task completion, issue discovery, or a
   story status/dependency change. It syncs and renders one newly built graph.
 - Read semantic `source_area` configuration instead of assuming a `wiki`,

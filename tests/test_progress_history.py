@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import json
 
+from vizzer import cli
+from vizzer.cli import main
 from vizzer.config import Config, DEFAULTS, deep_merge
 from vizzer.model import ActiveWork, Graph, Item
 from vizzer.progress_history import prepare_progress_history
@@ -167,3 +169,86 @@ def test_git_backfill_prose_only_commit_creates_no_progress_event(tmp_path):
         progress_history.subprocess.run = original
 
     assert graph.items[0].progress["events"] == []
+
+
+def _history_repo(tmp_path, make_repo):
+    repo = make_repo(tmp_path, "mixed_proj")
+    config = repo / "vizzer" / "vizzer.toml"
+    config.write_text(config.read_text() + '\n[progress]\nhistory_path = "vizzer/progress-history.json"\n',
+                      encoding="utf-8")
+    return repo, repo / "spec/drawing/epics/tools/stories/snap-to-grid.md"
+
+
+def _snap_record(repo):
+    graph = json.loads((repo / "vizzer" / "vizzer-graph.json").read_text())
+    item = next(item for item in graph["items"] if item["id"].endswith("snap-to-grid"))
+    history = json.loads((repo / "vizzer" / "progress-history.json").read_text())
+    return item, history["items"][item["id"]]
+
+
+def test_shipped_story_with_later_non_withdrawing_edits_stays_shipped(tmp_path, make_repo):
+    # Shipped is withdrawn only by the project's lifecycle policy (a status
+    # header edit). Body and Deps edits that keep the header leave the story
+    # shipped and record no lifecycle event. Driven through the real parser.
+    repo, story = _history_repo(tmp_path, make_repo)
+    story.write_text(story.read_text().replace("> Status: building", "> Status: shipped"), encoding="utf-8")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    item, _ = _snap_record(repo)
+    assert item["status"] == "shipped"
+
+    story.write_text(story.read_text()
+                     .replace("> Deps: canvas-core", "> Deps: []")
+                     .replace("configured grid.", "configured grid, with a new paragraph of detail."),
+                     encoding="utf-8")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    item, record = _snap_record(repo)
+    assert item["status"] == "shipped"
+    assert record["status"] == "shipped"
+    assert not item["deps"]
+    assert [event for event in record["events"] if event["kind"] == "lifecycle"] == []
+
+
+def test_check_never_writes_the_ledger_and_stamps_an_unpersisted_flip_at_its_updated_at(
+    tmp_path, make_repo, capsys, monkeypatch
+):
+    repo, story = _history_repo(tmp_path, make_repo)
+    story.write_text(story.read_text().replace("> Status: building", "> Status: ready"), encoding="utf-8")
+    assert main(["refresh", "--root", str(repo)]) == 0
+    ledger = repo / "vizzer" / "progress-history.json"
+    # Age the ledger so a clock-stamped event can never equal its updatedAt.
+    anchor = "2026-01-01T00:00:00Z"
+    aged = json.loads(ledger.read_text())
+    aged["updatedAt"] = anchor
+    ledger.write_text(json.dumps(aged), encoding="utf-8")
+    before = ledger.read_bytes()
+
+    staged = []
+    real = cli.prepare_progress_history
+
+    def recording(*args, **kwargs):
+        result = real(*args, **kwargs)
+        staged.append(result.content)
+        return result
+
+    monkeypatch.setattr(cli, "prepare_progress_history", recording)
+    story.write_text(story.read_text().replace("> Status: ready", "> Status: building"), encoding="utf-8")
+    outputs = []
+    for _ in range(2):
+        capsys.readouterr()
+        outputs.append((main(["check", "--root", str(repo)]), capsys.readouterr().out))
+        assert ledger.read_bytes() == before, "check must never write the progress ledger"
+
+    assert outputs[0] == outputs[1] and outputs[0][0] == 1
+    assert "stale: vizzer/progress-history.json" in outputs[0][1]
+    assert len(staged) == 2 and staged[0] == staged[1], "two consecutive checks must agree"
+    events = json.loads(staged[0])["items"]
+    flip = [event for record in events.values() for event in record["events"]
+            if event["kind"] == "lifecycle" and event["detail"] == "ready → building"]
+    assert [event["at"] for event in flip] == [anchor]
+
+
+def test_non_observer_without_persisted_updated_at_stages_nothing(tmp_path):
+    graph = _graph("building", done=1)
+    staged = prepare_progress_history(graph, _cfg(), tmp_path, observer=False)
+    assert staged.content is None
+    assert any("has no updatedAt yet" in warning for warning in graph.warnings)

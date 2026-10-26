@@ -26,6 +26,6 @@ Engine commits after 93fdab962, mapped to existing slices (no new capability bey
 
 ## State
 - [ ] slice 1 intake-question-navigation
-- [ ] slice 2 intake-lifecycle-truth
+- [x] slice 2 intake-lifecycle-truth
 - [ ] slice 3 intake-generated-state-out-of-git
 - [ ] slices 4-11, hermes-integration
