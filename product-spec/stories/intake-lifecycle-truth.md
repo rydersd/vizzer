@@ -1,6 +1,6 @@
 # Lifecycle truth fixes
 
-> Status: specced
+> Status: shipped
 > Deps: [illtool-intake-2026-10](illtool-intake-2026-10.md)
 > Release: R1
 > Tags: upstream, lifecycle
