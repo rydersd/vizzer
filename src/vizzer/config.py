@@ -41,7 +41,7 @@ DEFAULT_STATUSES = [
 
 DEFAULTS = {
     "radar": {"enabled": False},
-    "project": {"name": "project"},
+    "project": {"name": "project", "id": ""},
     # Zero preserves portable ephemeral binding; projects may pin a bookmarkable
     # loopback port without teaching every invocation the number.
     "server": {"port": 0},
@@ -62,6 +62,7 @@ DEFAULTS = {
                  "merges_path": "vizzer/velocity-merges.json"},
     "render": {"output_dir": "vizzer/views", "foundation_tiers_path": "",
                "releases": ["R0", "R1", "R2", "R3"],
+               "story_aliases": "", "background_project_id": "",
                "recommended": [], "project_documents": [],
                "obsidian_links": False, "title": ""},
     # Optional precompiled developer-object graph. Core has no Node/React runtime.

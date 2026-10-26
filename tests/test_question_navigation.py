@@ -18,8 +18,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -603,6 +605,68 @@ def test_static_file_build_boots_and_hides_the_control(runs):
     assert static["result"]["single"] == {"state": None}
 
 
+def _terminate_owned_browser(pid_file):
+    """Close only the Chrome process recorded by this smoke-test invocation."""
+    try:
+        record = json.loads(pid_file.read_text(encoding="utf-8"))
+        pid = record["pid"]
+        profile = record["profile"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return
+    if not isinstance(pid, int) or pid <= 1 or not isinstance(profile, str):
+        raise RuntimeError("browser smoke timeout left an invalid Chrome ownership record")
+
+    if os.name == "nt":
+        command = (
+            "$p=Get-CimInstance Win32_Process -Filter 'ProcessId = {}';"
+            "if ($p) {{ $p.CommandLine }}".format(pid)
+        )
+        inspected = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True, text=True, timeout=3,
+        )
+        if profile not in inspected.stdout:
+            return
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                       capture_output=True, text=True, timeout=5)
+        return
+
+    inspected = subprocess.run(
+        ["ps", "-axo", "pgid=,command="], capture_output=True, text=True, timeout=3,
+    )
+    owned_group = any(
+        line.lstrip().split(None, 1)[0:1] == [str(pid)]
+        and "--user-data-dir=" + profile in line
+        for line in inspected.stdout.splitlines()
+    )
+    if not owned_group:
+        return
+
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(pid, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    raise RuntimeError("owned Chrome process group remained after bounded SIGKILL cleanup")
+
+
 def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
     # Headless Chrome on a loopback-served page: Shift+Tab reaches the control,
     # a real pointer click at Next's centre hits Next and steps, and the arrow
@@ -613,10 +677,22 @@ def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
     ) if candidate and Path(candidate).is_file()), None)
     if chrome is None:
         pytest.skip("Chrome is required for the physical question-navigation check")
-    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})["constellation.html"]
+    rendered = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})
+    html = rendered["constellation.html"]
+    (tmp_path / "browser-fixture.html").write_text(html, encoding="utf-8")
+    asset_dir = tmp_path / "browser-assets"
+    asset_dir.mkdir()
+    for name in ("milkdown.js", "milkdown.css"):
+        (asset_dir / name).write_text(rendered[name], encoding="utf-8")
     script = Path(__file__).with_name("browser_question_navigation_smoke.js")
-    completed = subprocess.run([shutil.which("node") or "node", str(script), chrome], input=html,
-                               text=True, capture_output=True, timeout=60)
+    chrome_record = tmp_path / "browser-process.json"
+    try:
+        completed = subprocess.run([shutil.which("node") or "node", str(script), chrome,
+                                    str(asset_dir), str(chrome_record)], input=html,
+                                   text=True, capture_output=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        _terminate_owned_browser(chrome_record)
+        raise
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout) == {
         "opened": {"story": "story:a", "position": "1 of 4", "focus": "BODY"},
@@ -625,6 +701,7 @@ def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
         "clicked": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-next"},
         "right": {"story": "story:b", "position": "3 of 4", "focus": "data-question-nav-next"},
         "left": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-previous"},
+        "assetStatus": {"/milkdown.js": 200, "/milkdown.css": 200},
     }
 
 

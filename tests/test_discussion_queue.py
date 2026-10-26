@@ -205,3 +205,34 @@ def test_request_retention_never_evicts_unrelated_live_dispatch(tmp_path):
                 and entry["state"] == "queued"]) == 1
     loaded, warnings = read_discussion_queue(cfg, tmp_path, graph)
     assert warnings == [] and loaded == queue
+
+
+def test_discussion_queue_resolves_active_alias_and_excludes_historical_question(tmp_path):
+    cfg = Config(data=deep_merge(DEFAULTS, {
+        "discussions": {"queue_path": "vizzer/discussion-queue.json"},
+        "render": {"story_aliases": "vizzer/story-id-crosswalk.json"},
+    }))
+    (tmp_path / "vizzer").mkdir()
+    (tmp_path / "vizzer/story-id-crosswalk.json").write_text(json.dumps({
+        "schema": 1, "aliases": {"story:retired": "story:a"},
+        "historical_question_ids": ["question:past"],
+        "historical_questions": [{
+            "id": "question:past", "story_id": "story:retired",
+            "canonical_target": "story:a", "status": "historical",
+            "source_reason": "Replaced by a current decision.",
+        }],
+    }))
+    graph = _graph(with_question=False)
+    active = _question("story:retired")
+    past = _question("story:retired")
+    past.id = "question:past"
+    graph.owner_questions = [active, past]
+
+    queued, changed = enqueue_discussion(
+        cfg, tmp_path, graph, provider="codex", story_id="story:a",
+        questions=[{"id": active.id, "fingerprint": owner_question_fingerprint(active)}],
+        expected_revision=0,
+    )
+
+    assert changed is True
+    assert queued["history"][0]["questionIds"] == [active.id]

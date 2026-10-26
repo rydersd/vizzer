@@ -1,0 +1,26 @@
+/* Optional local reference image. It is a browser preference, never graph data. */
+#cluster-background{position:fixed;inset:0;width:100vw;height:100vh;object-fit:cover;object-position:center;opacity:.25;pointer-events:none;z-index:0}
+#cluster-background[hidden]{display:none}
+#background-open{height:var(--toolbar-control-height);padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:11px/1.2 ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer}
+#background-open:hover,#background-open[aria-expanded="true"]{border-color:var(--accent)}
+#background-open:focus-visible,#background-panel button:focus-visible,#background-panel input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#background-panel{position:fixed;z-index:20;top:48px;right:16px;width:min(340px,calc(100vw - 24px));display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);box-shadow:0 12px 32px #0007;font-size:12px}
+#background-panel[hidden]{display:none}
+#background-panel header{display:flex;justify-content:space-between;align-items:center;font:12px ui-monospace,"SF Mono",Menlo,monospace}
+#background-panel header button{width:26px;height:26px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font-size:18px;cursor:pointer}
+#background-panel p{color:var(--mut);line-height:1.45}
+#background-panel .background-picker{display:inline-flex;justify-content:center;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);cursor:pointer}
+#background-file{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+#background-panel label[for="background-opacity"]{display:flex;justify-content:space-between;align-items:center}
+#background-opacity{width:100%;accent-color:var(--accent)}
+#background-remove{justify-self:start;padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:transparent;color:var(--ink);font:11px ui-monospace,"SF Mono",Menlo,monospace;cursor:pointer}
+#background-panel button:disabled,#background-opacity:disabled{opacity:.45;cursor:default}
+#background-status{min-height:1.4em;font-size:11px}
+#top{grid-template-columns:minmax(0,1fr) repeat(5,max-content)}
+@media(max-width:760px){
+  #top{grid-template-columns:minmax(0,1fr) repeat(3,max-content)}
+  #background-open{grid-column:2;grid-row:1}
+  #viewmenu{grid-column:3;grid-row:1}
+  #exportmenu{grid-column:4;grid-row:1}
+  #background-panel{top:54px;right:8px}
+}

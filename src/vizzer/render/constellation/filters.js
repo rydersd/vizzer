@@ -206,6 +206,12 @@ chips.appendChild(lensSeg);
 const rail = document.getElementById('rail');
 const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
 const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
+const railStorageScope=`${String(DATA.projectId||DATA.title||'project')}|${String(location.pathname||'')}`;
+const railDisclosureKey=`vizzer.rail.expanded.${encodeURIComponent(railStorageScope)}`;
+let savedRailDisclosure={};
+if(DATA.projectIdConfigured){try{savedRailDisclosure=JSON.parse(sessionStorage.getItem(railDisclosureKey)||'{}');if(!savedRailDisclosure||typeof savedRailDisclosure!=='object'||Array.isArray(savedRailDisclosure))savedRailDisclosure={};}catch(_){savedRailDisclosure={};}}
+function railDisclosureOpen(id,fallback=false){return Object.prototype.hasOwnProperty.call(savedRailDisclosure,id)?Boolean(savedRailDisclosure[id]):fallback;}
+function saveRailDisclosure(id,open){savedRailDisclosure[id]=Boolean(open);if(DATA.projectIdConfigured){try{sessionStorage.setItem(railDisclosureKey,JSON.stringify(savedRailDisclosure));}catch(_){}}}
 const capTail=id=>id.includes(':')?id.slice(id.indexOf(':')+1):id;
 function foundationalGroup(group,nodes=[]){
   const seen=new Set();let current=group;
@@ -233,9 +239,31 @@ function foundationRemaining(nodes=[]){
   return new Set(nodes.filter(node=>!node.foundation&&(node.role||'delivery')==='delivery'&&node.g!=='shipped'&&nodeFoundationTier(node)!==null).map(node=>node.id)).size;
 }
 const foundationCountMarkup=(count,show=false)=>show||count?`<span class="foundationcount" title="${count} unfinished foundational ${count===1?'story':'stories'}">${count} F</span>`:'';
+function groupProgressDetails(nodes=[]){
+  const ids=new Set(nodes.map(node=>node.id));
+  const prerequisites=new Set();
+  for(const [from,to] of DATA.edges||[]){
+    const dependency=DATA.nodes[from],dependent=DATA.nodes[to];
+    if(dependent&&ids.has(dependent.id)&&dependency&&dependency.g!=='shipped')prerequisites.add(dependent.id);
+  }
+  const work=nodes.flatMap(node=>(node.aw||[]).map(index=>DATA.work[index]).filter(Boolean));
+  const blockedTasks=work.filter(entry=>entry.state==='blocked').length;
+  const checkpointDone=work.reduce((sum,entry)=>sum+(Number.isFinite(entry.done)?entry.done:0),0);
+  const checkpointTotal=work.reduce((sum,entry)=>sum+(Number.isFinite(entry.total)?entry.total:0),0);
+  return {declaredBlockers:nodes.filter(node=>Boolean(node.blockers)).length,
+    blockedTasks,unmetPrerequisites:prerequisites.size,
+    workStories:nodes.filter(node=>(node.aw||[]).length>0).length,
+    checkpointDone,checkpointTotal,prerequisites};
+}
 function meterMarkup(label,total,shipped,bugs,kind='',foundational=false,nodes=[]){
   const remaining=foundationRemaining(nodes);
-  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${foundationCountMarkup(remaining,foundational)}${shipped}/${total}</span></span>
+  const detail=groupProgressDetails(nodes),signals=[];
+  if(detail.declaredBlockers)signals.push(`${detail.declaredBlockers} declared blocker${detail.declaredBlockers===1?'':'s'}`);
+  if(detail.blockedTasks)signals.push(`${detail.blockedTasks} blocked task${detail.blockedTasks===1?'':'s'}`);
+  if(detail.unmetPrerequisites)signals.push(`${detail.unmetPrerequisites} unmet prerequisite${detail.unmetPrerequisites===1?'':'s'}`);
+  if(detail.workStories)signals.push(`${detail.workStories} stories with agent work`);
+  if(detail.checkpointTotal)signals.push(`${detail.checkpointDone}/${detail.checkpointTotal} checkpoints`);
+  return `<span class="caphead"><span class="caplabel">${kind?`<small>${esc(structuralKindLabel(kind))}</small>`:''}<span>${esc(label)}${foundational?foundationChip():''}</span></span><span class="capcount">${foundationCountMarkup(remaining,foundational)}${shipped}/${total} delivery shipped</span>${signals.length?`<span class="capactivity">${signals.map(esc).join(' · ')}</span>`:''}</span>
     <span class="capbar"><i style="width:${100*shipped/Math.max(1,total)}%"></i><b style="width:${100*bugs/Math.max(1,total)}%"></b></span>`;
 }
 function registerMeter(key,element,label,matches,foundational=false){
@@ -282,7 +310,7 @@ addEventListener('keydown',event=>{
   if(exitClusterFocus()){event.preventDefault();syncFocusExitControl();}
 });
 function renderCapabilityAccordions(){
-  const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Capabilities';rail.appendChild(heading);
+  const heading=document.createElement('h2');heading.className='railhead';heading.textContent=(DATA.groups||[]).some(group=>!group.parent&&group.kind==='platform')?'Platforms':'Capabilities';rail.appendChild(heading);
   const groups=DATA.groups||[];
   const roots=new Map(groups.filter(group=>!group.parent).map(group=>[capTail(group.id),group]));
   const orderedCaps=[...caps].sort((a,b)=>DATA.caps[b].total-DATA.caps[a].total||a.localeCompare(b));
@@ -292,7 +320,8 @@ function renderCapabilityAccordions(){
     const summaryShipped=summaryNodes.filter(node=>node.g==='shipped').length;
     const summaryBugs=summaryNodes.filter(node=>node.st==='bug-gap').length;
     const details=document.createElement('details');details.className='railcapability';
-    if(capFocus===capability||(!capFocus&&index===0))details.open=true;
+    details.open=capFocus===capability||railDisclosureOpen(`root:${root?.id||capability}`,!capFocus&&index===0);
+    details.setAttribute('data-rail-id',`root:${root?.id||capability}`);
     const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes),summaryNodes);
     summary.addEventListener('click',event=>{
       if(typeof questionEditor!=='undefined'&&questionEditor){event.preventDefault();return;}
@@ -302,26 +331,49 @@ function renderCapabilityAccordions(){
     });
     details.appendChild(summary);
     registerMeter(`capability:${capability}`,summary,root?.title||capability||'Project',summaryMatches,foundationalGroup(root,summaryNodes));
-    details.addEventListener('toggle',()=>{
-      if(!details.open)return;
-      rail.querySelectorAll('.railcapability').forEach(other=>{if(other!==details)other.open=false;});
-    });
+    details.addEventListener('toggle',()=>saveRailDisclosure(details.getAttribute('data-rail-id'),details.open));
     const children=document.createElement('div');children.className='railcapabilitybody';
+    const appendStoryLeaf=(container,node)=>{
+      const story=document.createElement('button');story.type='button';story.className='railstory';story.setAttribute('data-story-id',node.id);story.textContent=node.t;story.title=node.t;story.setAttribute('aria-label',`Open story: ${node.t}`);
+      story.onclick=()=>{const nodeIndex=nodeById.get(node.id);if(nodeIndex!==undefined)openNode(nodeIndex);};container.appendChild(story);
+    };
     meterButton(`all:${capability}`,'All work',summaryMatches,summaryNodes.length,summaryShipped,summaryBugs,
       button=>selectHierarchy(button,capability),children,'capability');
-    const kindOrder={capability:0,tool:1,subcapability:2,utility:3,assistance:4};
-    groups.filter(group=>group.parent===root?.id)
-      .map(group=>({group,matches:node=>nodeBelongsToGroup(node,group.id)}))
-      .map(entry=>({...entry,nodes:deliveryNodes.filter(entry.matches)}))
-      .filter(entry=>entry.nodes.length)
-      .sort((a,b)=>(kindOrder[a.group.kind]??9)-(kindOrder[b.group.kind]??9)||structuralTitle(a.group).localeCompare(structuralTitle(b.group)))
-      .forEach(({group,matches,nodes})=>{
-        const shipped=nodes.filter(node=>node.g==='shipped').length;
-        const bugs=nodes.filter(node=>node.st==='bug-gap').length;
+    const kindOrder={platform:0,capability:1,epic:2,tool:3,subcapability:4,utility:5,assistance:6};
+    const childrenByParent=new Map();
+    for(const group of groups){const siblings=childrenByParent.get(group.parent)||[];siblings.push(group);childrenByParent.set(group.parent,siblings);}
+    const renderGroup=(group,container,depth)=>{
+      const matches=node=>nodeBelongsToGroup(node,group.id),nodes=deliveryNodes.filter(matches);
+      if(!nodes.length)return;
+      const childGroups=(childrenByParent.get(group.id)||[]).sort((a,b)=>(kindOrder[a.kind]??9)-(kindOrder[b.kind]??9)||structuralTitle(a).localeCompare(structuralTitle(b)));
+      const direct=deliveryNodes.filter(node=>node.group===group.id);
+      const hasChildren=childGroups.length>0||direct.length>0;
+      if(!hasChildren){
+        const shipped=nodes.filter(node=>node.g==='shipped').length,bugs=nodes.filter(node=>node.st==='bug-gap').length;
         const button=meterButton(group.id,structuralTitle(group),matches,nodes.length,shipped,bugs,
-          selected=>selectHierarchy(selected,capability,group.id),children,group.kind);
+          selected=>selectHierarchy(selected,capability,group.id),container,group.kind);
+        button.classList.add('railgroup-leaf');
         if(groupFocus===group.id){button.classList.add('on');button.setAttribute('aria-pressed','true');}
-      });
+        return;
+      }
+      const detailsGroup=document.createElement('details');detailsGroup.className='railgroup';detailsGroup.setAttribute('data-rail-id',`group:${group.id}`);
+      detailsGroup.open=groupFocus===group.id||railDisclosureOpen(detailsGroup.getAttribute('data-rail-id'),false);
+      const summaryGroup=document.createElement('summary');summaryGroup.innerHTML=meterMarkup(structuralTitle(group),nodes.length,nodes.filter(node=>node.g==='shipped').length,nodes.filter(node=>node.st==='bug-gap').length,group.kind,foundationalGroup(group,nodes),nodes);
+      registerMeter(`group-summary:${group.id}`,summaryGroup,structuralTitle(group),matches,foundationalGroup(group,nodes));
+      summaryGroup.addEventListener('click',event=>{if(typeof questionEditor!=='undefined'&&questionEditor)event.preventDefault();else{enterClusterFocus(capability);openHierarchyDetails(group.id);}});
+      detailsGroup.appendChild(summaryGroup);
+      const body=document.createElement('div');body.className='railgroupbody';body.setAttribute('data-depth',String(depth));
+      detailsGroup.addEventListener('toggle',()=>saveRailDisclosure(detailsGroup.getAttribute('data-rail-id'),detailsGroup.open));
+      const selected=meterButton(`all:${group.id}`,`All ${structuralKindLabel(group.kind)||'work'}`,matches,nodes.length,nodes.filter(node=>node.g==='shipped').length,nodes.filter(node=>node.st==='bug-gap').length,
+        button=>selectHierarchy(button,capability,group.id),body,group.kind);
+      detailsGroup.appendChild(body);
+      if(groupFocus===group.id){selected.classList.add('on');selected.setAttribute('aria-pressed','true');}
+      for(const child of childGroups)renderGroup(child,body,depth+1);
+      for(const node of direct)appendStoryLeaf(body,node);
+      container.appendChild(detailsGroup);
+    };
+    for(const node of deliveryNodes.filter(node=>node.group===root?.id||(node.c===capability&&!node.group)))appendStoryLeaf(children,node);
+    (childrenByParent.get(root?.id)||[]).sort((a,b)=>(kindOrder[a.kind]??9)-(kindOrder[b.kind]??9)||structuralTitle(a).localeCompare(structuralTitle(b))).forEach(group=>renderGroup(group,children,1));
     details.appendChild(children);rail.appendChild(details);
   });
 }

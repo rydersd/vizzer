@@ -521,6 +521,11 @@ const actionableQuestion = i => ownerQuestions(i).length>0
   && (questionStopsWork(i)||Boolean(DATA.nodes[i].rec));
 const ownerDecisions = i =>
   (DATA.nodes[i].od||[]).map(di=>(DATA.decisions||[])[di]).filter(Boolean);
+const historicalQuestions = i =>
+  (DATA.historicalQuestions||[]).filter(question=>question.n===i);
+const questionTargetsStory = (question,storyId) =>
+  !(DATA.historicalQuestions||[]).some(historical=>historical.id===question.id)
+  && (DATA.storyAliases?.[question.storyId]||question.storyId)===storyId;
 const nodeProgress = i => (DATA.nodes[i].aw||[]).reduce((p,wi)=>{
   const w=DATA.work[wi]; p.done+=w.done; p.total+=w.total; return p;
 },{done:0,total:0});

@@ -8,6 +8,7 @@ import hashlib
 import http.server
 import json
 import os
+import plistlib
 import secrets
 import stat as stat_module
 import tempfile
@@ -70,8 +71,11 @@ from .serve_extensions import SERVE_EXTENSIONS, ServeRequestContext
 from .workstreams import (
     WorkstreamConflict, WorkstreamError, append_discussion, apply_workstreams,
     heartbeat_session, load_workstream_overlay, read_runtime, read_workstreams, restore_runtime,
+    snapshot_workstreams_source,
     restore_workstreams, start_session, stop_session,
 )
+from .startup import service_label_for_root
+from .story_aliases import load_story_aliases
 
 
 GRAPH_RELPATH = Path("vizzer/vizzer-graph.json")
@@ -104,6 +108,54 @@ def _serve_version_error(root: Path) -> str | None:
             f"{on_disk}. Restart vizzer serve"
         )
     return None
+
+
+def _project_service_restart_target(root: Path) -> tuple[str, str, list[str]]:
+    """Validate and return this project's exact Vizzer LaunchAgent target."""
+    project_root = root.resolve()
+    label = service_label_for_root(project_root)
+    plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
+    if not plist_path.is_file():
+        raise ValueError(
+            f"No installed Vizzer server service was found for this project ({label}). "
+            "Run `python3 -m vizzer.startup --root <project> --port <port>` to install it."
+        )
+    try:
+        config = plistlib.loads(plist_path.read_bytes())
+    except Exception as exc:
+        raise ValueError(f"Could not read this project's service configuration: {exc}") from exc
+    arguments = config.get("ProgramArguments") if isinstance(config, dict) else None
+    working_directory = config.get("WorkingDirectory") if isinstance(config, dict) else None
+    if not isinstance(config, dict) or config.get("Label") != label:
+        raise ValueError("Refusing restart: the project service label does not match its configuration.")
+    if working_directory != str(project_root):
+        raise ValueError("Refusing restart: the service belongs to a different project root.")
+    if not isinstance(arguments, list) or len(arguments) != 8:
+        raise ValueError("Refusing restart: the service command is not a Vizzer server command.")
+    engine = str(project_root / "vizzer" / "engine")
+    if arguments[:5] != [sys.executable, "-u", engine, "serve", "--root"]:
+        raise ValueError("Refusing restart: the service engine or command does not match this project.")
+    if arguments[5] != str(project_root) or arguments[6] != "--port":
+        raise ValueError("Refusing restart: the service root or port arguments do not match this project.")
+    try:
+        port = int(arguments[7])
+    except (TypeError, ValueError):
+        raise ValueError("Refusing restart: the service port is invalid.") from None
+    if not 1 <= port <= 65535:
+        raise ValueError("Refusing restart: the service port is invalid.")
+    domain = f"gui/{os.getuid()}"
+    return label, domain, ["launchctl", "kickstart", "-k", f"{domain}/{label}"]
+
+
+def _restart_project_service(root: Path) -> str:
+    """Restart only this project's validated Vizzer LaunchAgent service."""
+    label, _domain, command = _project_service_restart_target(root)
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        detail = getattr(exc, "stderr", None) or str(exc)
+        raise ValueError(f"Could not restart {label}: {detail}") from exc
+    return label
 
 
 # Background derived-view refresh. An accepted answer is durable the moment
@@ -484,6 +536,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 "error": error,
                 "runningEngineVersion": __version__,
                 "renderId": process_render_id(),
+                "csrfToken": csrf_token,
             })
             return False
 
@@ -837,6 +890,25 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path == "/api/server/restart":
+                if not self._same_origin():
+                    self._send_json(403, {"error": "same-origin CSRF check failed"})
+                    return
+                try:
+                    label, _domain, _command = _project_service_restart_target(root)
+                except ValueError as exc:
+                    self._send_json(409, {"error": str(exc)})
+                    return
+                self._send_json(202, {"accepted": True, "service": label})
+                self.wfile.flush()
+                def dispatch_restart():
+                    time.sleep(0.35)
+                    try:
+                        _restart_project_service(root)
+                    except ValueError as exc:
+                        print(f"serve: deferred restart failed: {exc}", file=sys.stderr, flush=True)
+                threading.Thread(target=dispatch_restart, name="vizzer-project-restart", daemon=True).start()
+                return
             if not parsed.query and parsed.path.startswith("/api/area-chat/"):
                 self._area_chat(unquote(parsed.path[len("/api/area-chat/"):]), writing=True)
                 return
@@ -1653,7 +1725,12 @@ def _check(root: Path, structural: bool) -> int:
         if warning.startswith("story note without a recorded answer"):
             print(f"check: WARNING {warning}")
 
-    answered_blockers = answered_blocker_records(expected_graph)
+    story_aliases, _, _, alias_warnings = load_story_aliases(
+        root, cfg, set(expected_graph.item_map())
+    )
+    for warning in alias_warnings:
+        print(f"check: {warning}")
+    answered_blockers = answered_blocker_records(expected_graph, story_aliases)
     if answered_blockers:
         for work, decisions in answered_blockers:
             answers = ", ".join(
@@ -1675,6 +1752,7 @@ def _check(root: Path, structural: bool) -> int:
         expected_graph,
         done_statuses=cfg.done_statuses(),
         grandfathered=grandfathered,
+        story_aliases=story_aliases,
     )
     live_blockers = [
         violation for violation in unresolved if not violation.grandfathered
@@ -2176,7 +2254,7 @@ def _workstreams(root: Path, args: argparse.Namespace) -> int:
             if locked is None:
                 return 2
             cfg, graph, _ = locked
-            previous, _ = read_workstreams(cfg, root, graph)
+            previous_source = snapshot_workstreams_source(cfg, root, graph)
             if args.workstream_action == "apply":
                 request = _read_request_file(args.file, "workstream state")
                 state = request.get("state", request)
@@ -2199,7 +2277,7 @@ def _workstreams(root: Path, args: argparse.Namespace) -> int:
                     owner_question_id=args.owner_question,
                 )
             if _refresh(root) != 0:
-                restore_workstreams(cfg, root, graph, previous)
+                restore_workstreams(cfg, root, graph, previous_source)
                 print("workstreams: mutation rolled back because refresh failed")
                 return 2
         print(json.dumps(updated, indent=2))

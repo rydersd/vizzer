@@ -25,7 +25,9 @@ function storyFullBodyMarkup(n){
 }
 function storySidebarSectionsMarkup(n){
   if(n.foundation)return '';
-  return `<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
+  return `${n.blockers?`<section class="reviewsteps declaredblockers" data-story-section="blockers"><h3>Declared blockers</h3>${storySidebarSectionBody(n.blockers,'')}</section>`:''}`
+    +`${n.nextAction?`<section class="reviewsteps nextaction" data-story-section="next-action"><h3>Next action</h3>${storySidebarSectionBody(n.nextAction,'')}</section>`:''}`
+    +`<section class="reviewsteps" data-story-section="review-steps"><h3>Review steps</h3>`
     +storySidebarSectionBody(n.rs,'No review steps written yet for this item.')+`</section>`
     +`<section class="storyaccordion acceptance"><button type="button" data-story-accordion="acceptance" aria-expanded="true">Acceptance criteria</button>`
     +`<div data-story-accordion-panel="acceptance">`
@@ -185,7 +187,7 @@ async function queueTestDesignRequest(i,button){
   const prompt=testDesignRequest(n);
   try{
     button.disabled=true;button.textContent='Queuing…';const authority=await preflightDiscussionAuthority();
-    const liveQuestions=(authority.questions||[]).filter(question=>question.storyId===n.id).map(question=>({id:question.id,fingerprint:question.fingerprint}));
+    const liveQuestions=(authority.questions||[]).filter(question=>questionTargetsStory(question,n.id)).map(question=>({id:question.id,fingerprint:question.fingerprint}));
     const response=await fetch('/api/discussions/queue',{method:'POST',headers:{'Content-Type':'application/json','X-Vizzer-CSRF':discussionContext.csrfToken},body:JSON.stringify({expectedRevision:discussionContext.queue.revision,provider:'codex',storyId:n.id,questions:liveQuestions,request:{kind:'test-design',prompt}})});
     const body=await response.json();if(!response.ok)throw new Error(body.error||'test-design queue failed');discussionContext.queue=body.queue;
     button.textContent=body.changed?'Test review queued':'Already queued';refreshDossier();
@@ -224,6 +226,9 @@ function openNode(i,{inPlace=false}={}){
     ?`<div class="questionblocker" role="status"><strong>Blocked — answer required</strong><span>${unresolvedOwnerQuestions.length} owner decision${unresolvedOwnerQuestions.length===1?'':'s'} must be resolved before this story is dispatchable. Select an option below or suggest something else.</span></div>`:'';
   const storyActions=storyDiscussionActions(n,unresolvedOwnerQuestions);
   const ownerDecisionCards=ownerDecisions(i).map(decisionCard).join('');
+  const historicalQuestionCards=historicalQuestions(i).map(question=>
+    `<article class="historicalquestion"><h4>Historical owner question</h4><b>${esc(question.owner)}</b><p>${esc(question.prompt)}</p><small>${esc(question.storyId)} → ${esc(question.canonicalTarget)} · ${esc(question.sourceReason)}</small></article>`
+  ).join('');
   const touched = n.ts ? new Date(n.ts*1000).toISOString().slice(0,10) : '—';
   const trail = lens.progress ? progressText(n) : '';
   const assessment=n.assess||null;
@@ -266,6 +271,7 @@ function openNode(i,{inPlace=false}={}){
     ${agentWork}
     ${ownerQuestionCards}
     ${ownerDecisionCards}
+    ${historicalQuestionCards?`<section class="historicalquestions"><h3>Historical questions</h3>${historicalQuestionCards}</section>`:''}
     ${planSection(n)}
     ${storyDeepLinkMarkup(n)}
     ${storySidebarSectionsMarkup(n)}
@@ -418,11 +424,25 @@ function openHierarchyDetails(groupId){
   if(typeof leaveOwnerQuestions==='function')leaveOwnerQuestions();
   const nodes=deliveryNodes.filter(node=>nodeBelongsToGroup(node,groupId));
   const shipped=nodes.filter(node=>node.g==='shipped').length;
+  const progress=groupProgressDetails(nodes);
+  const stuckRows=nodes.map(node=>{
+    const index=DATA.nodes.indexOf(node);
+    const work=(node.aw||[]).map(workIndex=>DATA.work[workIndex]).filter(entry=>entry?.state==='blocked');
+    const unmet=(DATA.edges||[]).filter(([from,to])=>to===index&&DATA.nodes[from]?.g!=='shipped').map(([from])=>DATA.nodes[from]?.t).filter(Boolean);
+    if(!node.blockers&&!work.length&&!unmet.length)return '';
+    return `<article class="groupstuck"><button type="button" data-j="${index}"><b>${esc(node.t)}</b> · ${esc(node.st)}</button>`
+      +`${node.blockers?`<div><b>Declared blockers</b>${storySidebarSectionBody(node.blockers,'')}</div>`:''}`
+      +`${work.length?`<div><b>Blocked agent work</b><ul>${work.map(entry=>`<li>${esc(entry.agent)}: ${esc(entry.task)}${entry.blockedBy?.length?` · waiting on ${esc(entry.blockedBy.join(', '))}`:''}</li>`).join('')}</ul></div>`:''}`
+      +`${unmet.length?`<div><b>Unmet prerequisites</b><ul>${unmet.map(title=>`<li>${esc(title)}</li>`).join('')}</ul></div>`:''}`
+      +`${node.nextAction?`<div><b>Next action</b>${storySidebarSectionBody(node.nextAction,'')}</div>`:''}</article>`;
+  }).join('');
   const remaining=typeof foundationRemaining==='function'?foundationRemaining(nodes):0;
   const tier=group.foundationTier?` · Foundation tier ${esc(group.foundationTier)}`:'';
   dossierIdentity.innerHTML=`<h2>${esc(group.title)}</h2><p class="dossiersummary">${esc(structuralKindLabel(group.kind))}${tier}</p>`;
   dossierFooter.innerHTML='';
-  dbody.innerHTML=`<p>${remaining?`${foundationCountMarkup(remaining)} `:''}${shipped}/${nodes.length} delivery stories complete</p>`
+  dbody.innerHTML=`<p>${remaining?`${foundationCountMarkup(remaining)} `:''}${shipped}/${nodes.length} delivery stories shipped</p>`
+    +`<ul class="groupstatus"><li>${progress.declaredBlockers} stories with declared blocker notes</li><li>${progress.blockedTasks} blocked agent-work records</li><li>${progress.unmetPrerequisites} stories with unmet prerequisites</li><li>${progress.workStories} stories with agent work</li>${progress.checkpointTotal?`<li>${progress.checkpointDone}/${progress.checkpointTotal} reported checkpoints</li>`:'<li>Checkpoint progress not estimated</li>'}</ul>`
+    +`<section class="groupstucklist"><h3>Blockers and next actions</h3>${stuckRows||'<p>No declared blockers, blocked agent-work records, or unmet prerequisites in this group.</p>'}</section>`
     +`<details open><summary>Purpose & details</summary><div class="storymd">${renderStoryMarkdown(group.purpose||group.summary||'No purpose has been recorded for this group.')}</div></details>`
     +`<details open><summary>Plans</summary><div class="storymd">${renderStoryMarkdown(group.plans||'No candidate plans have been recorded for this group.')}</div></details>`
     +(group.h?`<p><a class="story" href="${esc(group.h)}">Open ${esc(structuralKindLabel(group.kind))} source</a></p>`:'');

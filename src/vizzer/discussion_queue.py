@@ -13,6 +13,7 @@ from pathlib import Path
 import tempfile
 
 from .model import Graph, owner_question_fingerprint
+from .story_aliases import load_story_aliases
 
 
 SCHEMA = 2
@@ -299,10 +300,13 @@ def enqueue_discussion(
         if question_id in received:
             raise DiscussionQueueError(f"duplicate discussion question {question_id}")
         received[question_id] = fingerprint
+    aliases, _, historical_questions, _ = load_story_aliases(root, cfg, set(graph.item_map()))
+    historical_by_id = {entry["id"]: entry["story_id"] for entry in historical_questions}
     live = {
         question.id: owner_question_fingerprint(question)
         for question in graph.owner_questions
-        if question.story_id == story_id
+        if aliases.get(question.story_id, question.story_id) == story_id
+        and historical_by_id.get(question.id) != question.story_id
     }
     if received != live:
         raise DiscussionQueueConflict(

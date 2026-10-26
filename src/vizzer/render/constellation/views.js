@@ -268,7 +268,8 @@ function switchView(view,focus=false){
 function openRequestedStory(){
   const id=requestedViewParams().get('story');
   if(!id)return false;
-  const index=nodeById.get(id);
+  const canonicalId=DATA.storyAliases?.[id]||id;
+  const index=nodeById.get(canonicalId);
   if(index===undefined)return false;
   openNode(index);return true;
 }

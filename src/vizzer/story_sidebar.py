@@ -16,6 +16,8 @@ _CANONICAL_NAMES = {
     "review_steps": "reviewSteps",
     "acceptance": "acceptance",
     "definition_of_done": "definitionOfDone",
+    "blockers": "blockers",
+    "next_action": "nextAction",
 }
 
 
@@ -32,6 +34,10 @@ def _section_after(markdown: str, match: re.Match[str]) -> str:
 
 def _kind(heading: str) -> str | None:
     words = set(_normalized_heading(heading).split())
+    if words & {"blocker", "blockers", "blocked", "dependencies", "dependency"}:
+        return "blockers"
+    if words & {"next", "action", "actions", "step", "steps"} and words & {"next", "action"}:
+        return "next_action"
     if (("review" in words
          and words & {"step", "steps", "instruction", "instructions", "checklist"})
             or {"owner", "test", "list"} <= words):
@@ -51,6 +57,8 @@ def extract_story_sidebar_sections(markdown: str) -> dict[str, str | None]:
         "review_steps": None,
         "acceptance": None,
         "definition_of_done": None,
+        "blockers": None,
+        "next_action": None,
     }
     for match in _HEADING_RE.finditer(markdown):
         kind = _kind(match.group(2))

@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .config import Config
 from .model import ActiveWork, Graph, OwnerDecision, owner_question_from_dict
+from .story_aliases import load_story_aliases
 
 
 _STATES = {"active", "blocked", "paused", "complete"}
@@ -65,25 +66,32 @@ def _work_key(work: ActiveWork) -> tuple[str, str, str, str]:
     return (work.story_id, work.agent, work.task, work.updated_at)
 
 
-def blocker_is_cleared(graph: Graph, story_id: str) -> bool:
+def blocker_is_cleared(graph: Graph, story_id: str,
+                       story_aliases: Mapping[str, str] | None = None) -> bool:
     """All linked owner questions were answered and no current question remains."""
     has_decision = any(
-        decision.question.story_id == story_id for decision in graph.owner_decisions
+        (story_aliases or {}).get(decision.question.story_id, decision.question.story_id) == story_id
+        for decision in graph.owner_decisions
     )
     has_open = any(
-        question.story_id == story_id for question in graph.owner_questions
+        (story_aliases or {}).get(question.story_id, question.story_id) == story_id
+        for question in graph.owner_questions
     )
     return has_decision and not has_open
 
 
 def answered_blocker_records(
     graph: Graph,
+    story_aliases: Mapping[str, str] | None = None,
 ) -> list[tuple[ActiveWork, tuple[OwnerDecision, ...]]]:
     """Return activity records contradicted by fully answered owner questions."""
     decisions_by_story: dict[str, list[OwnerDecision]] = {}
     for decision in graph.owner_decisions:
-        decisions_by_story.setdefault(decision.question.story_id, []).append(decision)
-    open_stories = {question.story_id for question in graph.owner_questions}
+        story_id = (story_aliases or {}).get(decision.question.story_id,
+                                             decision.question.story_id)
+        decisions_by_story.setdefault(story_id, []).append(decision)
+    open_stories = {(story_aliases or {}).get(question.story_id, question.story_id)
+                    for question in graph.owner_questions}
     return [
         (
             work,
@@ -104,13 +112,16 @@ def unresolved_blocker_records(
     *,
     done_statuses: Collection[str],
     grandfathered: Collection[tuple[str, str, str, str]] = (),
+    story_aliases: Mapping[str, str] | None = None,
 ) -> list[BlockerViolation]:
     """Find blocked records with no live question/dependency or expired lease."""
     done = set(done_statuses)
     by_id = graph.item_map()
-    linked_stories = {question.story_id for question in graph.owner_questions}
+    linked_stories = {(story_aliases or {}).get(question.story_id, question.story_id)
+                      for question in graph.owner_questions}
     linked_stories.update(
-        decision.question.story_id for decision in graph.owner_decisions
+        (story_aliases or {}).get(decision.question.story_id, decision.question.story_id)
+        for decision in graph.owner_decisions
     )
     as_of = graph.activity.get("as_of")
     as_of = as_of if isinstance(as_of, str) and as_of else None
@@ -250,7 +261,8 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
             or stale_minutes <= 0:
         stale_minutes = 120
     item_ids = set(graph.item_map())
-    warnings: list[str] = []
+    story_aliases, historical_question_ids, _, alias_warnings = load_story_aliases(root, cfg, item_ids)
+    warnings: list[str] = list(alias_warnings)
     parsed: list[ActiveWork] = []
     seen: set[tuple[str, str, str]] = set()
 
@@ -269,6 +281,10 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
                 f"{label} needs non-empty storyId, agent, task, and state (record dropped)"
             )
             continue
+        if not isinstance(story_id, str):
+            warnings.append(f"{label} storyId must be a string (record dropped)")
+            continue
+        story_id = story_aliases.get(story_id, story_id)
         if story_id not in item_ids:
             warnings.append(f"{label} references unknown item {story_id} (record dropped)")
             continue
@@ -326,6 +342,7 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
             continue
         kept_related: list[str] = []
         for related_id in dict.fromkeys(related):
+            related_id = story_aliases.get(related_id, related_id)
             if related_id == story_id:
                 warnings.append(f"{label} cannot link {story_id} to itself (link dropped)")
             elif related_id not in item_ids:
@@ -345,6 +362,7 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
             continue
         kept_blocked_by = []
         for dependency_id in dict.fromkeys(blocked_by):
+            dependency_id = story_aliases.get(dependency_id, dependency_id)
             if dependency_id == story_id:
                 warnings.append(
                     f"{label} cannot block {story_id} on itself (link dropped)"
@@ -417,7 +435,8 @@ def load_active_work(graph: Graph, cfg: Config, root: Path) -> list[str]:
         except ValueError as exc:
             warnings.append(f"{label} {exc} (question dropped)")
             continue
-        if question.story_id not in item_ids:
+        if (story_aliases.get(question.story_id, question.story_id) not in item_ids
+                and question.id not in historical_question_ids):
             warnings.append(
                 f"{label} references unknown item {question.story_id} (question dropped)"
             )
