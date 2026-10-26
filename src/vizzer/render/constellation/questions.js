@@ -42,6 +42,10 @@ function openQuestionEditor(id,returnTarget){
 }
 
 let questionContext=null, questionError='', questionSubmissionError='';
+// True while an answer write is in flight. It lives outside the dossier DOM
+// because stepping between questions rebuilds the footer mid-write, and a
+// rebuilt button must stay busy rather than offer a second submission.
+let questionSubmissionPending=false;
 const questionDrafts=new Map();
 // Per-question notes from answer recovery: "answered elsewhere as X; your
 // choice Y was not recorded", or "not recorded; provide again". Shown on the
@@ -262,12 +266,16 @@ function bindQuestionControls(n){
       ?(count?'Selected · ready to answer':'0 of 1 ready')
       :`${count} selected · ${forms.length-count} remaining`;
     queueStatus.textContent=questionSubmissionError||countText;
-    queueButton.disabled=!questionContext||count!==forms.length;
+    queueButton.disabled=!questionContext||count!==forms.length||questionSubmissionPending;
     queueButton.setAttribute('aria-disabled',String(queueButton.disabled));
+    if(questionSubmissionPending){
+      queue.setAttribute('aria-busy','true');queueButton.textContent='Providing…';queueStatus.textContent='Providing answers…';
+      forms.forEach(form=>{const fieldset=form.querySelector('fieldset');if(fieldset)fieldset.disabled=true;});
+    }
   };
   syncQueue();
   queueButton.addEventListener('click',async()=>{
-    if(!questionContext)return;
+    if(!questionContext||questionSubmissionPending)return;
     questionSubmissionError='';
     const answers=forms.map(form=>{
       const id=form.dataset.questionId;
@@ -278,13 +286,16 @@ function bindQuestionControls(n){
         :{kind:'freeform',text:draft.text.trim()}};
     });
     if(answers.length!==forms.length||forms.some(form=>!ready(draftFor(form.dataset.questionId))))return;
+    questionSubmissionPending=true;
     queue.setAttribute('aria-busy','true');queueButton.disabled=true;queueButton.textContent='Providing…';queueStatus.textContent='Checking current Vizzer and question authority…';
     forms.forEach(form=>form.querySelector('fieldset').disabled=true);
     try{
       const accepted=await recordQuestionAnswers(forms,answers,
         {onStatus:text=>{queueStatus.textContent=text;}});
+      questionSubmissionPending=false;
       reconcileAcceptedDecisions(accepted.decisions,accepted.revision,{showFromTop:true,notes:accepted.notes});
     }catch(error){
+      questionSubmissionPending=false;
       queue.removeAttribute('aria-busy');queueButton.textContent=forms.length===1?'Provide answer':`Provide ${forms.length} answers`;
       forms.forEach(form=>form.querySelector('fieldset').disabled=false);
       questionSubmissionError=error.message||String(error);
@@ -447,6 +458,8 @@ function viewsBehindText(body,now=Date.now()){
 }
 function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=new Map()}={}){
   questionSubmissionError='';
+  // Answering from the question navigator moves on to the next open question.
+  const navigatorBefore=showFromTop&&typeof questionNavigatorState==='function'?questionNavigatorState():null;
   for(const [id,note] of notes)questionNotes.set(id,note);
   for(const decision of decisions||[]){
     const snapshot=decision.question||{};
@@ -478,7 +491,17 @@ function reconcileAcceptedDecisions(decisions,revision,{showFromTop=false,notes=
   // Draft edits and failures preserve the exact scroll position. Once the
   // Story update succeeds, rebuild the complete dossier from its top instead
   // of preserving a now-invalid question-form scroll extent and spacer.
-  if(showFromTop&&sel>=0)openNode(sel);else refreshDossier();
+  // Move on once the shown question is answered: by the footer (the whole
+  // Story) or by the editor (that one question).
+  const moveOn=navigatorBefore&&(decisions||[]).some(decision=>decision.question?.id===navigatorBefore.current.id)
+    ?nextOpenQuestionAfter(navigatorBefore):null;
+  if(moveOn){showOwnerQuestion(moveOn);focusOwnerQuestionCard(moveOn.id);}
+  else if(showFromTop&&sel>=0){
+    // Still answering this Story: its first open card; nothing left: the
+    // panel's close button, so focus never falls to the page.
+    openNode(sel);
+    if(!focusOwnerQuestionCard(ownerQuestions(sel)[0]?.id))document.getElementById('close')?.focus?.();
+  }else refreshDossier();
 }
 
 // Owner revisions are review candidates, with exact source identity and durable diffs.

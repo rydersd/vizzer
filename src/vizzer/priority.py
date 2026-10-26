@@ -278,13 +278,20 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             except ValueError as exc:
                 overlay_warnings = [f"planning proposal ignored: {exc}"]
     graph.warnings = sorted(set(graph.warnings).union(overlay_warnings))
+    # A promotion whose story has since shipped did its job: it leaves uptake
+    # and is reported as satisfied, not warned about. The owner's overlay is
+    # never rewritten to clear it.
+    satisfied_promotions = []
     for item_id in course["promote"]:
-        if _incomplete(graph.item_map().get(item_id), done_statuses):
+        promoted = graph.item_map().get(item_id)
+        if _incomplete(promoted, done_statuses):
             targets.add(item_id)
             provenance.setdefault(item_id, []).append("planning-overlay:promote")
+        elif promoted is not None:
+            satisfied_promotions.append(item_id)
         else:
             overlay_warnings.append(
-                f"planning promotion {item_id} is already done (ignored for uptake)"
+                f"planning promotion {item_id} is not in the graph (ignored for uptake)"
             )
     for item_id in course["defer"]:
         targets.discard(item_id)
@@ -517,6 +524,7 @@ def apply_priorities(graph: Graph, cfg, root: Path | None = None,
             "updatedAt": overlay_updated_at,
             "rationale": overlay_rationale,
             "promote": list(course["promote"]),
+            "satisfied": satisfied_promotions,
             "defer": list(course["defer"]),
             "order": list(course["order"]),
         },

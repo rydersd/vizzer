@@ -1711,7 +1711,9 @@ def _check(root: Path, structural: bool) -> int:
         return 2
     try:
         expected_graph = _build(cfg, root)
-        progress = prepare_progress_history(expected_graph, cfg, root)
+        # check never writes the ledger, so it never observes: an unpersisted
+        # status flip is stamped at the ledger's updatedAt, and two checks agree.
+        progress = prepare_progress_history(expected_graph, cfg, root, observer=False)
         expected_views = render_all(expected_graph, cfg, root)
     except Exception as exc:
         print(f"check: could not build current graph: {exc}")
