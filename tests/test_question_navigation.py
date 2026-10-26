@@ -16,6 +16,7 @@ dispatch arrow keys through the control and then the window.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -112,7 +113,9 @@ _SERVED_RUNNER = _RUNNER.replace(
     "fetch: () => new Promise(() => {})",
 )
 
-DRIVER = r"""
+# The event-capable dossier stand-in, shared by the fake-fetch scenarios and
+# the real `vizzer serve` round trip below.
+_HARNESS = r"""
 ;globalThis.__testDone=(async function(){
   // ---- an event-capable stand-in for the three dossier regions ----
   // Each region's innerHTML is the rendered truth; every write is a new
@@ -214,6 +217,9 @@ DRIVER = r"""
   let workLaneSteps=0;
   navigateWorkLane=()=>{workLaneSteps++;return true;};
 
+"""
+
+DRIVER = _HARNESS + r"""
   // ---- fixture: the graph carries four open questions on stories a, b, c ----
   const byId=id=>DATA.nodes.findIndex(node=>node.id===id);
   const [a,b,c]=['story:a','story:b','story:c'].map(byId);
@@ -620,3 +626,132 @@ def test_control_is_reachable_and_clickable_in_a_real_browser(tmp_path):
         "right": {"story": "story:b", "position": "3 of 4", "focus": "data-question-nav-next"},
         "left": {"story": "story:a", "position": "2 of 4", "focus": "data-question-nav-previous"},
     }
+
+
+# ---- the real `vizzer serve` round trip ----
+# The scenarios above answer through an in-memory fetch. This one boots the
+# page the real server rendered and bridges its fetch to that server, so the
+# answer goes through CSRF and Origin checks, the fingerprint and revision
+# compare-and-swap, the ledger write and the background view refresh.
+_REAL_SERVER_RUNNER = _RUNNER.replace(
+    "location: {hash: '', search: ''}",
+    "location: {hash: '', search: '', protocol: 'http:', pathname: '/', origin: process.env.VIZZER_BASE}, "
+    # A browser sends Origin on every POST; Node's fetch does not, so add it.
+    # `cache` is a browser-only hint. A browser also opens at most six
+    # connections per host; Node's fetch opens one per request, and the page's
+    # boot burst then overflows the server's listen backlog (ECONNRESET).
+    "fetch: (() => { let active = 0; const waiting = []; "
+    "return async (url, {cache, ...init} = {}) => { "
+    "while (active >= 6) await new Promise(resolve => waiting.push(resolve)); active++; "
+    "try { return await globalThis.fetch(new URL(url, process.env.VIZZER_BASE), "
+    "{...init, headers: {...(init.headers || {}), Origin: process.env.VIZZER_BASE}}); } "
+    "finally { active--; waiting.shift()?.(); } }; })()",
+).replace(  # name the network cause of a failed fetch, not just "fetch failed"
+    "`${error.name}: ${error.message}`",
+    "`${error.name}: ${error.message} ${error.cause ? String(error.cause) : ''}`",
+)
+_REAL_SERVER_DRIVER = _HARNESS + r"""
+  const forms=()=>regions.dbody.host.querySelectorAll('form[data-question-id]');
+  const choose=(questionId,value)=>{
+    const input=forms().find(form=>form.dataset.questionId===questionId)?.querySelectorAll('[data-question-option]').find(option=>option.value===value);
+    if(!input||input.disabled)return false;
+    input.checked=true;(input.listeners.change||[]).forEach(handler=>handler({currentTarget:input}));return true;
+  };
+  const position=()=>{const m=dossierIdentity.innerHTML.match(/data-question-nav-position>(\d+) of (\d+)</);return m?`${m[1]} of ${m[2]}`:null;};
+  const story=()=>sel>=0?DATA.nodes[sel].id:null;
+  // What the served page does on load: read the live answer authority.
+  const authority=await (await fetch('/api/questions')).json();
+  adoptQuestionAuthority(authority);
+  const out={authorityRevision:authority.revision,
+    order:openOwnerQuestionOrder().map(entry=>[DATA.nodes[entry.n].id,entry.id])};
+  const first=openOwnerQuestionOrder()[0];
+  openNode(first.n);
+  const state=questionNavigatorState();
+  out.before={story:story(),position:position(),current:state?.current.id||null,next:state?.next?.id||null};
+  out.chosen=ownerQuestions(sel).map(q=>choose(q.id,'shared'));
+  const submit=dossierFooter.querySelector('[data-question-queue]')?.querySelector('[data-question-submit]');
+  out.submitEnabled=Boolean(submit)&&!submit.disabled;
+  await Promise.all(click(submit));
+  const after=questionNavigatorState();
+  out.after={story:story(),position:position(),current:after?.current.id||null,
+    shown:forms().map(form=>form.dataset.questionId),
+    focus:document.activeElement?.parent?.dataset.questionId||null,
+    error:questionSubmissionError,pageRevision:questionContext?.revision??null};
+  globalThis.__testResult=out;
+})();
+"""
+
+
+def test_answering_through_real_serve_moves_to_the_next_question(tmp_path, make_repo):
+    from test_question_http import (
+        _prepare_repo, _question as _feed_question, _request, _start, _stop,
+        _wait_for, _write_feed,
+    )
+    from vizzer import cli
+
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute constellation JavaScript tests"
+    repo = _prepare_repo(tmp_path, make_repo)
+    # Three open questions on two stories: answering the first story's one
+    # leaves two, so the moved-to story still shows "N of M".
+    packets = []
+    for qid, story_id in (("question:route", "story:canvas-core"),
+                          ("question:grid", "story:snap-to-grid"),
+                          ("question:spacing", "story:snap-to-grid")):
+        packet = _feed_question(prompt=f"Pick {qid}?")
+        packet["id"], packet["storyId"] = qid, story_id
+        packets.append(packet)
+    _write_feed(repo, packets)
+    assert cli.main(["refresh", "--root", str(repo)]) == 0
+    server, thread, connection, _guarded = _start(repo)
+    try:
+        host, port = server.server_address[:2]
+        base = f"http://{host}:{port}"
+        connection.request("GET", "/constellation.html")
+        response = connection.getresponse()
+        html = response.read().decode("utf-8")
+        assert response.status == 200, html[:200]
+        source = "\n".join(re.findall(r"<script>\s*(.*?)</script>", html, flags=re.DOTALL))
+        proc = subprocess.run(
+            [node, "-e", _REAL_SERVER_RUNNER], input=source + _REAL_SERVER_DRIVER,
+            text=True, capture_output=True, timeout=60,
+            env={**os.environ, "VIZZER_BASE": base},
+        )
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        result = json.loads(proc.stdout)
+
+        assert result["authorityRevision"] == 0
+        assert result["order"] == [
+            ["story:canvas-core", "question:route"],
+            ["story:snap-to-grid", "question:grid"],
+            ["story:snap-to-grid", "question:spacing"],
+        ]
+        assert result["before"] == {"story": "story:canvas-core", "position": "1 of 3",
+                                    "current": "question:route", "next": "question:grid"}
+        assert result["chosen"] == [True] and result["submitEnabled"] is True
+        # The real POST succeeded and the panel moved on to the next question.
+        assert result["after"] == {
+            "story": "story:snap-to-grid", "position": "1 of 2", "current": "question:grid",
+            "shown": ["question:grid", "question:spacing"], "focus": "question:grid",
+            "error": "", "pageRevision": 1,
+        }
+
+        ledger = json.loads((repo / "vizzer/question-answers.json").read_text(encoding="utf-8"))
+        assert ledger["revision"] == 1
+        assert "question:route" in json.dumps(ledger)
+        assert "## Evolution event — owner decision" in (
+            repo / "spec/drawing/epics/tools/stories/canvas-core.md").read_text(encoding="utf-8")
+
+        def refreshed():
+            _, served = _request(connection, "GET", "/api/questions")
+            return served if not served["viewsBehind"] and not served["refreshFailure"] else None
+
+        served = _wait_for(refreshed)
+        assert served, "the post-write refresh never caught the views up"
+        assert served["revision"] == 1
+        assert [question["id"] for question in served["questions"]] == [
+            "question:grid", "question:spacing"]
+        assert [decision["question"]["id"] for decision in served["decisions"]] == [
+            "question:route"]
+    finally:
+        _stop(server, thread, connection)
