@@ -204,6 +204,9 @@ for (const [key,label] of [['delivery','Delivery'],['activity','Activity'],['str
 chips.appendChild(lensSeg);
 // ---- rail ----
 const rail = document.getElementById('rail');
+// Rail elements by hierarchy id, so selecting a story on the canvas can open
+// and mark where it lives (capability > nested groups > story leaf).
+const railCapabilityDetails=new Map(),railGroupDetails=new Map(),railGroupRows=new Map(),railStoryButtons=new Map();
 const structuralKindLabel=kind=>({capability:'capability',subcapability:'sub-capability',tool:'tool',utility:'utility',assistance:'assistance'}[kind]||kind||'');
 const structuralTitle=group=>group.title.replace(/^(?:Subcapability|Tool|Utility|Assistance)\s*·\s*/i,'');
 const railStorageScope=`${String(DATA.projectId||DATA.title||'project')}|${String(location.pathname||'')}`;
@@ -322,6 +325,7 @@ function renderCapabilityAccordions(){
     const details=document.createElement('details');details.className='railcapability';
     details.open=capFocus===capability||railDisclosureOpen(`root:${root?.id||capability}`,!capFocus&&index===0);
     details.setAttribute('data-rail-id',`root:${root?.id||capability}`);
+    railCapabilityDetails.set(capability,details);
     const summary=document.createElement('summary');summary.innerHTML=meterMarkup(root?.title||capability.replace(/-/g,' ')||'Project',summaryNodes.length,summaryShipped,summaryBugs,'',foundationalGroup(root,summaryNodes),summaryNodes);
     summary.addEventListener('click',event=>{
       if(typeof questionEditor!=='undefined'&&questionEditor){event.preventDefault();return;}
@@ -336,6 +340,7 @@ function renderCapabilityAccordions(){
     const appendStoryLeaf=(container,node)=>{
       const story=document.createElement('button');story.type='button';story.className='railstory';story.setAttribute('data-story-id',node.id);story.textContent=node.t;story.title=node.t;story.setAttribute('aria-label',`Open story: ${node.t}`);
       story.onclick=()=>{const nodeIndex=nodeById.get(node.id);if(nodeIndex!==undefined)openNode(nodeIndex);};container.appendChild(story);
+      railStoryButtons.set(node.id,story);
     };
     meterButton(`all:${capability}`,'All work',summaryMatches,summaryNodes.length,summaryShipped,summaryBugs,
       button=>selectHierarchy(button,capability),children,'capability');
@@ -352,7 +357,7 @@ function renderCapabilityAccordions(){
         const shipped=nodes.filter(node=>node.g==='shipped').length,bugs=nodes.filter(node=>node.st==='bug-gap').length;
         const button=meterButton(group.id,structuralTitle(group),matches,nodes.length,shipped,bugs,
           selected=>selectHierarchy(selected,capability,group.id),container,group.kind);
-        button.classList.add('railgroup-leaf');
+        button.classList.add('railgroup-leaf');railGroupRows.set(group.id,button);
         if(groupFocus===group.id){button.classList.add('on');button.setAttribute('aria-pressed','true');}
         return;
       }
@@ -362,6 +367,7 @@ function renderCapabilityAccordions(){
       registerMeter(`group-summary:${group.id}`,summaryGroup,structuralTitle(group),matches,foundationalGroup(group,nodes));
       summaryGroup.addEventListener('click',event=>{if(typeof questionEditor!=='undefined'&&questionEditor)event.preventDefault();else{enterClusterFocus(capability);openHierarchyDetails(group.id);}});
       detailsGroup.appendChild(summaryGroup);
+      railGroupDetails.set(group.id,detailsGroup);railGroupRows.set(group.id,summaryGroup);
       const body=document.createElement('div');body.className='railgroupbody';body.setAttribute('data-depth',String(depth));
       detailsGroup.addEventListener('toggle',()=>saveRailDisclosure(detailsGroup.getAttribute('data-rail-id'),detailsGroup.open));
       const selected=meterButton(`all:${group.id}`,`All ${structuralKindLabel(group.kind)||'work'}`,matches,nodes.length,nodes.filter(node=>node.g==='shipped').length,nodes.filter(node=>node.st==='bug-gap').length,
@@ -377,9 +383,48 @@ function renderCapabilityAccordions(){
     details.appendChild(children);rail.appendChild(details);
   });
 }
+// Where a story lives: its capability, the root group and the chain of nested
+// groups between the root and the story.
+function nodeHierarchyPath(node){
+  const chain=[],seen=new Set();let current=node?.group||'';
+  while(current&&!seen.has(current)){
+    seen.add(current);const group=hierarchyGroups.get(current);
+    if(!group)break;chain.unshift(group);current=group.parent||'';
+  }
+  const capability=node?.c||'';
+  const root=chain.find(group=>!group.parent)||(DATA.groups||[]).find(group=>!group.parent&&capTail(group.id)===capability)||null;
+  return {capability,root,groups:chain.filter(group=>group!==root)};
+}
+function clearRailContext(){
+  railGroupRows.forEach(row=>{row.classList.remove('context');row.removeAttribute('aria-current');});
+  railStoryButtons.forEach(button=>{button.classList.remove('context');button.removeAttribute('aria-current');});
+  railCapabilityDetails.forEach(details=>details.classList.remove('context'));
+}
+// Selecting a story opens its capability and every ancestor group, marks the
+// deepest listed group as the location and the story leaf as current, and
+// scrolls the leaf into view. Other open disclosures are left as they are.
+function revealNodeInRail(node,{scroll=true}={}){
+  clearRailContext();
+  if(!node)return null;
+  const path=nodeHierarchyPath(node);
+  const details=railCapabilityDetails.get(path.capability);
+  if(!details)return null;
+  details.open=true;details.classList.add('context');
+  for(const group of path.groups){const nested=railGroupDetails.get(group.id);if(nested)nested.open=true;}
+  const deepest=[...path.groups].reverse().find(group=>railGroupRows.has(group.id))||null;
+  const row=deepest?railGroupRows.get(deepest.id):null;
+  if(row){row.classList.add('context');row.setAttribute('aria-current','location');}
+  const leaf=railStoryButtons.get(node.id)||null;
+  if(leaf){leaf.classList.add('context');leaf.setAttribute('aria-current','true');}
+  const target=leaf||row||details.querySelector('summary');
+  if(scroll&&target&&typeof target.scrollIntoView==='function')
+    target.scrollIntoView({block:'nearest',behavior:reducedMotion?'auto':'smooth'});
+  return {capability:path.capability,groupId:deepest?deepest.id:null,storyId:leaf?node.id:null};
+}
 function renderRail(){
   if(SERVED)setTimeout(()=>renderPlanningAreaLinks(),0);
   rail.replaceChildren();capabilityMeters.clear();
+  railCapabilityDetails.clear();railGroupDetails.clear();railGroupRows.clear();railStoryButtons.clear();
   if(hasAreaFacets){
     const heading=document.createElement('h2');heading.className='railhead';heading.textContent='Areas';rail.appendChild(heading);
     const modes=document.createElement('div');modes.className='seg railseg';modes.setAttribute('role','group');modes.setAttribute('aria-label','Area type');
@@ -404,6 +449,7 @@ function renderRail(){
     return;
   }
   renderCapabilityAccordions();
+  if(sel>=0)revealNodeInRail(DATA.nodes[sel],{scroll:false});
 }
 renderRail();
 updateViewStatus();

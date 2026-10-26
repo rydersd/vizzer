@@ -1159,12 +1159,20 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
     return Handler
 
 
+class _ServeHTTPServer(http.server.ThreadingHTTPServer):
+    # socketserver's default listen backlog is 5; the constellation page opens
+    # a dozen API connections at once, so the kernel reset the overflow during
+    # a page-load burst. 128 is the macOS kern.ipc.somaxconn cap: several tabs
+    # loading at once still fit.
+    request_queue_size = 128
+
+
 def _make_serve_server(root: Path, graph: Graph, views: Path, port: int,
                        cfg: Config | None = None, csrf_token: str | None = None):
     cfg = cfg or _load_config(root, "serve")
     if cfg is None:
         raise OSError("could not load Vizzer configuration")
-    return http.server.ThreadingHTTPServer(
+    return _ServeHTTPServer(
         ("127.0.0.1", port), _serve_handler(
             root, graph, views, cfg, csrf_token or secrets.token_urlsafe(32)
         )

@@ -32,12 +32,24 @@ def _section_after(markdown: str, match: re.Match[str]) -> str:
     return tail[:boundary.start() if boundary else len(tail)].strip()
 
 
+# Declared blockers and the next action are opt-in headings. They match only a
+# heading that leads with the phrase: a broad word match turned every
+# "Dependencies / frozen contracts" list (already modelled as dependency edges)
+# and every "Scenarios (user-action granularity)" acceptance list into a
+# blocker or next action.
+_BLOCKERS_RE = re.compile(
+    r"(?:(?:declared|current|known|open|active) )?blockers?(?: .*)?|blocked by(?: .*)?"
+)
+_NEXT_ACTION_RE = re.compile(r"(?:the )?next (?:actions?|steps?)(?: .*)?")
+
+
 def _kind(heading: str) -> str | None:
-    words = set(_normalized_heading(heading).split())
-    if words & {"blocker", "blockers", "blocked", "dependencies", "dependency"}:
+    normalized = _normalized_heading(heading)
+    if _BLOCKERS_RE.fullmatch(normalized):
         return "blockers"
-    if words & {"next", "action", "actions", "step", "steps"} and words & {"next", "action"}:
+    if _NEXT_ACTION_RE.fullmatch(normalized):
         return "next_action"
+    words = set(normalized.split())
     if (("review" in words
          and words & {"step", "steps", "instruction", "instructions", "checklist"})
             or {"owner", "test", "list"} <= words):

@@ -1862,7 +1862,9 @@ def test_constellation_dossier_pins_identity_and_compact_summary_above_scroll_bo
     assert "-webkit-line-clamp:2" in html
     # The pinned identity leads with the owner-question navigator (empty when
     # there is nothing to step to), then the title and pills.
-    assert 'dossierIdentity.innerHTML=`${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills">' in html
+    # The location crumbs (capability > epic) lead, so Shift+Tab from close still
+    # reaches the question navigator first.
+    assert 'dossierIdentity.innerHTML=`${dossierLocationMarkup(n)}${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills">' in html
     assert 'const pinnedSummary=n.summary||trail||\'\'' in html
     body_assignment = html.split("dbody.innerHTML = `", 1)[1].split("`;", 1)[0]
     assert "<h2>" not in body_assignment

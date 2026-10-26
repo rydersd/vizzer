@@ -121,6 +121,7 @@ addEventListener('resize',()=>{
 function dismissDossier({focusCanvas=true}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
+  if(typeof clearRailContext==='function')clearRailContext();
   // A closed panel has no counted question: reopening starts at the top.
   leaveOwnerQuestions();
   activePlanningArea=null;areaRequest++;
@@ -197,6 +198,30 @@ async function queueTestDesignRequest(i,button){
     catch(error){if(typeof toast==='function')toast('Test review was queued, but the prompt could not be copied.',true);}
   }
 }
+// Where the story lives: root > nested groups, each crumb opening that level's
+// details, plus how far along the innermost group is.
+function dossierLocationMarkup(n){
+  if(typeof nodeHierarchyPath!=='function')return '';
+  const path=nodeHierarchyPath(n);
+  const levels=[path.root,...path.groups].filter(Boolean);
+  if(!levels.length)return '';
+  const crumbs=levels.map(group=>`<button type="button" class="crumb" data-crumb-group="${esc(group.id)}" title="Open ${esc(structuralKindLabel(group.kind)||'group')} details">${esc(group.parent?structuralTitle(group):group.title)}</button>`).join('<span class="crumbsep" aria-hidden="true">›</span>');
+  // A story directly under a top-level group reports that group's progress.
+  const inner=path.groups[path.groups.length-1]||path.root;
+  const siblings=inner?deliveryNodes.filter(node=>nodeBelongsToGroup(node,inner.id)):[];
+  const progress=inner&&siblings.length?`<small>${siblings.filter(node=>node.g==='shipped').length}/${siblings.length} shipped in this ${esc(structuralKindLabel(inner.kind)||'group')}</small>`:'';
+  return `<nav class="dossiercrumbs" aria-label="Story location">${crumbs}${progress}</nav>`;
+}
+function bindDossierLocation(container,capability){
+  container.querySelectorAll('[data-crumb-group]').forEach(button=>button.addEventListener('click',()=>{
+    if(typeof questionEditor!=='undefined'&&questionEditor)return;
+    const group=hierarchyGroups.get(button.dataset.crumbGroup);
+    if(!group)return;
+    // The group's details replace the story, so the rail stops marking it current.
+    if(typeof clearRailContext==='function')clearRailContext();
+    enterClusterFocus(capability);openHierarchyDetails(group.id);
+  }));
+}
 function openNode(i,{inPlace=false}={}){
   activePlanningArea=null;areaRequest++;
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
@@ -204,6 +229,7 @@ function openNode(i,{inPlace=false}={}){
   const previousScroll=inPlace&&sel===i?dbody.scrollTop:0;
   const previousScrollExtent=inPlace&&sel===i?(dbody.scrollHeight||0):0;
   sel = i; const n = DATA.nodes[i];
+  if(!inPlace&&typeof revealNodeInRail==='function')revealNodeInRail(n);
   const dep = (list,label)=> list.length ? `<h4>${esc(label)}</h4>`+list.map(j=>{
     const m = DATA.nodes[j];
     return `<button data-j="${j}"><i style="background:${C[m.g]}"></i>${esc(m.t)}</button>`;}).join('') : '';
@@ -246,7 +272,7 @@ function openNode(i,{inPlace=false}={}){
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
+  dossierIdentity.innerHTML=`${dossierLocationMarkup(n)}${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -313,6 +339,7 @@ function openNode(i,{inPlace=false}={}){
   bindQuestionNavigator();
   bindPlanControls(n);
   bindStorySidebar(dbody);
+  bindDossierLocation(dossierIdentity,n.c);
   if(n.role==='reference'){
     const documentToggle=dbody.querySelector('[data-story-accordion="full-story"]');
     if(documentToggle){documentToggle.textContent='Document';documentToggle.click();}
