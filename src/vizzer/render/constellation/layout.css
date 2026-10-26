@@ -146,6 +146,13 @@ body{background:var(--sky-gradient);background-attachment:fixed;color:var(--ink)
 .railgroup .cap{padding:5px 4px}
 .railstory{display:block;width:100%;min-width:0;padding:5px 5px 5px 10px;border:0;border-radius:6px;background:transparent;color:var(--ink);text-align:left;font:inherit;line-height:1.25;overflow-wrap:anywhere;cursor:pointer}
 .railstory:hover,.railstory:focus-visible{background:var(--bg2)}
+/* The selected story's location in the rail. */
+.railcapability.context>summary,.railgroup>summary.context,.cap.context{box-shadow:inset 3px 0 0 var(--accent)}
+.railstory.context{box-shadow:inset 3px 0 0 var(--accent);background:var(--bg2);color:var(--accent)}
+.dossiercrumbs{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 4px;margin:0 0 4px;font-size:11px;color:var(--mut)}
+.dossiercrumbs .crumb{padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px}
+.dossiercrumbs .crumb:hover,.dossiercrumbs .crumb:focus-visible{color:var(--ink)}
+.dossiercrumbs small{flex-basis:100%;font-size:10px}
 .railgroup .caphead{font-size:calc(var(--sidebar-type-size) - 1px)}
 .railhead{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin:2px 4px 8px}
 .railseg{width:100%;margin-bottom:8px}
