@@ -61,8 +61,8 @@ def _support():
     return support
 
 
-def _run_rail_script(tmp_path, script: str) -> dict:
-    graph = Graph(
+def _run_rail_script(tmp_path, script: str, graph: Graph | None = None) -> dict:
+    graph = graph or Graph(
         vocab=Config(data=DEFAULTS).vocab,
         groups=[
             Group(id="platform:desktop", kind="platform", title="Desktop"),
@@ -145,3 +145,46 @@ process.stdout.write(JSON.stringify({html:ev(`dossierLocationMarkup(DATA.nodes[n
 ''')
     assert 'data-crumb-group="epic:desktop/canvas/layers"' in state["html"], state
     assert "1/2 shipped in this" in state["html"], state
+
+
+def test_story_directly_under_a_top_level_group_reports_that_groups_progress(tmp_path):
+    question = OwnerQuestion(
+        id="question:canvas", story_id="story:b", owner="Fixture",
+        prompt="Which canvas behavior?", options=[
+            OwnerQuestionOption(id="keep", label="Keep", tradeoff="Known behavior"),
+            OwnerQuestionOption(id="change", label="Change", tradeoff="New behavior"),
+        ], recommendation=OwnerQuestionRecommendation(option_id="keep", rationale="Known"),
+        falsifier="The canvas contract changes", evidence=["stories/canvas.md"],
+    )
+    graph = Graph(
+        vocab=Config(data=DEFAULTS).vocab,
+        groups=[Group(id="capability:canvas", kind="capability", title="Canvas")],
+        items=[
+            Item(id="story:a", title="A", status="shipped", release="R0", group="capability:canvas"),
+            Item(id="story:b", title="B", status="specced", release="R1", group="capability:canvas"),
+        ],
+        owner_questions=[question],
+    )
+    state = _run_rail_script(tmp_path, r"""
+process.stdout.write(JSON.stringify({html:ev(`dossierLocationMarkup(DATA.nodes[nodeById.get('story:b')])`)}));
+""", graph)
+    assert 'data-crumb-group="capability:canvas"' in state["html"], state
+    assert "1/2 shipped in this" in state["html"], state
+
+
+def test_clicking_a_location_crumb_clears_the_rails_current_story(tmp_path):
+    # The DOM shim does not parse innerHTML, so the crumb is bound on a stub container.
+    state = _run_rail_script(tmp_path, r"""
+const leaf=desc(ids.get('rail')).find(e=>e.getAttribute('data-story-id')==='story:b');
+ev(`openNode(nodeById.get('story:b'))`);
+const before=leaf?.getAttribute('aria-current')||null;
+const crumb=document.createElement('button');crumb.dataset.crumbGroup='epic:desktop/canvas/layers';
+const container=document.createElement('div');container.querySelectorAll=()=>[crumb];
+ev(`bindDossierLocation`)(container,ev(`DATA.nodes[nodeById.get('story:b')].c`));
+if(!document.body)document.body=document.createElement('body');  // focus mode mounts its exit control
+crumb.click();
+process.stdout.write(JSON.stringify({before,after:leaf?.getAttribute('aria-current')??null,
+  context:!!leaf?.classList.contains('context'),selected:ev(`sel`)}));
+""")
+    assert state["before"] == "true", state
+    assert state["after"] is None and not state["context"] and state["selected"] == -1, state

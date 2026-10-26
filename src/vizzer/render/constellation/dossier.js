@@ -206,7 +206,8 @@ function dossierLocationMarkup(n){
   const levels=[path.root,...path.groups].filter(Boolean);
   if(!levels.length)return '';
   const crumbs=levels.map(group=>`<button type="button" class="crumb" data-crumb-group="${esc(group.id)}" title="Open ${esc(structuralKindLabel(group.kind)||'group')} details">${esc(group.parent?structuralTitle(group):group.title)}</button>`).join('<span class="crumbsep" aria-hidden="true">›</span>');
-  const inner=path.groups[path.groups.length-1];
+  // A story directly under a top-level group reports that group's progress.
+  const inner=path.groups[path.groups.length-1]||path.root;
   const siblings=inner?deliveryNodes.filter(node=>nodeBelongsToGroup(node,inner.id)):[];
   const progress=inner&&siblings.length?`<small>${siblings.filter(node=>node.g==='shipped').length}/${siblings.length} shipped in this ${esc(structuralKindLabel(inner.kind)||'group')}</small>`:'';
   return `<nav class="dossiercrumbs" aria-label="Story location">${crumbs}${progress}</nav>`;
@@ -216,6 +217,8 @@ function bindDossierLocation(container,capability){
     if(typeof questionEditor!=='undefined'&&questionEditor)return;
     const group=hierarchyGroups.get(button.dataset.crumbGroup);
     if(!group)return;
+    // The group's details replace the story, so the rail stops marking it current.
+    if(typeof clearRailContext==='function')clearRailContext();
     enterClusterFocus(capability);openHierarchyDetails(group.id);
   }));
 }
