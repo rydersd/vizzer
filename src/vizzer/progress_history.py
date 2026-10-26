@@ -244,11 +244,19 @@ def _render_progress(record: dict, cfg: Config) -> dict:
 
 
 def prepare_progress_history(graph: Graph, cfg: Config, root: Path,
-                             now: datetime | None = None) -> ProgressHistory:
+                             now: datetime | None = None,
+                             observer: bool = True) -> ProgressHistory:
     """Attach render-safe trail/stall data and stage one history replacement.
 
     The first successful observation is a baseline, not a fake plus marker. A
     malformed history is retained intact and yields no progress/stall claims.
+
+    ``observer`` is whether this invocation writes the history it stages. Only
+    the observer stamps a change with the time it first saw it. A caller that
+    never writes the ledger (``check``) stamps an unpersisted change with the
+    persisted ledger's ``updatedAt`` instead, so two such runs over the same
+    sources stage the same history and render the same views. With no persisted
+    ``updatedAt`` it stages nothing (a warning), never the wall clock.
     """
     path, path_warning = _safe_path(root, cfg.get("progress.history_path", ""))
     if path_warning:
@@ -256,7 +264,6 @@ def prepare_progress_history(graph: Graph, cfg: Config, root: Path,
         return ProgressHistory(None, None, [path_warning])
     if path is None:
         return ProgressHistory(None, None, [])
-    stamp, moment = _stamp(now)
     if path.exists():
         try:
             previous = _valid_history(json.loads(path.read_text(encoding="utf-8")))
@@ -268,6 +275,14 @@ def prepare_progress_history(graph: Graph, cfg: Config, root: Path,
             return ProgressHistory(path, None, [warning])
     else:
         previous = {"schema": SCHEMA, "items": {}}
+    anchor = None if observer or now is not None else _parse_stamp(previous.get("updatedAt"))
+    if not observer and now is None and anchor is None:
+        # Nothing persisted to stamp with: stage no claims rather than the clock.
+        warning = (f"progress history {cfg.get('progress.history_path')} has no updatedAt yet; "
+                   "it renders once a refresh records one")
+        graph.warnings = sorted(set(graph.warnings) | {warning})
+        return ProgressHistory(path, None, [warning])
+    stamp, moment = _stamp(anchor or now)
 
     old_items = previous.get("items", {})
     backfill_done = isinstance(previous.get("backfill"), dict)

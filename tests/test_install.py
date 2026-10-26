@@ -105,7 +105,8 @@ def test_managed_block_upsert_prefers_existing_claude_md(tmp_path, make_repo):
     assert not (repo / "AGENTS.md").exists()
     assert main(["update", str(repo)]) == 0
     assert (repo / "CLAUDE.md").read_text().count("vizzer:begin") == 1   # idempotent
-    assert "A shipped story stays shipped" in (repo / "CLAUDE.md").read_text()
+    assert ("A shipped story stays shipped unless the project's\n  lifecycle policy withdraws the label"
+            in (repo / "CLAUDE.md").read_text())
 
 
 def test_auto_install_updates_both_existing_provider_instruction_files(tmp_path, make_repo):

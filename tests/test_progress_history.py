@@ -167,3 +167,38 @@ def test_git_backfill_prose_only_commit_creates_no_progress_event(tmp_path):
         progress_history.subprocess.run = original
 
     assert graph.items[0].progress["events"] == []
+
+
+def test_shipped_story_with_later_non_withdrawing_edits_stays_shipped(tmp_path):
+    # Shipped is withdrawn only by the project's lifecycle policy (a status
+    # header edit). Later edits that keep the header leave the story shipped
+    # and record no lifecycle event, forward or backward.
+    first = prepare_progress_history(_graph("shipped", ["story:b"], done=1), _cfg(), tmp_path, NOW)
+    _write_history(tmp_path, first.content)
+
+    edited = _graph("shipped", [], done=3)
+    staged = prepare_progress_history(edited, _cfg(), tmp_path, NOW + timedelta(days=2))
+    record = json.loads(staged.content)["items"]["story:a"]
+    assert edited.items[0].status == "shipped"
+    assert record["status"] == "shipped"
+    assert [event for event in record["events"] if event["kind"] == "lifecycle"] == []
+
+
+def test_unpersisted_status_flip_is_stamped_at_the_ledgers_updated_at_when_not_observing(tmp_path):
+    persisted = prepare_progress_history(_graph("ready", done=1), _cfg(), tmp_path, NOW)
+    _write_history(tmp_path, persisted.content)
+    anchor = json.loads(persisted.content)["updatedAt"]
+
+    staged = [prepare_progress_history(_graph("building", done=1), _cfg(), tmp_path, observer=False)
+              for _ in range(2)]
+    assert staged[0].content == staged[1].content, "two non-observing runs must agree"
+    events = json.loads(staged[0].content)["items"]["story:a"]["events"]
+    lifecycle = [(event["at"], event["detail"]) for event in events if event["kind"] == "lifecycle"]
+    assert lifecycle == [(anchor, "ready → building")]
+
+
+def test_non_observer_without_persisted_updated_at_stages_nothing(tmp_path):
+    graph = _graph("building", done=1)
+    staged = prepare_progress_history(graph, _cfg(), tmp_path, observer=False)
+    assert staged.content is None
+    assert any("has no updatedAt yet" in warning for warning in graph.warnings)
