@@ -21,12 +21,21 @@ IllTool `review_launch.py` (85b0e46f8, 56862024c, 73b0e9d5f, 94e6f7250,
   self-launched processes are terminated.
 - Failed verdict says not saved; a recorded verdict leaves a receipt.
 
-## Tests
-
-1. Launch stages a copy; the original's bytes are unchanged (data-loss guard).
-2. Undeclared operation is refused.
-3. Prune skips a copy with a live holder.
-
 ## Test plan (RC)
 
-IllTool configured as the first adapter on the RC, end to end, by the owner.
+The gating RC test runs end to end against a neutral fixture project
+(`tests/fixtures/mixed_proj`) with a fixture adapter. A run against IllTool is
+non-gating migration evidence only.
+
+## Named tests
+
+- (planned) `tests/test_review_launch.py::test_launch_stages_a_copy_and_original_bytes_unchanged`
+- (planned) `tests/test_review_launch.py::test_undeclared_operation_is_refused`
+- (planned) `tests/test_review_launch.py::test_prune_skips_a_copy_with_a_live_holder`
+
+## Open contract questions
+
+- Which host-side executor runs adapter operations, and under what trust?
+- Staging containment: where copies may live and how escapes are refused.
+- Holder ownership: how a holder is identified and who may release it.
+- Never-launched oracle: how a test proves the original was not opened.

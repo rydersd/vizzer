@@ -119,6 +119,8 @@ addEventListener('resize',()=>{
 function dismissDossier({focusCanvas=true}={}){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   sel=-1;
+  // A closed panel has no counted question: reopening starts at the top.
+  leaveOwnerQuestions();
   activePlanningArea=null;areaRequest++;
   dossier.classList.remove('open');
   dossier.setAttribute('aria-hidden','true');
@@ -239,7 +241,7 @@ function openNode(i,{inPlace=false}={}){
     ?(assessment.unknowns||[]).slice(0,4).join(' · '):'';
   const facetText=Object.entries(n.facets||{}).map(([name,values])=>`${name}: ${(values||[]).join(', ')}`).join(' · ');
   const pinnedSummary=n.summary||trail||'';
-  dossierIdentity.innerHTML=`<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
+  dossierIdentity.innerHTML=`${questionNavigatorMarkup(questionNavigatorState(i))}<h2>${esc(n.t)}</h2><div class="dossierpills"><span class="pill" style="background:${C[n.g]}">${esc(n.st)}</span>${n.rec?'<span class="pill" style="background:var(--accent)">'+icon('star-fill',true)+' next step</span>':''}</div>${pinnedSummary?`<p class="dossiersummary">${esc(pinnedSummary)}</p>`:''}${workNavigationHint()}`;
   dbody.innerHTML = `<div class="kv"><span>role</span><b>${esc(ROLE_LABELS[n.role||'delivery']||n.role||'delivery')}</b>
       <span>area</span><b>${esc((n.c||'uncategorized').replace(/-/g,' '))}</b>
       ${facetText?`<span>facets</span><b>${esc(facetText)}</b>`:''}
@@ -302,6 +304,7 @@ function openNode(i,{inPlace=false}={}){
     }
   });
   bindQuestionControls(n);
+  bindQuestionNavigator();
   bindPlanControls(n);
   bindStorySidebar(dbody);
   if(n.role==='reference'){
@@ -320,6 +323,9 @@ function openNode(i,{inPlace=false}={}){
   dbody.scrollTop=previousScroll;
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');
   document.documentElement.classList.add('dossier-open');
+  // Announce after the panel is exposed: a live region inside a hidden
+  // subtree is not heard.
+  requestAnimationFrame(announceOwnerQuestion);
 }
 
 // Product-area discussions use repository files, read by the desktop timer.
@@ -349,6 +355,7 @@ function renderPlanningAreaLinks(){
 }
 async function openPlanningArea(id){
   const ticket=++areaRequest;activePlanningArea=id;sel=-1;
+  if(typeof leaveOwnerQuestions==='function')leaveOwnerQuestions();
   dossierIdentity.innerHTML='<h2>Capability planning</h2>';
   dossierFooter.innerHTML='';dbody.innerHTML='<p>Loading purpose, plans and discussion…</p>';
   dossier.classList.add('open');dossier.setAttribute('aria-hidden','false');document.documentElement.classList.add('dossier-open');
@@ -408,6 +415,7 @@ function openHierarchyDetails(groupId){
   if(typeof questionEditor!=='undefined'&&questionEditor)return false;
   const group=(DATA.groups||[]).find(candidate=>candidate.id===groupId);if(!group)return;
   activePlanningArea=null;areaRequest++;sel=-1;
+  if(typeof leaveOwnerQuestions==='function')leaveOwnerQuestions();
   const nodes=deliveryNodes.filter(node=>nodeBelongsToGroup(node,groupId));
   const shipped=nodes.filter(node=>node.g==='shipped').length;
   const remaining=typeof foundationRemaining==='function'?foundationRemaining(nodes):0;

@@ -50,7 +50,9 @@ as trusted adapter operations from configuration.
 
 ## Test plan (RC pass)
 
-- Install the built `vizzer.pyz` into a non-IllTool project and an IllTool copy;
-  confirm each opt-in feature is invisible when off and works when on.
+- Install the built `vizzer.pyz` into the neutral fixture project
+  (`tests/fixtures/mixed_proj`); confirm each opt-in feature is invisible when
+  off and works when on. A run against an IllTool copy is non-gating migration
+  evidence only.
 - Diff IllTool's served behavior against upstream on the same graph for every
   ported view.

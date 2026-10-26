@@ -19,8 +19,14 @@ IllTool `reviews.py`, `review_gate.py` (00b92c9de, e2ffc075a), `review_links`,
   neutral review contract's plans and runs.
 - Archived reviews stay readable; archival never takes ownership of host fixtures.
 
-## Tests
+## Named tests
 
-1. Held row refuses approval and states why.
-2. Consolidated sheet shows the latest run per plan, newest first.
-3. Owner verdict and agent run remain distinct events under one fingerprint.
+- (planned) `tests/test_review_gate.py::test_held_row_refuses_chunk_approval_and_states_why`
+- (planned) `tests/test_review_gate.py::test_consolidated_sheet_shows_latest_run_per_plan_newest_first`
+- (planned) `tests/test_review_gate.py::test_owner_verdict_and_agent_run_stay_distinct_under_one_fingerprint`
+
+## Open contract questions
+
+- Source of truth for hold state (deferred, open questions, unverified build).
+- State transitions for deferred, hold, reopen and chunk approval.
+- Which events list reopen paths, and who may reopen?

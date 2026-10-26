@@ -15,7 +15,13 @@ Pre-b6a67bb IllTool `ci_status.py`, `ci.js`; excluded in 2026-08 for binding the
   is one adapter, invoked only from trusted configuration.
 - Story-to-CI mapping uses the neutral story identity, not a directory grammar.
 
-## Tests
+## Named tests
 
-1. Fixture adapter output maps to the right story by neutral identity.
-2. Missing or failing provider shows "unknown", never "passing".
+- (planned) `tests/test_ci_overlay.py::test_fixture_adapter_output_maps_by_neutral_story_identity`
+- (planned) `tests/test_ci_overlay.py::test_missing_or_failing_provider_shows_unknown_never_passing`
+
+## Open contract questions
+
+- Adapter declaration and result schema for a CI provider.
+- Timeout and cache policy for provider calls.
+- How are malformed, stale, unauthorized and unavailable results told apart?

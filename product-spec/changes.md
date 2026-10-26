@@ -20,6 +20,7 @@ history; downstream changes enter here only after comparison.
 | Wiki consolidation: nine guides, concepts and historical records | Documentation migration | [Story](stories/wiki-documentation-migration.md) |
 | Bounded adversarial test-review packets, durable review requests and constellation test-state presentation | This change | [Guide](../wiki/guides/adversarial-test-design.md) |
 | Rolling three-day Claude/Codex constellation trails and filterable public work logs | This change | [Completed Story](stories/session-history-upstream-integration.md) |
+| Previous \| N of M \| Next across open owner questions (from illtool-standalone, owner directive 2026-09-26) | This change | [Story](stories/owner-question-prev-next-navigation.md) |
 
 ## Next work
 

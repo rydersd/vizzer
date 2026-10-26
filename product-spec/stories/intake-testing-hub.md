@@ -17,7 +17,13 @@ IllTool c4125322f (#1437), c1f7ca8af (#1635), c2dc97a12, 917d36849.
   When the probe hits limits, the local fallback is preserved and shown.
 - Disabled: renders and serves nothing.
 
-## Tests
+## Named tests
 
-1. Infrastructure failure never displays as an executed result.
-2. Disabled config: no route, no markup.
+- (planned) `tests/test_testing_hub.py::test_infrastructure_failure_never_displays_as_executed_result`
+- (planned) `tests/test_testing_hub.py::test_disabled_config_has_no_route_and_no_markup`
+
+## Open contract questions
+
+- Adapter declaration and result schema for the capacity probe.
+- Timeout and cache policy for probe results.
+- How are malformed, stale, unauthorized and unavailable results told apart?
