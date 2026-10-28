@@ -22,6 +22,7 @@ function recolor(){ contrastColors.clear(); for (const g of ['shipped','active',
   C.trails=Array.from({length:6},(_,i)=>css(`agent-trail-${i+1}`));
   RGB.fade = rgbOf(css('faint'));
   RGB.ink=rgbOf(css('ink'));
+  RGB.bg=rgbOf(css('bg'));
   RGB.sky=['sky-top','sky-mid','sky-bottom'].map(key=>rgbOf(css(key))); }
 recolor();
 if (typeof MutationObserver==='function')
