@@ -20,3 +20,10 @@ def test_codeowners_has_catch_all_rule():
     rules = [line.split() for line in text.splitlines()
              if line.strip() and not line.lstrip().startswith("#")]
     assert any(parts[0] == "*" and len(parts) > 1 for parts in rules)
+
+
+def test_release_rebuilds_vendored_bundle_before_publishing():
+    text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+    test_job = text.split("\n  release:")[0]
+    assert "npm run build --prefix tools/markdown-editor" in test_job
+    assert "git diff --exit-code -- src/vizzer/render/constellation/third-party" in test_job

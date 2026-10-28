@@ -20,10 +20,17 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: tools/developer-flow/package-lock.json
+          cache-dependency-path: |
+            tools/developer-flow/package-lock.json
+            tools/markdown-editor/package-lock.json
       - run: pip install pytest
       - name: Install developer-flow test dependencies
         run: npm ci --prefix tools/developer-flow --ignore-scripts
+      - name: Verify the vendored markdown editor matches its locked source
+        run: |
+          npm ci --prefix tools/markdown-editor --ignore-scripts
+          npm run build --prefix tools/markdown-editor
+          git diff --exit-code -- src/vizzer/render/constellation/third-party tools/markdown-editor/bundle-inputs.json
       - name: Configure git identity (fixture commits)
         run: |
           git config --global user.email ci@example.com
