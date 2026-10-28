@@ -17,6 +17,7 @@ const CHROME_CANDIDATES = [
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function launch({width, height}) {
+  if (typeof WebSocket === 'undefined') throw new Error('Node 22 or newer is required (global WebSocket)');
   const chrome = CHROME_CANDIDATES.find(candidate => fs.existsSync(candidate));
   if (!chrome) throw new Error('Chrome not found; set CHROME=/path/to/chrome');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'vizzer-readme-chrome-'));

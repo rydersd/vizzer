@@ -5,7 +5,7 @@
 Builds the demo project in a temporary directory, installs Vizzer into it from
 this checkout, enables workstreams and reviews, serves it on loopback, records
 each scene in headless Chrome (scripts/readme_media/record.mjs), and encodes
-docs/media/<scene>.gif with ffmpeg. Requires python3, node, Chrome, ffmpeg.
+docs/media/<scene>.gif with ffmpeg. Requires python3, Node 22+, Chrome, ffmpeg.
 """
 
 from __future__ import annotations

@@ -87,11 +87,18 @@ async function orbit(page, dx, steps = 40) {
   await page.evaluate(`document.getElementById('readme-pointer').style.transition=''`);
 }
 
+// Error capture is registered before navigation so startup exceptions count.
+const ERROR_CAPTURE = `window.__readmeErrors=[];addEventListener('error',e=>__readmeErrors.push(e.error&&e.error.stack||e.message))`;
+let errorCaptureInstalled = false;
+
 async function open(page, url, settle = 3500) {
+  if (!errorCaptureInstalled) {
+    await page.send('Page.addScriptToEvaluateOnNewDocument', {source: ERROR_CAPTURE});
+    errorCaptureInstalled = true;
+  }
   await page.send('Page.navigate', {url});
   await sleep(settle);
   await page.evaluate(POINTER);
-  await page.evaluate(`window.__readmeErrors=[];addEventListener('error',e=>__readmeErrors.push(e.error&&e.error.stack||e.message))`);
 }
 
 // Switch route through the header's Views menu, never a same-named rail item.
