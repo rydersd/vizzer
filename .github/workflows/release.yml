@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/developer-flow/package-lock.json
+      - run: pip install pytest
+      - name: Install developer-flow test dependencies
+        run: npm ci --prefix tools/developer-flow --ignore-scripts
+      - name: Configure git identity (fixture commits)
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+      - run: python -m pytest tests/ -v
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Build distributable and checksum
+        run: |
+          mkdir -p dist
+          python scripts/build_pyz.py dist/vizzer.pyz
+          sha256sum dist/vizzer.pyz | sed 's#dist/##' > dist/vizzer.pyz.sha256
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/vizzer.pyz
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/vizzer.pyz dist/vizzer.pyz.sha256 \
+            --verify-tag --generate-notes
