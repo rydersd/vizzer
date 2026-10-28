@@ -102,3 +102,36 @@ def test_relayout_while_focused_respreads_around_new_layout(tmp_path) -> None:
     assert result["centreOk"], "spread centre follows the new layout"
     assert result["radiusOk"], "spread radius follows the new layout"
     assert result["cameraOk"], "camera stays on the focused cluster"
+
+
+def _focused_draw_probe(tmp_path) -> dict:
+    """Focus a cluster, zoom out so the pushed-away capability stays on screen, then paint."""
+    node = shutil.which("node")
+    assert node is not None, "Node is required to execute the rendered constellation"
+    html = render_all(_graph(), Config(data=DEFAULTS), tmp_path, only={"constellation"})["constellation.html"]
+    driver = _CONSTELLATION_COUNT_DOM_SHIM.replace(
+        "sandbox.window=sandbox;",
+        "sandbox.Element=Element;sandbox.window=sandbox;",
+    ).replace(
+        "process.stdout.write(JSON.stringify(out));",
+        "const result=ev(`(()=>{document.body=document.body||{appendChild(){}};"
+        "enterClusterFocus('canvas');for(let f=0;f<400&&stepClusterSpread();f++);"
+        "zoom=.35;project();const faded=DATA.nodes.some((n,i)=>P[i].on&&focusBackground(i)&&clusterTier(n.c)<FOCUS_BACKGROUND_TIER);"
+        "let error=null;try{project();draw();}catch(e){error=String(e&&e.stack||e);}"
+        "return {faded,error};})()`);"
+        "process.stdout.write(JSON.stringify(result));",
+    )
+    run = subprocess.run(
+        [node, "-e", driver], input=html, text=True, capture_output=True,
+        timeout=10, check=False,
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    return json.loads(run.stdout)
+
+
+def test_focused_frame_paints_faded_background_clusters(tmp_path) -> None:
+    result = _focused_draw_probe(tmp_path)
+    # Precondition: some other capability must sit below the fade tier, or the
+    # background-colour branch of nodePaintColor never runs.
+    assert result["faded"], "a background cluster faded below FOCUS_BACKGROUND_TIER"
+    assert result["error"] is None, result["error"]
