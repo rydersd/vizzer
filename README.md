@@ -22,6 +22,63 @@ When working on this repository, record imports and regressions in
 
 Product documentation: [specification](product-spec/README.md) · [wiki](wiki/index.md) · [docs](docs/README.md).
 
+## See it work
+
+These recordings use the real Vizzer UI over *Sample Notes*, a fictional
+note-taking app with six capabilities and a few Claude, Codex, and human agents.
+The project is made up; the behavior is not.
+[`scripts/readme_media/record.py`](scripts/readme_media/record.py) rebuilds the
+demo and re-records every clip.
+
+### Capability clusters
+
+Every story is a star, and every capability is a cluster. Pick a capability and
+its stories spread apart while the rest of the project fades back. Open a story
+to see its status, release, dependencies, and the agent working on it.
+
+![Focusing the Sync cluster and opening its stories](docs/media/constellation.gif)
+
+### Questions that block work
+
+When an agent needs a decision, it writes an owner question instead of
+guessing. The question offers two or three options with trade-offs, a
+recommendation, and what would prove the recommendation wrong. Blocked stories
+are flagged on every view. You step through the queue, pick an answer, and the
+answer becomes a durable, repo-local record that any agent or model can read.
+
+![Stepping through owner questions and answering one](docs/media/questions.gif)
+
+### One graph, many views
+
+The dashboard, roadmap, hierarchy, feature index, and completion sheet are all
+views of the same graph, so they never disagree with each other.
+
+![Switching between the dashboard, roadmap, hierarchy, features, and completion views](docs/media/views.gif)
+
+### Agents working side by side
+
+Workstreams split a release into lanes. Each lane has a lead and a reviewer,
+and each agent session holds a lease on its branch. Vizzer warns when two lanes
+touch the same paths, before their work collides.
+
+![Workstreams with coordination warnings and leased agent sessions](docs/media/workstreams.gif)
+
+### Reviews: evidence, then an owner's verdict
+
+An agent's review run records the story's acceptance steps along with
+screenshot evidence. A pass from the agent counts as evidence, not approval:
+the owner repeats the steps and records their own verdict separately.
+
+![An agent review run with evidence and the owner validation form](docs/media/reviews.gif)
+
+### Developer Flow
+
+A 2D map of the same work, for planning. Capabilities appear as frames joined
+by their dependencies. Expand a frame to see its epics and the stories in other
+capabilities that it blocks or waits on.
+
+![Expanding the Sync frame in Developer Flow](docs/media/developer-flow.gif)
+
 ## Source and distributable
 
 The readable, authoritative implementation lives in [`src/vizzer/`](src/vizzer/).
