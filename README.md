@@ -40,8 +40,14 @@ for the build boundary.
 
 ```bash
 curl -LO https://github.com/rydersd/vizzer/releases/latest/download/vizzer.pyz
+curl -LO https://github.com/rydersd/vizzer/releases/latest/download/vizzer.pyz.sha256
+shasum -a 256 -c vizzer.pyz.sha256
+gh attestation verify vizzer.pyz --repo rydersd/vizzer
 python3 vizzer.pyz          # interactive: pick a project, then grill its source map
 ```
+
+Releases from v0.1.1 onward carry the checksum and a build-provenance
+attestation; verify before you run.
 
 To build the distributable from a source checkout:
 
@@ -677,6 +683,15 @@ optional session-history service additionally reads local Claude/Codex transcrip
 files, but retains only public messages and tool names in a machine-local SQLite
 index and cache-owned work-history archive; reasoning, command arguments, and tool output
 are excluded.
+
+## Contributing safely
+
+Every change lands by pull request, through required CI and code-owner review.
+Markdown that agents read (the managed `CLAUDE.md`/`AGENTS.md` block,
+product-spec stories, and question answers) is reviewed as code, because it can
+carry prompt injection. Vendored bundles under `third-party/` change only via a
+reproducible rebuild that CI checks, so a bundle change always shows up as an
+explicit, reviewable diff.
 
 ## License
 

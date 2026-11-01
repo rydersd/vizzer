@@ -1,0 +1,11 @@
+# Every change needs code-owner review.
+* @rydersd
+
+# These paths get extra scrutiny: they carry agent-instruction text
+# (workflows, spec stories, the managed CLAUDE.md/AGENTS.md block installer),
+# build and release the shipped distributable, or are vendored binaries.
+/.github/ @rydersd
+/scripts/build_pyz.py @rydersd
+/src/vizzer/install.py @rydersd
+/src/vizzer/render/constellation/third-party/ @rydersd
+/product-spec/ @rydersd
