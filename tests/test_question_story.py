@@ -3,6 +3,8 @@
 Isolated fixtures only; stories are plain files on disk (never read through git).
 """
 import json
+import threading
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -61,6 +63,22 @@ class StoryFileResolution(unittest.TestCase):
             json.dumps({'aliases': {'story:old-y': 'story:canonical-y'}}))
         path, _ = resolve_story_file(self.root, Cfg(), 'story:old-y', self.items)
         self.assertIsNone(path)
+
+    def test_alias_file_that_is_a_fifo_or_oversized_is_not_read(self):
+        crosswalk = self.root / 'prod_spec/story-id-crosswalk.json'
+        crosswalk.unlink()
+        os.mkfifo(crosswalk)
+        done = []
+        worker = threading.Thread(target=lambda: done.append(
+            resolve_story_file(self.root, Cfg(), 'story:old-y', self.items)), daemon=True)
+        worker.start()
+        worker.join(2)
+        self.assertEqual(len(done), 1, 'a FIFO alias file blocked the lookup')
+        self.assertIsNone(done[0][0])
+        crosswalk.unlink()
+        crosswalk.write_text(json.dumps({'schema': 1, 'aliases': {'story:old-y': 'story:canonical-y'},
+                                         'pad': 'x' * (story_files.MAX_ALIAS_BYTES + 1)}))
+        self.assertIsNone(resolve_story_file(self.root, Cfg(), 'story:old-y', self.items)[0])
 
     def test_alias_file_outside_the_project_is_not_read(self):
         outside = tempfile.TemporaryDirectory()

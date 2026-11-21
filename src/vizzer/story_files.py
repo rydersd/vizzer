@@ -18,9 +18,25 @@ from .story_aliases import load_story_aliases
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
+MAX_ALIAS_BYTES = 1024 * 1024
+
+
 def _aliases(root: Path, cfg, item_ids) -> dict[str, str]:
-    """The engine's validated aliases: in-project schema-1 file, no shadows, cycles or unknown targets."""
+    """The engine's validated aliases: in-project schema-1 file, no shadows, cycles or unknown targets.
+
+    A request never waits on or loads an unbounded alias file: anything but a regular file of at most
+    MAX_ALIAS_BYTES is ignored before the loader reads it.
+    """
     if cfg is None:
+        return {}
+    configured = cfg.get("render.story_aliases", "")
+    if not isinstance(configured, str) or not configured.strip():
+        return {}
+    try:
+        info = os.stat(root / configured)
+    except (OSError, ValueError):
+        return {}
+    if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_ALIAS_BYTES:
         return {}
     aliases, _, _, _ = load_story_aliases(root, cfg, set(item_ids))
     return aliases

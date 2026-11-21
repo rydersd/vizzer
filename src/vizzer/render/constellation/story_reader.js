@@ -44,10 +44,8 @@ function hydrateQuestionStoryLinks(container){
     const result=await fetchQuestionStory(id);
     if(!status)return;
     if(result.ok){status.textContent=result.path;status.title=result.path;}
-    else{
-      row.classList.add('missing');status.textContent='Story file not found. '+result.error;
-      const button=row.querySelector('button');if(button)button.disabled=true;
-    }
+    // The button stays live: opening refetches, so a story created after this check still opens.
+    else{row.classList.add('missing');status.textContent='Story file not found. '+result.error+' Open to try again.';}
   });
 }
 
@@ -154,6 +152,8 @@ function findQuoteSegments(texts,quote,occurrence=0){
   }
   return null;
 }
+// The quote exactly as it is saved (trimmed, capped), so its copy is counted on that text.
+function selectionQuote(text){return String(text).trim().slice(0,STORY_QUOTE_MAX);}
 function storyCommentPayload({storyId,path,questionId,quote,heading,comment,occurrence}){
   const payload={storyId,path,quote:String(quote).slice(0,STORY_QUOTE_MAX),
     heading:String(heading||''),comment:String(comment).trim(),clientTime:new Date().toISOString()};
@@ -256,7 +256,7 @@ function bindCommentSelection(state){
     if(!selection||selection.isCollapsed||!selection.rangeCount)return;
     const range=selection.getRangeAt(0);
     if(!state.body.contains(range.commonAncestorContainer))return;
-    const quote=selection.toString().trim();
+    const quote=selectionQuote(selection.toString());
     if(!quote)return;
     closeCommentCompose(state);
     const rect=range.getBoundingClientRect();

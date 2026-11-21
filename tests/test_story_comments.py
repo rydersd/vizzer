@@ -139,9 +139,38 @@ class ReviewFindings(Fixture):
     def test_occurrence_is_stored_and_validated(self):
         self.assertEqual(add_comment(self.root, Cfg(), good(occurrence=2))['occurrence'], 2)
         self.assertNotIn('occurrence', add_comment(self.root, Cfg(), good()))
-        for bad in (-1, True, '1', 1.5, 10_000):
+        for bad in (-1, True, '1', 1.5):
             with self.assertRaises(StoryCommentError, msg=repr(bad)):
                 add_comment(self.root, Cfg(), good(occurrence=bad))
+
+
+class ReviewRoundTwo(Fixture):
+    # PR #37 review round 2 (closed on RED -> GREEN evidence).
+    def test_symlinked_vizzer_directory_is_neither_read_nor_written(self):
+        other = tempfile.TemporaryDirectory()
+        self.addCleanup(other.cleanup)
+        foreign = Path(other.name) / 'vizzer'
+        foreign.mkdir()
+        (foreign / 'story-comments.json').write_text('[]')
+        (self.root / 'vizzer').rmdir()
+        (self.root / 'vizzer').symlink_to(foreign, target_is_directory=True)
+        with self.assertRaises(StoryCommentError):
+            list_comments(self.root, 'story:live-wet-x')
+        with self.assertRaises(StoryCommentError):
+            add_comment(self.root, Cfg(), good())
+        self.assertEqual((foreign / 'story-comments.json').read_text(), '[]')
+
+    def test_store_with_an_escaped_surrogate_refuses_the_write_cleanly(self):
+        self.store.write_text('[{"id": "x", "status": "open", "storyId": "story:live-wet-x", "quote": "\\ud800"}]')
+        before = self.store.read_text()
+        with self.assertRaises(StoryCommentError):
+            add_comment(self.root, Cfg(), good())
+        self.assertEqual(self.store.read_text(), before)
+
+    def test_occurrence_beyond_999_saves_up_to_the_story_size(self):
+        self.assertEqual(add_comment(self.root, Cfg(), good(occurrence=5000))['occurrence'], 5000)
+        with self.assertRaises(StoryCommentError):
+            add_comment(self.root, Cfg(), good(occurrence=story_files.MAX_STORY_BYTES + 1))
 
 
 class Caps(Fixture):
@@ -259,6 +288,8 @@ class Http(Fixture):
         super().setUp()
         views = self.root / 'vizzer' / 'views'
         views.mkdir()
+        self.graph_file = self.root / 'vizzer' / 'vizzer-graph.json'
+        self.graph_file.write_text(json.dumps(Graph().to_dict()))
         self.server = cli._make_serve_server(self.root, Graph(), views, 0, Cfg(), 'tok')
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -336,6 +367,14 @@ class Http(Fixture):
             status, created = self.call('POST', '/api/story-comments', good())
         self.assertEqual(status, 201, created)
         self.assertEqual(len(json.loads(self.store.read_text())), 1)
+
+    def test_comment_write_needs_a_current_graph(self):
+        # A missing graph file: reads may use the last good graph, a write may not.
+        self.graph_file.unlink()
+        with patch.object(cli, '_serve_version_error', return_value=None):
+            status, body = self.call('POST', '/api/story-comments', good())
+        self.assertEqual(status, 503, body)
+        self.assertFalse(self.store.exists())
 
     def test_caps_surface_as_http_errors(self):
         with patch.object(cli, '_serve_version_error', return_value=None), \

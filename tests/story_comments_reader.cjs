@@ -6,8 +6,8 @@ const sandbox={SERVED:true,console};sandbox.window=sandbox;sandbox.document={};
 vm.createContext(sandbox);
 const esc="const esc = s => String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));";
 vm.runInContext(esc+read('markdown.js')+read('story_reader.js')+
-  ';this.api={findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt};',sandbox);
-const {findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt}=sandbox.api;
+  ';this.api={findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt,selectionQuote};',sandbox);
+const {findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt,selectionQuote}=sandbox.api;
 const fail=m=>{console.error('FAIL '+m);process.exit(1);};
 const eq=(a,b,m)=>{if(JSON.stringify(a)!==JSON.stringify(b))fail(m+' '+JSON.stringify(a));};
 // anchoring inside one text node
@@ -43,5 +43,13 @@ eq(findQuoteSegments(repeated,'water moves',2),null,'missing occurrence is unanc
 eq(quoteOccurrenceAt(repeated,'water moves',0,20),1,'selection at the second copy');
 eq(quoteOccurrenceAt(repeated,'water moves',0,0),0,'selection at the first copy');
 if(storyCommentPayload({storyId:'s',path:'p',quote:'q',heading:'',comment:'c',occurrence:1}).occurrence!==1)fail('payload occurrence');
+// Review round 2: the copy is counted on the quote as it is saved (capped), not the full selection.
+const prefix='p'.repeat(2000);
+const long=[prefix+' then later '+prefix+'q'];
+const quote=selectionQuote(' '+prefix+'q ');
+if(quote.length!==2000)fail('selection quote is capped to what is saved');
+const at=long[0].lastIndexOf(prefix);
+eq(quoteOccurrenceAt(long,quote,0,at),1,'occurrence counted on the saved quote');
 console.log('comments ok');
+
 

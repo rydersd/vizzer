@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .story_files import read_capped, resolve_story_file
+from .story_files import MAX_STORY_BYTES, read_capped, resolve_story_file
 
 STORE_RELPATH = "vizzer/story-comments.json"
 QUOTE_MAX = 2000
@@ -38,8 +38,23 @@ def _size_check(size: int) -> None:
             f"store over limit: {STORE_RELPATH} is larger than {MAX_STORE_BYTES} bytes; left untouched", 413)
 
 
+def _plain_store_dir(root: Path) -> bool:
+    """False when the store's directory is absent; refused when it is a symlink (perhaps to another project)."""
+    try:
+        mode = os.lstat(root / Path(STORE_RELPATH).parent).st_mode
+    except FileNotFoundError:
+        return False
+    except OSError:
+        raise StoryCommentError(f"{Path(STORE_RELPATH).parent}/ is unreadable; left untouched", 500) from None
+    if not stat.S_ISDIR(mode):
+        raise StoryCommentError(f"{Path(STORE_RELPATH).parent}/ is not a plain directory; left untouched", 500)
+    return True
+
+
 def load_store(root: Path) -> list[dict]:
     """The one capped loader (API and renderer): bytes and count enforced, read via one descriptor."""
+    if not _plain_store_dir(root):
+        return []
     path = root / STORE_RELPATH
     try:
         link = os.lstat(path)
@@ -79,11 +94,17 @@ def load_store(root: Path) -> list[dict]:
 
 def _write(root: Path, entries: list[dict]) -> None:
     encoded = json.dumps(entries, indent=2, ensure_ascii=False) + "\n"
-    if len(encoded.encode("utf-8")) > MAX_STORE_BYTES:
+    try:
+        size = len(encoded.encode("utf-8"))
+    except UnicodeEncodeError:
+        # An escaped unpaired surrogate already in the store cannot be written back as UTF-8.
+        raise StoryCommentError(f"{STORE_RELPATH} holds text that cannot be saved; left untouched", 500) from None
+    if size > MAX_STORE_BYTES:
         raise StoryCommentError(
             f"story comment store size limit ({MAX_STORE_BYTES} bytes) reached; nothing was saved", 413)
     destination = root / STORE_RELPATH
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    if not _plain_store_dir(root):
+        destination.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(prefix=".story-comments.", dir=str(destination.parent))
     temporary = Path(name)
     try:
@@ -118,8 +139,9 @@ def _occurrence(body: dict) -> int | None:
     if "occurrence" not in body:
         return None
     value = body["occurrence"]
-    if type(value) is not int or not 0 <= value < 1000:
-        raise StoryCommentError("occurrence must be a whole number from 0 to 999")
+    # No story holds more copies of a quote than it has bytes.
+    if type(value) is not int or not 0 <= value <= MAX_STORY_BYTES:
+        raise StoryCommentError(f"occurrence must be a whole number from 0 to {MAX_STORY_BYTES}")
     return value
 
 

@@ -49,5 +49,16 @@ console.log('reader ok');
   answer('/api/question-story/story%3Aa','# A3');await fast;
   answer('/api/question-story/story%3Ab','# B late');await slow;
   if(state.storyId!=='story:a'||!state.body.innerHTML.includes('A3'))fail('a stale response replaced the newer story: '+state.storyId);
+  // Review round 2: a row whose story failed stays clickable, so a story created later opens on click.
+  const button={disabled:false};
+  const status={textContent:'',title:''};
+  const row={dataset:{questionStoryRow:'story:c'},classList:{add(){}},
+    querySelector:s=>s==='button'?button:status};
+  const hydrate=vm.runInContext('hydrateQuestionStoryLinks',sandbox);
+  hydrate({querySelectorAll:()=>[row]});
+  answer('/api/question-story/story%3Ac',null);
+  await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
+  if(!status.textContent.includes('not found'))fail('missing story stated on the row: '+status.textContent);
+  if(button.disabled)fail('the failed row button was disabled, so a story created later can never open');
   console.log('reader cache ok');
 })().catch(e=>fail(String(e&&e.stack||e)));

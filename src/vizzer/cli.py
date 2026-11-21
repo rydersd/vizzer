@@ -904,8 +904,16 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             except (OSError, UnicodeError) as exc:
                 self._send_json(500, {"error": "Could not access planning conversation"})
 
-        def _story_item_ids(self) -> set[str]:
-            """Current graph ids, so story aliases validate exactly as the constellation's do."""
+        def _story_item_ids(self, *, writing: bool = False) -> set[str]:
+            """Current graph ids, so story aliases validate exactly as the constellation's do.
+
+            Reads may fall back to the last good graph; a write never takes cached authority.
+            """
+            if writing:
+                live = _read_graph(root)
+                if live is None:
+                    raise StoryCommentError("current work graph is unavailable; nothing was saved", 503)
+                return set(live.item_map())
             live = _read_graph(root, allow_stale=True)
             return set((live or graph).item_map())
 
@@ -960,7 +968,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             if not parsed.query and parsed.path == "/api/story-comments":
                 def create():
                     entry = add_comment(root, cfg, self._read_json_body("story comment"),
-                                        self._story_item_ids())
+                                        self._story_item_ids(writing=True))
                     return 201, {"comment": entry}
                 self._story_comments_write(create)
                 return
