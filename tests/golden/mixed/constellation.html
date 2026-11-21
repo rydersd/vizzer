@@ -473,6 +473,42 @@ html:not([data-view="constellation"]) #historydock{display:none}
 #historydock.compact #historylanes,#historydock.compact .historyaxis{display:none}.historymeta{color:var(--mut);font-size:12px;overflow-wrap:anywhere}.historyevent{display:block;width:100%;text-align:left;background:var(--bg2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px;margin:8px 0}.historyevent small{display:block;color:var(--mut);margin-bottom:4px}.historyevent .excerpt{display:block;white-space:pre-wrap;max-height:4.2em;overflow:hidden}.historynote{border-left:2px solid var(--accent);padding-left:10px}.historylog{font-size:var(--reading-size);overflow-wrap:anywhere}.historylog div{white-space:pre-wrap}#historydrawercontrols{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
 @media(max-width:760px){#historydock{left:8px;right:8px;bottom:24px}html.dossier-open #historydock{display:none}.historylane{grid-template-columns:115px 1fr}.historyaxis{padding-left:125px}#historydock select{max-width:170px}}
 
+.questionstory{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font:12px/1.4 var(--sans)}
+.questionstorybtn{font:600 12px var(--sans);color:var(--accent);background:var(--bg2);border:1px solid var(--accent);border-radius:6px;padding:6px 12px;cursor:pointer}
+.questionstorybtn:hover:not(:disabled){background:var(--accent);color:var(--bg)}
+.questionstorybtn:disabled{opacity:.5;cursor:not-allowed;border-color:var(--line);color:var(--mut)}
+.questionstorystatus{color:var(--mut);font:11px ui-monospace,"SF Mono",Menlo,monospace;overflow-wrap:anywhere}
+.questionstory.missing .questionstorystatus,.questionstory.missing{color:#D8786B}
+.storyreader{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;background:var(--bg);color:var(--ink)}
+.storyreaderbar{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.storyreaderbar button{font:600 12px var(--sans);color:var(--ink);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer}
+.storyreaderback{border-color:var(--accent)!important;color:var(--accent)!important}
+.storyreaderpath{color:var(--mut);font-size:11px;overflow-wrap:anywhere}
+.storyreaderbody{flex:1;overflow:auto;padding:20px 24px 60px;max-width:920px;width:100%;margin:0 auto;box-sizing:border-box}
+.storyreadertitle{font:700 20px/1.3 var(--sans);margin:0 0 12px}
+.storyreader .storymd{font-size:13px}
+.storyfm{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0 0 16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg2);font:12px/1.5 var(--sans)}
+.storyfm dt{color:var(--mut);font-weight:600}.storyfm dd{margin:0}
+.storyreader a.mdstorylink{color:var(--accent);text-decoration:underline}
+.storyreadererror{color:#D8786B}
+.storyreaderlayout{flex:1;display:flex;min-height:0}
+.storyreaderlayout .storyreaderbody{margin:0 auto;max-width:860px}
+.storycomments{width:300px;flex:none;overflow:auto;padding:16px;border-left:1px solid var(--line);background:var(--panel);font:12px/1.5 var(--sans)}
+.storycommentitem{margin:0 0 12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg2);cursor:pointer}
+.storycommentitem blockquote{margin:6px 0;padding-left:8px;border-left:3px solid var(--accent);color:var(--mut);overflow-wrap:anywhere}
+.storycommentitem p{margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.storycommentitem small{color:var(--mut)}
+.storycommentstatus{font:700 10px var(--sans);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.storycommentloose{font:700 10px var(--sans);text-transform:uppercase;color:#D8786B}
+.storycommentitem button,.storycommentform button,.storycommentadd{font:600 12px var(--sans);color:var(--ink);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:4px 10px;cursor:pointer}
+.storycommentadd{position:fixed;z-index:1002;color:var(--bg);background:var(--accent);border-color:var(--accent)}
+mark.storycommentmark{background:rgba(201,169,106,.35);color:inherit;border-radius:2px}
+.storycommentform{position:fixed;z-index:1003;width:320px;padding:12px;border:1px solid var(--accent);border-radius:8px;background:var(--panel);box-shadow:0 8px 28px rgba(0,0,0,.45)}
+.storycommentform blockquote{margin:0 0 8px;padding-left:8px;border-left:3px solid var(--accent);color:var(--mut);font:11px/1.4 var(--sans);overflow-wrap:anywhere}
+.storycommentform textarea{width:100%;box-sizing:border-box;min-height:84px;font:12px/1.5 var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px;resize:vertical}
+.storycommentactions{display:flex;gap:8px;margin-top:8px}
+@media(max-width:820px){.storyreaderlayout{flex-direction:column}.storycomments{width:auto;border-left:0;border-top:1px solid var(--line);max-height:40%}}
+
 </style>
 <svg class="symbol-defs" aria-hidden="true">
   <symbol id="sym-xmark" viewBox="0 0 16 16"><path d="M3.5 3.5l9 9m0-9-9 9"/></symbol>
@@ -631,7 +667,7 @@ globalThis.VizzerViewQuery=Object.freeze({
   },
 });
 
-const DATA={"projectId":"project","projectIdConfigured":false,"storyAliases":{},"historicalQuestions":[],"warnings":[],"engineVersion":"0.8.39","renderId":"41f6598f7008a0fd","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
+const DATA={"projectId":"project","projectIdConfigured":false,"storyAliases":{},"historicalQuestions":[],"warnings":[],"engineVersion":"0.8.39","renderId":"c8e0e3459fa02e4a","nodes":[{"id":"doc:docs/design/tokens","s":"tokens","t":"Design tokens","summary":"Color tokens.","st":"shipped","g":"shipped","c":"docs/design","e":"","r":"","role":"reference","tags":["reference"],"facets":{},"group":"folder:docs/design","p":"docs/design/tokens.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/design/tokens","title":"Design tokens","summary":"Color tokens.","status":"shipped","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":["reference"],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/design/tokens.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/design/tokens.md","w":1.22,"ac":1,"am":1,"ts":1767323045,"q":"Design tokens doc:docs/design/tokens Color tokens. shipped reference reference folder:docs/design docs/design docs/design/tokens.md ","pg":{"events":[]}},{"id":"doc:docs/roadmap-notes","s":"roadmap-notes","t":"Roadmap notes","summary":"Where we're heading.","st":"unknown","g":"faint","c":"docs","e":"","r":"","role":"reference","tags":[],"facets":{},"group":"folder:docs","p":"docs/roadmap-notes.md","detail":{"schema":"vizzer-object-detail/v1","id":"doc:docs/roadmap-notes","title":"Roadmap notes","summary":"Where we're heading.","status":"unknown","sections":{},"core":{"role":"reference","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"loose_docs","locator":"docs/roadmap-notes.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../docs/roadmap-notes.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Roadmap notes doc:docs/roadmap-notes Where we're heading. unknown reference folder:docs docs docs/roadmap-notes.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/01-phase-1-extract-widget-core","s":"01-phase-1-extract-widget-core","t":"Phase 1: Extract widget core","summary":"","st":"shipped","g":"shipped","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/01-phase-1-extract-widget-core","title":"Phase 1: Extract widget core","summary":"","status":"shipped","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 1: Extract widget core phase:widget-refactor/01-phase-1-extract-widget-core shipped evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/02-phase-2-port-call-sites","s":"02-phase-2-port-call-sites","t":"Phase 2: Port call sites","summary":"","st":"building","g":"active","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/02-phase-2-port-call-sites","title":"Phase 2: Port call sites","summary":"","status":"building","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 2: Port call sites phase:widget-refactor/02-phase-2-port-call-sites building evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","s":"03-phase-3-delete-legacy-shims","t":"Phase 3: Delete legacy shims","summary":"","st":"backlog","g":"faint","c":"widget-refactor","e":"","r":"","role":"evidence","tags":[],"facets":{},"group":"ledger:widget-refactor","p":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","detail":{"schema":"vizzer-object-detail/v1","id":"phase:widget-refactor/03-phase-3-delete-legacy-shims","title":"Phase 3: Delete legacy shims","summary":"","status":"backlog","sections":{},"core":{"role":"evidence","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"ledgers","locator":"thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Phase 3: Delete legacy shims phase:widget-refactor/03-phase-3-delete-legacy-shims backlog evidence ledger:widget-refactor Widget Refactor thoughts/ledgers/CONTINUITY_CLAUDE-widget-refactor.md ","pg":{"events":[]}},{"id":"story:canvas-core","s":"canvas-core","t":"Canvas core","summary":"Core canvas surface with pan and zoom.","st":"shipped","g":"shipped","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/canvas-core.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:canvas-core","title":"Canvas core","summary":"Core canvas surface with pan and zoom.","status":"shipped","sections":{},"core":{"role":"delivery","release":"R0","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/canvas-core.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/canvas-core.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Canvas core story:canvas-core Core canvas surface with pan and zoom. shipped R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/canvas-core.md ","pg":{"events":[]}},{"id":"story:snap-to-grid","s":"snap-to-grid","t":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","st":"building","g":"active","c":"drawing","e":"Drawing tools","r":"R0","role":"delivery","tags":[],"facets":{},"group":"epic:drawing/tools","p":"spec/drawing/epics/tools/stories/snap-to-grid.md","detail":{"schema":"vizzer-object-detail/v1","id":"story:snap-to-grid","title":"Snap to grid","summary":"Dragging an object snaps its edges to the configured grid.","status":"building","sections":{},"core":{"role":"delivery","release":"R0","appetite":"medium","tags":[],"flags":["debt"],"facets":{}},"relationships":{"dependsOn":["story:canvas-core"],"typed":[]},"provenance":{"adapter":"spec_tree","locator":"spec/drawing/epics/tools/stories/snap-to-grid.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../spec/drawing/epics/tools/stories/snap-to-grid.md","w":1.4,"ac":1,"am":0,"ts":1767323045,"q":"Snap to grid story:snap-to-grid Dragging an object snaps its edges to the configured grid. building R0 delivery epic:drawing/tools Drawing tools capability:drawing Drawing spec/drawing/epics/tools/stories/snap-to-grid.md ","pg":{"events":[]}},{"id":"todo:todo/01-set-up-ci","s":"01-set-up-ci","t":"Set up CI","summary":"","st":"shipped","g":"shipped","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/01-set-up-ci","title":"Set up CI","summary":"","status":"shipped","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Set up CI todo:todo/01-set-up-ci shipped delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}},{"id":"todo:todo/02-write-install-docs","s":"02-write-install-docs","t":"Write install docs","summary":"","st":"backlog","g":"faint","c":"TODO.md","e":"","r":"","role":"delivery","tags":[],"facets":{},"group":"todo-file:TODO.md","p":"TODO.md","detail":{"schema":"vizzer-object-detail/v1","id":"todo:todo/02-write-install-docs","title":"Write install docs","summary":"","status":"backlog","sections":{},"core":{"role":"delivery","release":"","appetite":"","tags":[],"flags":[],"facets":{}},"relationships":{"dependsOn":[],"typed":[]},"provenance":{"adapter":"todos","locator":"TODO.md"}},"rs":null,"acx":null,"dod":null,"blockers":null,"nextAction":null,"h":"../../TODO.md","w":1.22,"ac":1,"am":0,"ts":1767323045,"q":"Write install docs todo:todo/02-write-install-docs backlog delivery todo-file:TODO.md TODO.md TODO.md ","pg":{"events":[]}}],"projectDocuments":[],"tagColors":{},"groups":[{"id":"capability:drawing","kind":"capability","title":"Drawing","parent":"","purpose":"# Capability: Drawing\n","p":"spec/drawing/drawing.md","h":"../../spec/drawing/drawing.md"},{"id":"epic:drawing/tools","kind":"epic","title":"Drawing tools","parent":"capability:drawing","purpose":"# Epic: Drawing tools\n","p":"spec/drawing/epics/tools/tools.md","h":"../../spec/drawing/epics/tools/tools.md"},{"id":"folder:docs","kind":"folder","title":"docs","parent":""},{"id":"folder:docs/design","kind":"folder","title":"docs/design","parent":""},{"id":"ledger:widget-refactor","kind":"ledger","title":"Widget Refactor","parent":""},{"id":"todo-file:TODO.md","kind":"folder","title":"TODO.md","parent":""}],"edges":[[5,6]],"relations":[],"work":[],"workLinks":[],"agentTrails":[],"testReviews":[],"questions":[],"decisions":[],"planning":{"baseTargets":[],"effectiveTargets":[]},"workstreams":{},"caps":{"drawing":{"total":2,"shipped":1},"TODO.md":{"total":2,"shipped":1}},"areas":[],"sourceAreas":[],"now":1767323045,"velocity":{"windowDays":28,"rollingDays":7,"anchor":null,"updatedAt":null,"currentHost":null,"window":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"recent":{"days":0,"shipped":0,"shippedPerDay":0.0,"prs":0,"prsPerDay":0.0,"builds":0,"buildsPerDay":0.0,"leadMedianDays":null,"leadSamples":0},"wip":[],"days":[],"hosts":[],"mergeRef":null,"logPath":"vizzer/velocity-log.jsonl","warnings":[]}};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = (name,fill=false) => `<svg class="symbol${fill?' fill':''}" aria-hidden="true"><use href="#sym-${name}"/></svg>`;
 
@@ -1306,6 +1342,9 @@ railResize?.addEventListener('keydown',event=>{
 addEventListener('resize',()=>{if(innerWidth>RAIL_COMPACT)applyRailWidth(railWidth);});
 
 // Dependency-free, XSS-safe Markdown subset for authored story content.
+// Optional hook (story_reader.js): maps a relative link target to a story id so
+// the reader can open it; null keeps the inert-text default.
+let mdLinkResolver=null;
 function mdInlineEscaped(escaped){
   return escaped.split(/(`[^`\n]+`)/).map(part=>{
     if(part.length>2&&part.startsWith('`')&&part.endsWith('`'))
@@ -1314,7 +1353,9 @@ function mdInlineEscaped(escaped){
     t=t.replace(/\[([^\]\n]+)\]\(([^()\s]+)\)/g,(_m,label,url)=>
       /^https?:\/\//.test(url)
         ?`<a href="${url}" target="_blank" rel="noopener">${label}</a>`
-        :`<span class="mdinternal" title="${url}">${label}</span>`);
+        :(mdLinkResolver&&mdLinkResolver(url)
+          ?`<a href="#" class="mdstorylink" data-md-story="${mdLinkResolver(url)}" title="${url}">${label}</a>`
+          :`<span class="mdinternal" title="${url}">${label}</span>`));
     t=t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
     t=t.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');
     t=t.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');
@@ -1412,6 +1453,351 @@ function renderStoryMarkdown(text){
     out.push(`<p class="mdp">${mdInline(buffer.join(' '))}</p>`);
   }
   return out.join('');
+}
+
+// ---- question -> story reader ----
+// Owner directive 2026-11-21: "when a question is about a new story, allow it to
+// open that md file and display it inline with a back to the question view" /
+// "don't make me hunt down the story." The server reads the story from disk
+// (/api/question-story/<id>), so new untracked stories open like committed ones.
+// The reader is an overlay: the question view underneath is never re-rendered,
+// so drafts, selections and scroll survive Back to question.
+
+const storyReaderCache = new Map();
+function fetchQuestionStory(storyId){
+  if(!storyReaderCache.has(storyId)){
+    storyReaderCache.set(storyId,fetch('/api/question-story/'+encodeURIComponent(storyId))
+      .then(async response=>{
+        let body=null;try{body=await response.json();}catch(_){}
+        if(!response.ok)return{ok:false,error:(body&&body.error)||'The story could not be loaded.'};
+        return{ok:true,path:body.path,markdown:body.markdown};
+      }).catch(()=>({ok:false,error:'The Vizzer server could not be reached.'})));
+  }
+  return storyReaderCache.get(storyId);
+}
+function questionStoryLinkMarkup(q){
+  const id=q&&q.storyId;
+  if(!id)return '<p class="questionstory missing" role="status">This question names no story.</p>';
+  const slug=String(id).replace(/^story:/,'');
+  if(!SERVED)return `<p class="questionstory"><span>Story <code>${esc(slug)}</code> · open the served view (vizzer serve) to read it inline.</span></p>`;
+  return `<p class="questionstory" data-question-story-row="${esc(id)}"><button type="button" class="questionstorybtn" data-open-question-story="${esc(id)}">Read story: ${esc(slug)}</button>`
+    +` <span class="questionstorystatus" aria-live="polite"></span></p>`;
+}
+// Resolve every story row inside a container up front, so an unresolvable story
+// is stated on the question itself rather than discovered on click.
+function hydrateQuestionStoryLinks(container){
+  if(!SERVED||!container)return;
+  container.querySelectorAll('[data-question-story-row]').forEach(async row=>{
+    const id=row.dataset.questionStoryRow,status=row.querySelector('.questionstorystatus');
+    const result=await fetchQuestionStory(id);
+    if(!status)return;
+    if(result.ok){status.textContent=result.path;status.title=result.path;}
+    else{
+      row.classList.add('missing');status.textContent='Story file not found. '+result.error;
+      const button=row.querySelector('button');if(button)button.disabled=true;
+    }
+  });
+}
+
+function splitStoryFrontMatter(text){
+  const normalized=String(text).replace(/\r\n?/g,'\n');
+  const match=normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+  if(!match)return{fields:[],body:normalized};
+  const fields=[];
+  for(const line of match[1].split('\n')){
+    const field=line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
+    if(field)fields.push([field[1],field[2]]);
+    else if(fields.length&&/^\s+\S/.test(line))fields[fields.length-1][1]+=' '+line.trim();
+  }
+  return{fields,body:normalized.slice(match[0].length)};
+}
+function storyFrontMatterMarkup(fields){
+  if(!fields.length)return '';
+  return '<dl class="storyfm">'+fields.map(([key,value])=>
+    `<dt>${esc(key)}</dt><dd>${mdInline(value)}</dd>`).join('')+'</dl>';
+}
+function storyTitle(body,fallback){
+  const heading=body.match(/^#\s+(.+?)\s*$/m);
+  return heading?heading[1]:fallback;
+}
+function storyReaderBodyMarkup(markdown,fallbackTitle){
+  const{fields,body}=splitStoryFrontMatter(markdown);
+  const previous=mdLinkResolver;
+  // Relative links to sibling stories open in this reader; others stay inert.
+  mdLinkResolver=url=>{
+    const target=url.split('#')[0];
+    const m=target.match(/(?:^|\/)([A-Za-z0-9][A-Za-z0-9._-]*)\.md$/);
+    return m&&!/^[a-z]+:/i.test(target)?'story:'+m[1]:null;
+  };
+  try{
+    return `<h2 class="storyreadertitle">${esc(storyTitle(body,fallbackTitle))}</h2>`
+      +storyFrontMatterMarkup(fields)+`<div class="storymd storyfull">${renderStoryMarkdown(body)}</div>`;
+  }finally{mdLinkResolver=previous;}
+}
+
+
+// ---- owner comments on story text ----
+// Owner directive 2026-11-21: select text in the story, comment on it, and the
+// comments reach the orchestrator for a grill session (vizzer/story-comments.json,
+// surfaced as views/story-comments.md). Everything is text: the quote and the
+// comment only ever reach the DOM through esc() or textContent.
+const STORY_QUOTE_MAX=2000,STORY_COMMENT_MAX=4000;
+
+// Pure. Find `quote` across an array of text-node strings, tolerating
+// whitespace differences. Returns [{node,start,end}] per node touched, or null.
+// A selection that crosses blocks reads with a newline the DOM text lacks, so a
+// second pass treats node boundaries as whitespace.
+function findQuoteSegments(texts,quote){
+  const want=String(quote).replace(/\s+/g,' ').trim();
+  if(!want)return null;
+  for(const separated of [false,true]){
+    let flat='';const map=[];
+    texts.forEach((text,node)=>{
+      if(separated&&flat&&!flat.endsWith(' ')){flat+=' ';map.push(null);}
+      for(let i=0;i<text.length;i++){
+        const space=/\s/.test(text[i]);
+        if(space&&(flat.endsWith(' ')||!flat))continue;
+        flat+=space?' ':text[i];map.push({node,offset:i});
+      }
+    });
+    const at=flat.indexOf(want);
+    if(at<0)continue;
+    const segments=[];
+    for(let i=at;i<at+want.length;i++){
+      const hit=map[i];if(!hit)continue;
+      const last=segments[segments.length-1];
+      if(last&&last.node===hit.node)last.end=hit.offset+1;
+      else segments.push({node:hit.node,start:hit.offset,end:hit.offset+1});
+    }
+    return segments.length?segments:null;
+  }
+  return null;
+}
+function storyCommentPayload({storyId,path,questionId,quote,heading,comment}){
+  const payload={storyId,path,quote:String(quote).slice(0,STORY_QUOTE_MAX),
+    heading:String(heading||''),comment:String(comment).trim(),clientTime:new Date().toISOString()};
+  if(questionId)payload.questionId=questionId;
+  return payload;
+}
+function storyCommentsListMarkup(comments,anchoredIds){
+  if(!comments.length)return '<p class="storysectionmissing">No comments yet. Select text in the story to add one.</p>';
+  return comments.map(comment=>{
+    const anchored=anchoredIds.has(comment.id);
+    return `<article class="storycommentitem" data-story-comment="${esc(comment.id)}">`
+      +`<header><span class="storycommentstatus">${esc(comment.status)}</span>`
+      +(anchored?'':' <span class="storycommentloose">unanchored</span>')+'</header>'
+      +`<blockquote>${esc(comment.quote)}</blockquote>`
+      +(comment.heading?`<small>${esc(comment.heading)}</small>`:'')
+      +`<p>${esc(comment.comment)}</p>`
+      +(comment.status==='open'?`<button type="button" data-delete-story-comment="${esc(comment.id)}">Delete</button>`:'')
+      +'</article>';
+  }).join('');
+}
+
+function storyTextNodes(root){
+  const nodes=[],walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);
+  return nodes;
+}
+// Wrap the quote in <mark> where it can still be found; returns whether it was.
+function highlightStoryQuote(root,comment){
+  const nodes=storyTextNodes(root);
+  const segments=findQuoteSegments(nodes.map(node=>node.data),comment.quote);
+  if(!segments)return false;
+  for(const{node,start,end}of segments.reverse()){
+    const range=document.createRange();range.setStart(nodes[node],start);range.setEnd(nodes[node],end);
+    const mark=document.createElement('mark');mark.className='storycommentmark';
+    mark.dataset.commentId=comment.id;mark.title=comment.comment;
+    range.surroundContents(mark);
+  }
+  return true;
+}
+function renderStoryComments(state){
+  state.body.querySelectorAll('mark.storycommentmark').forEach(mark=>mark.replaceWith(...mark.childNodes));
+  state.body.normalize();
+  const anchored=new Set();
+  if(state.story)state.comments.forEach(comment=>{
+    if(highlightStoryQuote(state.body,comment))anchored.add(comment.id);
+  });
+  state.side.innerHTML=state.story?storyCommentsListMarkup(state.comments,anchored):'';
+  state.side.querySelectorAll('[data-story-comment]').forEach(item=>item.addEventListener('click',event=>{
+    if(event.target.closest('button'))return;
+    state.body.querySelector(`mark[data-comment-id="${CSS.escape(item.dataset.storyComment)}"]`)
+      ?.scrollIntoView({block:'center'});
+  }));
+  state.side.querySelectorAll('[data-delete-story-comment]').forEach(button=>
+    button.addEventListener('click',()=>deleteStoryComment(state,button.dataset.deleteStoryComment)));
+}
+async function refreshStoryComments(state){
+  const storyId=state.storyId;
+  try{
+    const response=await fetch('/api/story-comments?storyId='+encodeURIComponent(storyId),{cache:'no-store'});
+    const body=await response.json();
+    if(!response.ok)throw new Error(body.error||'comments could not be loaded');
+    if(storyReaderState!==state||state.storyId!==storyId)return;
+    state.comments=body.comments;state.csrf=body.csrfToken;renderStoryComments(state);
+  }catch(error){
+    if(storyReaderState===state)state.side.insertAdjacentHTML('afterbegin',
+      `<p class="storyreadererror" role="alert">Comments could not be loaded. ${esc(error.message)}</p>`);
+  }
+}
+async function storyCommentRequest(state,method,url,body){
+  const response=await fetch(url,{method,headers:{'Content-Type':'application/json','X-Vizzer-CSRF':state.csrf},
+    body:body?JSON.stringify(body):undefined});
+  let result={};try{result=await response.json();}catch(_){}
+  if(!response.ok)throw new Error(result.error||'The server refused the comment.');
+  return result;
+}
+async function deleteStoryComment(state,id){
+  try{
+    await storyCommentRequest(state,'DELETE','/api/story-comments/'+encodeURIComponent(id));
+    state.comments=state.comments.filter(comment=>comment.id!==id);renderStoryComments(state);
+  }catch(error){state.side.insertAdjacentHTML('afterbegin',
+    `<p class="storyreadererror" role="alert">${esc(error.message)}</p>`);}
+}
+function closeCommentCompose(state){
+  if(state.compose){state.compose.remove();state.compose=null;}
+  if(state.affordance){state.affordance.remove();state.affordance=null;}
+}
+function nearestHeadingAbove(body,range){
+  let found='';
+  for(const heading of body.querySelectorAll('.mdh,.storyreadertitle')){
+    if(heading.compareDocumentPosition(range.startContainer)&Node.DOCUMENT_POSITION_FOLLOWING
+        ||heading.contains(range.startContainer))found=heading.textContent;
+  }
+  return found.trim();
+}
+function bindCommentSelection(state){
+  state.body.addEventListener('mouseup',()=>setTimeout(()=>{
+    if(storyReaderState!==state||state.compose||!state.story||!state.csrf)return;
+    const selection=window.getSelection();
+    if(!selection||selection.isCollapsed||!selection.rangeCount)return;
+    const range=selection.getRangeAt(0);
+    if(!state.body.contains(range.commonAncestorContainer))return;
+    const quote=selection.toString().trim();
+    if(!quote)return;
+    closeCommentCompose(state);
+    const rect=range.getBoundingClientRect();
+    const button=document.createElement('button');
+    button.type='button';button.className='storycommentadd';button.textContent='Comment';
+    button.style.left=Math.max(8,Math.min(rect.right,window.innerWidth-100))+'px';
+    button.style.top=Math.max(8,rect.bottom+6)+'px';
+    // mousedown must not collapse the selection before we read it.
+    button.addEventListener('mousedown',event=>event.preventDefault());
+    const context={quote,heading:nearestHeadingAbove(state.body,range),rect};
+    button.addEventListener('click',()=>openCommentCompose(state,context));
+    state.overlay.appendChild(button);state.affordance=button;
+  },0));
+  state.body.addEventListener('mousedown',()=>{if(!state.compose&&state.affordance)closeCommentCompose(state);});
+}
+function openCommentCompose(state,{quote,heading,rect}){
+  closeCommentCompose(state);
+  const form=document.createElement('form');form.className='storycommentform';
+  form.innerHTML='<blockquote></blockquote><textarea maxlength="'+STORY_COMMENT_MAX+'" aria-label="Your comment" required></textarea>'
+    +'<div class="storycommentactions"><button type="submit">Save</button><button type="button" data-cancel>Cancel</button></div>'
+    +'<p class="storyreadererror" role="alert" hidden></p>';
+  form.querySelector('blockquote').textContent=quote.length>240?quote.slice(0,240)+'…':quote;
+  form.style.left=Math.max(8,Math.min(rect.left,window.innerWidth-340))+'px';
+  form.style.top=Math.max(8,Math.min(rect.bottom+6,window.innerHeight-230))+'px';
+  state.overlay.appendChild(form);state.compose=form;
+  const area=form.querySelector('textarea'),error=form.querySelector('.storyreadererror');
+  area.focus();
+  form.querySelector('[data-cancel]').addEventListener('click',()=>closeCommentCompose(state));
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!area.value.trim())return;
+    const save=form.querySelector('[type=submit]');save.disabled=true;
+    try{
+      const result=await storyCommentRequest(state,'POST','/api/story-comments',
+        storyCommentPayload({storyId:state.storyId,path:state.story.path,questionId:state.questionId,
+          quote,heading,comment:area.value}));
+      window.getSelection()?.removeAllRanges();
+      closeCommentCompose(state);
+      state.comments.push(result.comment);renderStoryComments(state);
+    }catch(failure){error.textContent=failure.message;error.hidden=false;save.disabled=false;}
+  });
+}
+
+let storyReaderState=null;
+function scrollSnapshot(from){
+  const saved=[];
+  for(let el=from;el&&el!==document.body;el=el.parentElement){
+    if(el.scrollTop>0)saved.push([el,el.scrollTop]);
+  }
+  return{saved,windowY:window.scrollY||0};
+}
+function closeStoryReader(){
+  const state=storyReaderState;if(!state)return;
+  storyReaderState=null;
+  document.removeEventListener('keydown',state.onKey,true);
+  closeCommentCompose(state);
+  state.overlay.remove();
+  state.snapshot.saved.forEach(([el,top])=>{el.scrollTop=top;});
+  window.scrollTo(0,state.snapshot.windowY);
+  if(state.opener&&state.opener.isConnected)state.opener.focus({preventScroll:true});
+}
+async function showStoryInReader(storyId){
+  const state=storyReaderState;if(!state)return;
+  const slug=storyId.replace(/^story:/,'');
+  state.body.innerHTML=`<p class="storysectionmissing">Loading ${esc(slug)}…</p>`;
+  const result=await fetchQuestionStory(storyId);
+  if(storyReaderState!==state)return;
+  state.path.textContent=result.ok?result.path:'';
+  state.body.innerHTML=result.ok?storyReaderBodyMarkup(result.markdown,slug)
+    :`<p class="storyreadererror" role="alert"><b>${esc(slug)}</b> could not be opened. ${esc(result.error)}</p>`;
+  state.body.scrollTop=0;
+  state.storyId=storyId;state.story=result.ok?result:null;state.comments=[];
+  closeCommentCompose(state);
+  renderStoryComments(state);
+  if(result.ok)refreshStoryComments(state);
+  state.body.querySelectorAll('[data-md-story]').forEach(link=>link.addEventListener('click',event=>{
+    event.preventDefault();state.trail.push(storyId);showStoryInReader(link.dataset.mdStory);
+    state.previous.hidden=false;
+  }));
+}
+function openStoryReader(storyId,opener){
+  if(storyReaderState)closeStoryReader();
+  const overlay=document.createElement('div');
+  overlay.className='storyreader';overlay.setAttribute('role','dialog');
+  overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Story');
+  overlay.innerHTML='<header class="storyreaderbar"><button type="button" class="storyreaderback" data-story-reader-back>&larr; Back to question</button>'
+    +'<button type="button" class="storyreaderprev" data-story-reader-prev hidden>&larr; Previous story</button>'
+    +'<code class="storyreaderpath"></code></header><div class="storyreaderlayout"><div class="storyreaderbody"></div>'
+    +'<aside class="storycomments" aria-label="Your comments on this story"></aside></div>';
+  document.body.appendChild(overlay);
+  const state={overlay,opener,snapshot:scrollSnapshot(opener),trail:[],
+    body:overlay.querySelector('.storyreaderbody'),side:overlay.querySelector('.storycomments'),
+    questionId:opener?.closest?.('[data-question-id]')?.dataset.questionId||'',
+    storyId:'',story:null,comments:[],csrf:'',path:overlay.querySelector('.storyreaderpath'),
+    previous:overlay.querySelector('[data-story-reader-prev]')};
+  state.onKey=event=>{if(event.key!=='Escape')return;event.preventDefault();
+    if(state.compose)closeCommentCompose(state);else closeStoryReader();};
+  document.addEventListener('keydown',state.onKey,true);
+  storyReaderState=state;
+  overlay.querySelector('[data-story-reader-back]').addEventListener('click',closeStoryReader);
+  state.previous.addEventListener('click',()=>{
+    const back=state.trail.pop();if(back)showStoryInReader(back);
+    state.previous.hidden=!state.trail.length;
+  });
+  bindCommentSelection(state);
+  overlay.querySelector('[data-story-reader-back]').focus({preventScroll:true});
+  showStoryInReader(storyId);
+}
+// Delegated: question cards re-render freely without rebinding.
+if(typeof document?.addEventListener==='function'){
+  document.addEventListener('click',event=>{
+    const button=event.target?.closest?.('[data-open-question-story]');
+    if(button&&!button.disabled){event.preventDefault();openStoryReader(button.dataset.openQuestionStory,button);}
+  });
+}
+// Resolve story rows as cards appear, whichever view rendered them.
+if(typeof MutationObserver==='function'&&typeof document!=='undefined'&&document.body){
+  const observer=new MutationObserver(()=>{
+    document.querySelectorAll('[data-question-story-row]:not([data-story-checked])').forEach(row=>{
+      row.dataset.storyChecked='1';hydrateQuestionStoryLinks(row.parentElement||row);
+    });
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
 }
 
 // ---- routed interactive views ----
@@ -2389,7 +2775,7 @@ function questionCard(q){
   const evidence=q.evidence.map(value=>`<code>${esc(value)}</code>`).join('<br>');
   const ready=(draft.kind==='option'&&draft.optionId)||(custom&&draft.text.trim());
   const status=!SERVED?'Read-only file · run vizzer serve to answer':questionError?esc(questionError):!questionContext?'Loading answer authority…':ready?'Selected · ready to answer':'Not answered';
-  return `<form class="questioncard" data-question-id="${esc(q.id)}"><fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>${questionNoteMarkup(q.id)}
+  return `<form class="questioncard" data-question-id="${esc(q.id)}">${typeof questionStoryLinkMarkup==='function'?questionStoryLinkMarkup(q):''}<fieldset${controlsDisabled}><legend><strong>decision required · ${esc(q.owner)}</strong><h3>${esc(q.prompt)}</h3></legend>${questionNoteMarkup(q.id)}
     <div class="questionoptions">${options}<div><input class="questionradio" type="radio" id="${customId}" name="${token}-answer" value="__freeform" data-question-custom ${custom?'checked':''}${controlsDisabled}>
       <label class="questionoption" for="${customId}"><b>Suggest something else</b><span>Record a different owner direction in your own words.</span></label></div></div>
     <div class="questioncustom" ${custom?'':'hidden'}><button type="button" data-question-edit>Edit in Markdown panel</button><label for="${token}-text">Your suggestion · Markdown supported</label><textarea id="${token}-text" maxlength="2000" data-question-text ${custom&&writable?'':'disabled'}>${esc(draft.text)}</textarea></div>

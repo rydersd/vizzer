@@ -1,4 +1,7 @@
 // Dependency-free, XSS-safe Markdown subset for authored story content.
+// Optional hook (story_reader.js): maps a relative link target to a story id so
+// the reader can open it; null keeps the inert-text default.
+let mdLinkResolver=null;
 function mdInlineEscaped(escaped){
   return escaped.split(/(`[^`\n]+`)/).map(part=>{
     if(part.length>2&&part.startsWith('`')&&part.endsWith('`'))
@@ -7,7 +10,9 @@ function mdInlineEscaped(escaped){
     t=t.replace(/\[([^\]\n]+)\]\(([^()\s]+)\)/g,(_m,label,url)=>
       /^https?:\/\//.test(url)
         ?`<a href="${url}" target="_blank" rel="noopener">${label}</a>`
-        :`<span class="mdinternal" title="${url}">${label}</span>`);
+        :(mdLinkResolver&&mdLinkResolver(url)
+          ?`<a href="#" class="mdstorylink" data-md-story="${mdLinkResolver(url)}" title="${url}">${label}</a>`
+          :`<span class="mdinternal" title="${url}">${label}</span>`));
     t=t.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>');
     t=t.replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');
     t=t.replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s).,;:!?])/g,'$1<em>$2</em>');

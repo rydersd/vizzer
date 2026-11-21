@@ -21,6 +21,7 @@ FRONTEND_DIR = "constellation"
 FRONTEND_RESOURCES = (
     ("__VIZZER_BACKGROUND_CSS__", "background.css"),
     ("__VIZZER_SESSION_HISTORY_CSS__", "session_history.css"),
+    ("__VIZZER_STORY_READER_CSS__", "story_reader.css"),
     ("__VIZZER_TOKENS_CSS__", "tokens.css"),
     ("__VIZZER_LAYOUT_CSS__", "layout.css"),
     ("__VIZZER_VIEWS_CSS__", "views.css"),
@@ -30,6 +31,7 @@ FRONTEND_RESOURCES = (
     ("__VIZZER_CHROME_LAYOUT_JS__", "chrome_layout.js"),
     ("__VIZZER_PREFERENCES_JS__", "preferences.js"),
     ("__VIZZER_MARKDOWN_JS__", "markdown.js"),
+    ("__VIZZER_STORY_READER_JS__", "story_reader.js"),
     ("__VIZZER_VIEWS_JS__", "views.js"),
     ("__VIZZER_REVIEWS_JS__", "reviews.js"),
     ("__VIZZER_FILTERS_JS__", "filters.js"),

@@ -18,7 +18,7 @@ import dataclasses
 import threading
 import time
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 try:  # Unix gets cross-process exclusion; other platforms retain process safety.
     import fcntl
@@ -76,6 +76,11 @@ from .workstreams import (
 )
 from .startup import service_label_for_root
 from .story_aliases import load_story_aliases
+from .story_comments import (
+    StoryCommentError, add_comment, delete_comment, list_comments,
+)
+from .render.story_comments import render as _render_story_comments
+from .story_files import story_payload
 
 
 GRAPH_RELPATH = Path("vizzer/vizzer-graph.json")
@@ -456,6 +461,20 @@ def _open_item(root: Path, item_id: str) -> int:
     return 0
 
 
+def _atomic_text(destination: Path, text: str) -> None:
+    """Replace one generated view atomically (temp file, then rename)."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(prefix=f".{destination.name}.", dir=str(destination.parent))
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(temporary, destination)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                    csrf_token: str):
     """Build a static loopback handler with an item-ID-only open endpoint."""
@@ -516,7 +535,7 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
 
         def _loopback_host(self) -> bool:
             host = self.headers.get("Host", "")
-            hostname = host.rsplit(":", 1)[0].strip("[]").lower()
+            hostname = host.rsplit(":", 1)[0].strip("[]").lower().rstrip(".")
             return hostname in {"127.0.0.1", "localhost", "::1"}
 
         def _same_origin(self) -> bool:
@@ -885,11 +904,60 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             except (OSError, UnicodeError) as exc:
                 self._send_json(500, {"error": "Could not access planning conversation"})
 
+        def _story_comments_write(self, action) -> None:
+            # Same-origin + CSRF, current engine, and the served mutation lock,
+            # like every other owner write. The refresh view is rewritten in
+            # place so the grill-session page never lags the file.
+            if not self._require_current_engine():
+                return
+            if not self._same_origin():
+                self._send_json(403, {"error": "same-origin CSRF check failed"})
+                return
+            try:
+                with _mutation_guard(root):
+                    status, payload = action()
+                    # The JSON store write above is the success boundary; the
+                    # generated view is repaired by the next refresh if this fails.
+                    try:
+                        for name, text in _render_story_comments(None, cfg, root).items():
+                            _atomic_text(views / name, text)
+                    except OSError as exc:
+                        print(f"serve: story-comments view not rewritten: {exc}", file=sys.stderr)
+            except StoryCommentError as exc:
+                self._send_json(exc.status, {"error": str(exc)})
+                return
+            except QuestionAnswerError as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            except OSError as exc:
+                self._send_json(500, {"error": f"story comments could not be saved: {exc}"})
+                return
+            self._send_json(status, payload)
+
+        def do_DELETE(self):
+            if not self._loopback_host():
+                self._send_json(421, {"error": "loopback Host required"})
+                return
+            parsed = urlsplit(self.path)
+            prefix = "/api/story-comments/"
+            comment_id = unquote(parsed.path[len(prefix):]).rstrip("/")
+            if parsed.query or not parsed.path.startswith(prefix) or not comment_id:
+                self._send_json(404, {"error": "not found"})
+                return
+            self._story_comments_write(
+                lambda: (delete_comment(root, comment_id), (200, {"deleted": comment_id}))[1])
+
         def do_POST(self):
             if not self._loopback_host():
                 self._send_json(421, {"error": "loopback Host required"})
                 return
             parsed = urlsplit(self.path)
+            if not parsed.query and parsed.path == "/api/story-comments":
+                def create():
+                    entry = add_comment(root, cfg, self._read_json_body("story comment"))
+                    return 201, {"comment": entry}
+                self._story_comments_write(create)
+                return
             if not parsed.query and parsed.path == "/api/server/restart":
                 if not self._same_origin():
                     self._send_json(403, {"error": "same-origin CSRF check failed"})
@@ -1139,6 +1207,31 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                     self._send_json(413, {"error": "story body is too large"})
                     return
                 self._send_bytes(200, payload, "text/markdown; charset=utf-8")
+                return
+            if parsed.path == "/api/story-comments":
+                if not self._require_current_engine():
+                    return
+                story_id = parse_qs(parsed.query).get("storyId", [""])[0]
+                if not story_id:
+                    self._send_json(400, {"error": "storyId is required"})
+                    return
+                try:
+                    comments = list_comments(root, story_id)
+                except StoryCommentError as exc:
+                    self._send_json(exc.status, {"error": str(exc)})
+                    return
+                self._send_json(200, {"storyId": story_id, "comments": comments,
+                                      "csrfToken": csrf_token})
+                return
+            question_story_prefix = "/api/question-story/"
+            if not parsed.query and parsed.path.startswith(question_story_prefix):
+                # Owner question -> story markdown, read from the working tree
+                # (new stories are untracked). Slug-only matching; see story_files.
+                if not self._require_current_engine():
+                    return
+                status, body = story_payload(
+                    root, cfg, unquote(parsed.path[len(question_story_prefix):]).rstrip("/"))
+                self._send_json(status, body)
                 return
             if parsed.path.startswith("/api/open/"):
                 self._send_json(405, {"error": "POST required"})
