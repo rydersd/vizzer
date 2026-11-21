@@ -1,0 +1,64 @@
+// Runs the real markdown.js + story_reader.js against a stub DOM-free harness.
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const dir=path.join(__dirname,'..','src','vizzer','render','constellation');
+const read=n=>fs.readFileSync(path.join(dir,n),'utf8');
+const sandbox={SERVED:true,console};
+sandbox.window=sandbox;sandbox.document={};
+vm.createContext(sandbox);
+const stateJsEsc="const esc = s => String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));";
+vm.runInContext(stateJsEsc+read('markdown.js')+read('story_reader.js')+
+  ';this.api={storyReaderBodyMarkup,questionStoryLinkMarkup,splitStoryFrontMatter};',sandbox);
+const {storyReaderBodyMarkup,questionStoryLinkMarkup}=sandbox.api;
+const fail=m=>{console.error('FAIL '+m);process.exit(1);};
+const md='---\nstatus: proposed\nsummary: Water moves.\n---\n# Live wet page\n\nSee [Goal](wet-media-gpu-goal.md) and [web](https://example.com).\n\n## Acceptance criteria\n- one\n- two\n';
+const html=storyReaderBodyMarkup(md,'fallback');
+if(!html.includes('Live wet page'))fail('title');
+if(!html.includes('<dt>status</dt><dd>proposed</dd>'))fail('front matter');
+if(!html.includes('Acceptance criteria')||!html.includes('<li>one</li>'))fail('headings/lists');
+if(!html.includes('data-md-story="story:wet-media-gpu-goal"'))fail('relative story link');
+if(!html.includes('href="https://example.com"'))fail('external link');
+const link=questionStoryLinkMarkup({storyId:'story:live-wet-page-fluid-and-chemistry'});
+if(!link.includes('data-open-question-story="story:live-wet-page-fluid-and-chemistry"'))fail('question link');
+if(!questionStoryLinkMarkup({}).includes('names no story'))fail('missing story id stated');
+console.log('reader ok');
+// PR #37 review: opening a story refetches; failures are not kept; a slower earlier response never overwrites a newer one.
+(async()=>{
+  const calls=[];let pending=[];
+  sandbox.fetch=(url)=>new Promise(resolve=>{calls.push(url);pending.push({url,resolve});});
+  const answer=(url,markdown)=>{const i=pending.findIndex(p=>p.url===url);const p=pending.splice(i,1)[0];
+    p.resolve({ok:markdown!==null,json:async()=>markdown===null?{error:'missing'}:{path:url+'.md',markdown}});};
+  const api=vm.runInContext('({fetchQuestionStory,showStoryInReader,setReader:s=>{storyReaderState=s;}})',sandbox);
+  const first=api.fetchQuestionStory('story:a');answer('/api/question-story/story%3Aa','# A');await first;
+  await api.fetchQuestionStory('story:a');
+  if(calls.length!==1)fail('hydration reuses the cached story');
+  const fresh=api.fetchQuestionStory('story:a',true);answer('/api/question-story/story%3Aa','# A2');
+  if((await fresh).markdown!=='# A2'||calls.length!==2)fail('opening refetches the story');
+  const gone=api.fetchQuestionStory('story:b');answer('/api/question-story/story%3Ab',null);await gone;
+  await api.fetchQuestionStory('story:b');
+  if(calls.length!==3)fail('a failed story is not refetched by every card re-render');
+  vm.runInContext('storyFailureRetryMs=0',sandbox);
+  const again=api.fetchQuestionStory('story:b');
+  if(calls.length!==4)fail('a failed story is fetched again after the retry wait');
+  answer('/api/question-story/story%3Ab','# B');await again;
+  const node=()=>({innerHTML:'',textContent:'',scrollTop:0,hidden:true,querySelectorAll:()=>[],normalize(){}});
+  const state={body:node(),side:node(),path:node(),previous:node(),trail:[],comments:[],overlay:node()};
+  api.setReader(state);
+  sandbox.fetch=(url)=>new Promise(resolve=>{calls.push(url);pending.push({url,resolve});});
+  const slow=api.showStoryInReader('story:b');
+  const fast=api.showStoryInReader('story:a');
+  answer('/api/question-story/story%3Aa','# A3');await fast;
+  answer('/api/question-story/story%3Ab','# B late');await slow;
+  if(state.storyId!=='story:a'||!state.body.innerHTML.includes('A3'))fail('a stale response replaced the newer story: '+state.storyId);
+  // Review round 2: a row whose story failed stays clickable, so a story created later opens on click.
+  const button={disabled:false};
+  const status={textContent:'',title:''};
+  const row={dataset:{questionStoryRow:'story:c'},classList:{add(){}},
+    querySelector:s=>s==='button'?button:status};
+  const hydrate=vm.runInContext('hydrateQuestionStoryLinks',sandbox);
+  hydrate({querySelectorAll:()=>[row]});
+  answer('/api/question-story/story%3Ac',null);
+  await new Promise(r=>setImmediate(r));await new Promise(r=>setImmediate(r));
+  if(!status.textContent.includes('not found'))fail('missing story stated on the row: '+status.textContent);
+  if(button.disabled)fail('the failed row button was disabled, so a story created later can never open');
+  console.log('reader cache ok');
+})().catch(e=>fail(String(e&&e.stack||e)));

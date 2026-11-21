@@ -26,6 +26,7 @@ RENDERERS = {
     "completion_sheet": "completion_sheet",
     "ledger_table": "ledger_table",
     "agent_ops": "agent_ops",
+    "story_comments": "story_comments",
     "manifest": "manifest",
     "developer_flow": "developer_flow",
     "constellation": "constellation",
