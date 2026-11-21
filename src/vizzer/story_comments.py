@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -22,7 +23,7 @@ COMMENT_MAX = 4000
 MAX_COMMENTS = 2000
 MAX_STORE_BYTES = 4 * 1024 * 1024
 _REQUIRED = {"storyId", "path", "quote", "comment", "clientTime"}
-_OPTIONAL = {"questionId", "heading"}
+_OPTIONAL = {"questionId", "heading", "occurrence"}
 
 
 class StoryCommentError(Exception):
@@ -41,17 +42,24 @@ def load_store(root: Path) -> list[dict]:
     """The one capped loader (API and renderer): bytes and count enforced, read via one descriptor."""
     path = root / STORE_RELPATH
     try:
-        os.lstat(path)
+        link = os.lstat(path)
     except FileNotFoundError:
         return []
     except OSError:
         raise StoryCommentError(f"{STORE_RELPATH} is unreadable; left untouched", 500) from None
+    # A symlink (perhaps to another project's store) or a FIFO is never read.
+    if not stat.S_ISREG(link.st_mode):
+        raise StoryCommentError(f"{STORE_RELPATH} is not a regular file; left untouched", 500)
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_CLOEXEC", 0))
+        fd = os.open(path, flags)
     except OSError:
         raise StoryCommentError(f"{STORE_RELPATH} is unreadable; left untouched", 500) from None
     try:
-        _size_check(os.fstat(fd).st_size)
+        opened = os.fstat(fd)
+        if not stat.S_ISREG(opened.st_mode):
+            raise StoryCommentError(f"{STORE_RELPATH} is not a regular file; left untouched", 500)
+        _size_check(opened.st_size)
         data = read_capped(fd, MAX_STORE_BYTES)
         if len(data) > MAX_STORE_BYTES:
             raise StoryCommentError(
@@ -97,16 +105,31 @@ def _text(body: dict, key: str, limit: int, *, required: bool = False) -> str:
         raise StoryCommentError(f"{key} must not be empty")
     if len(value) > limit:
         raise StoryCommentError(f"{key} is longer than {limit} characters")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        # Valid JSON can carry an unpaired surrogate that the UTF-8 store cannot hold.
+        raise StoryCommentError(f"{key} contains text that cannot be saved") from None
     return value
 
 
-def add_comment(root: Path, cfg, body: dict) -> dict:
+def _occurrence(body: dict) -> int | None:
+    """Which copy of a repeated quote was selected (0 = first); absent for older clients."""
+    if "occurrence" not in body:
+        return None
+    value = body["occurrence"]
+    if type(value) is not int or not 0 <= value < 1000:
+        raise StoryCommentError("occurrence must be a whole number from 0 to 999")
+    return value
+
+
+def add_comment(root: Path, cfg, body: dict, item_ids=()) -> dict:
     unknown = sorted(set(body) - _REQUIRED - _OPTIONAL)
     missing = sorted(_REQUIRED - set(body))
     if unknown or missing:
         raise StoryCommentError(f"unknown or missing field: {(unknown or missing)[0]}")
     story_id = _text(body, "storyId", 200, required=True)
-    path, reason = resolve_story_file(root, cfg, story_id)
+    path, reason = resolve_story_file(root, cfg, story_id, item_ids)
     if path is None:
         raise StoryCommentError(reason, 404)
     relative = str(path.relative_to(root.resolve()))
@@ -124,6 +147,9 @@ def add_comment(root: Path, cfg, body: dict) -> dict:
         "comment": _text(body, "comment", COMMENT_MAX, required=True),
         "clientTime": _text(body, "clientTime", 64, required=True),
     }
+    occurrence = _occurrence(body)
+    if occurrence is not None:
+        entry["occurrence"] = occurrence
     entries = load_store(root)
     if len(entries) >= MAX_COMMENTS:
         raise StoryCommentError(

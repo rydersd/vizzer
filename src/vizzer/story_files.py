@@ -8,27 +8,22 @@ the project after symlink resolution.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import stat
 from pathlib import Path
 
+from .story_aliases import load_story_aliases
+
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
-def _aliases(root: Path, cfg) -> dict[str, str]:
-    relpath = cfg.get("render.story_aliases", "") if cfg is not None else ""
-    if not relpath:
+def _aliases(root: Path, cfg, item_ids) -> dict[str, str]:
+    """The engine's validated aliases: in-project schema-1 file, no shadows, cycles or unknown targets."""
+    if cfg is None:
         return {}
-    try:
-        raw = json.loads((root / relpath).read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError):
-        return {}
-    table = raw.get("aliases") if isinstance(raw, dict) else None
-    if not isinstance(table, dict):
-        return {}
-    return {k: v for k, v in table.items() if isinstance(k, str) and isinstance(v, str)}
+    aliases, _, _, _ = load_story_aliases(root, cfg, set(item_ids))
+    return aliases
 
 
 def _slug(story_id: str) -> str | None:
@@ -36,16 +31,15 @@ def _slug(story_id: str) -> str | None:
     return slug if _SLUG.match(slug) and ".." not in slug else None
 
 
-def resolve_story_file(root: Path, cfg, story_id: str) -> tuple[Path | None, str]:
-    """Return (path, "") for the story's markdown, or (None, plain reason)."""
+def resolve_story_file(root: Path, cfg, story_id: str, item_ids=()) -> tuple[Path | None, str]:
+    """Return (path, "") for the story's markdown, or (None, plain reason).
+
+    `item_ids` are the current graph's ids; an alias applies only when it leads to one of them.
+    """
     if not isinstance(story_id, str) or not story_id.startswith("story:") \
             or _slug(story_id) is None:
         return None, f"'{story_id}' is not a valid story id"
-    aliases = _aliases(root, cfg)
-    target, seen = story_id, set()
-    while target in aliases and target not in seen:
-        seen.add(target)
-        target = aliases[target]
+    target = _aliases(root, cfg, item_ids).get(story_id, story_id)
     slug = _slug(target)
     if slug is None:
         return None, f"{story_id} maps to an invalid story id"
@@ -140,8 +134,8 @@ def _before_open(path: Path) -> None:
     """Seam for tests: runs between path validation and opening."""
 
 
-def story_payload(root: Path, cfg, story_id: str) -> tuple[int, dict]:
-    path, reason = resolve_story_file(root, cfg, story_id)
+def story_payload(root: Path, cfg, story_id: str, item_ids=()) -> tuple[int, dict]:
+    path, reason = resolve_story_file(root, cfg, story_id, item_ids)
     if path is None:
         return 404, {"error": reason, "storyId": story_id}
     project = root.resolve()

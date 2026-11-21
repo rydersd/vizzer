@@ -904,6 +904,11 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             except (OSError, UnicodeError) as exc:
                 self._send_json(500, {"error": "Could not access planning conversation"})
 
+        def _story_item_ids(self) -> set[str]:
+            """Current graph ids, so story aliases validate exactly as the constellation's do."""
+            live = _read_graph(root, allow_stale=True)
+            return set((live or graph).item_map())
+
         def _story_comments_write(self, action) -> None:
             # Same-origin + CSRF, current engine, and the served mutation lock,
             # like every other owner write. The refresh view is rewritten in
@@ -954,7 +959,8 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
             parsed = urlsplit(self.path)
             if not parsed.query and parsed.path == "/api/story-comments":
                 def create():
-                    entry = add_comment(root, cfg, self._read_json_body("story comment"))
+                    entry = add_comment(root, cfg, self._read_json_body("story comment"),
+                                        self._story_item_ids())
                     return 201, {"comment": entry}
                 self._story_comments_write(create)
                 return
@@ -1230,7 +1236,8 @@ def _serve_handler(root: Path, graph: Graph, views: Path, cfg: Config,
                 if not self._require_current_engine():
                     return
                 status, body = story_payload(
-                    root, cfg, unquote(parsed.path[len(question_story_prefix):]).rstrip("/"))
+                    root, cfg, unquote(parsed.path[len(question_story_prefix):]).rstrip("/"),
+                    self._story_item_ids())
                 self._send_json(status, body)
                 return
             if parsed.path.startswith("/api/open/"):

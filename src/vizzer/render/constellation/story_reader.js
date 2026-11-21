@@ -6,15 +6,24 @@
 // The reader is an overlay: the question view underneath is never re-rendered,
 // so drafts, selections and scroll survive Back to question.
 
-const storyReaderCache = new Map();
-function fetchQuestionStory(storyId){
-  if(!storyReaderCache.has(storyId)){
-    storyReaderCache.set(storyId,fetch('/api/question-story/'+encodeURIComponent(storyId))
+// Card hydration shares one request per story; opening the reader always
+// refetches (`fresh`), and a failure is retried after a short wait, so an
+// edited or newly created story shows its current text without a page reload.
+const storyReaderCache = new Map(), storyReaderFailedAt = new Map();
+let storyFailureRetryMs = 15000;
+function fetchQuestionStory(storyId,fresh=false){
+  const failedAt=storyReaderFailedAt.get(storyId);
+  const retry=failedAt!==undefined&&Date.now()-failedAt>=storyFailureRetryMs;
+  if(fresh||retry||!storyReaderCache.has(storyId)){
+    storyReaderFailedAt.delete(storyId);
+    const request=fetch('/api/question-story/'+encodeURIComponent(storyId),{cache:'no-store'})
       .then(async response=>{
         let body=null;try{body=await response.json();}catch(_){}
         if(!response.ok)return{ok:false,error:(body&&body.error)||'The story could not be loaded.'};
         return{ok:true,path:body.path,markdown:body.markdown};
-      }).catch(()=>({ok:false,error:'The Vizzer server could not be reached.'})));
+      }).catch(()=>({ok:false,error:'The Vizzer server could not be reached.'}));
+    storyReaderCache.set(storyId,request);
+    request.then(result=>{if(!result.ok&&storyReaderCache.get(storyId)===request)storyReaderFailedAt.set(storyId,Date.now());});
   }
   return storyReaderCache.get(storyId);
 }
@@ -86,25 +95,54 @@ function storyReaderBodyMarkup(markdown,fallbackTitle){
 // comment only ever reach the DOM through esc() or textContent.
 const STORY_QUOTE_MAX=2000,STORY_COMMENT_MAX=4000;
 
-// Pure. Find `quote` across an array of text-node strings, tolerating
-// whitespace differences. Returns [{node,start,end}] per node touched, or null.
-// A selection that crosses blocks reads with a newline the DOM text lacks, so a
-// second pass treats node boundaries as whitespace.
-function findQuoteSegments(texts,quote){
+// Pure. The text-node strings as one whitespace-collapsed string, with a map
+// back to {node,offset} per character (null for an inserted node boundary).
+function flattenStoryText(texts,separated){
+  let flat='';const map=[];
+  texts.forEach((text,node)=>{
+    if(separated&&flat&&!flat.endsWith(' ')){flat+=' ';map.push(null);}
+    for(let i=0;i<text.length;i++){
+      const space=/\s/.test(text[i]);
+      if(space&&(flat.endsWith(' ')||!flat))continue;
+      flat+=space?' ':text[i];map.push({node,offset:i});
+    }
+  });
+  return{flat,map};
+}
+// Every start index of `want` in `flat`.
+function quoteStarts(flat,want){
+  const starts=[];
+  for(let at=flat.indexOf(want);at>=0;at=flat.indexOf(want,at+1))starts.push(at);
+  return starts;
+}
+// Pure. Which copy of a repeated `quote` begins at or after the selection start
+// (node, offset): the number of copies that begin before it.
+function quoteOccurrenceAt(texts,quote,node,offset){
+  const want=String(quote).replace(/\s+/g,' ').trim();
+  if(!want)return 0;
+  for(const separated of [false,true]){
+    const{flat,map}=flattenStoryText(texts,separated);
+    const starts=quoteStarts(flat,want);
+    if(!starts.length)continue;
+    return starts.filter(at=>{const hit=map[at];
+      return hit&&(hit.node<node||(hit.node===node&&hit.offset<offset));}).length;
+  }
+  return 0;
+}
+// Pure. Find copy number `occurrence` (0 = first) of `quote` across an array of
+// text-node strings, tolerating whitespace differences. Returns
+// [{node,start,end}] per node touched, or null. A selection that crosses blocks
+// reads with a newline the DOM text lacks, so a second pass treats node
+// boundaries as whitespace.
+function findQuoteSegments(texts,quote,occurrence=0){
   const want=String(quote).replace(/\s+/g,' ').trim();
   if(!want)return null;
   for(const separated of [false,true]){
-    let flat='';const map=[];
-    texts.forEach((text,node)=>{
-      if(separated&&flat&&!flat.endsWith(' ')){flat+=' ';map.push(null);}
-      for(let i=0;i<text.length;i++){
-        const space=/\s/.test(text[i]);
-        if(space&&(flat.endsWith(' ')||!flat))continue;
-        flat+=space?' ':text[i];map.push({node,offset:i});
-      }
-    });
-    const at=flat.indexOf(want);
-    if(at<0)continue;
+    const{flat,map}=flattenStoryText(texts,separated);
+    const starts=quoteStarts(flat,want);
+    if(!starts.length)continue;
+    const at=starts[occurrence];
+    if(at===undefined)return null;
     const segments=[];
     for(let i=at;i<at+want.length;i++){
       const hit=map[i];if(!hit)continue;
@@ -116,10 +154,11 @@ function findQuoteSegments(texts,quote){
   }
   return null;
 }
-function storyCommentPayload({storyId,path,questionId,quote,heading,comment}){
+function storyCommentPayload({storyId,path,questionId,quote,heading,comment,occurrence}){
   const payload={storyId,path,quote:String(quote).slice(0,STORY_QUOTE_MAX),
     heading:String(heading||''),comment:String(comment).trim(),clientTime:new Date().toISOString()};
   if(questionId)payload.questionId=questionId;
+  if(Number.isInteger(occurrence)&&occurrence>0)payload.occurrence=occurrence;
   return payload;
 }
 function storyCommentsListMarkup(comments,anchoredIds){
@@ -145,7 +184,7 @@ function storyTextNodes(root){
 // Wrap the quote in <mark> where it can still be found; returns whether it was.
 function highlightStoryQuote(root,comment){
   const nodes=storyTextNodes(root);
-  const segments=findQuoteSegments(nodes.map(node=>node.data),comment.quote);
+  const segments=findQuoteSegments(nodes.map(node=>node.data),comment.quote,comment.occurrence||0);
   if(!segments)return false;
   for(const{node,start,end}of segments.reverse()){
     const range=document.createRange();range.setStart(nodes[node],start);range.setEnd(nodes[node],end);
@@ -227,13 +266,15 @@ function bindCommentSelection(state){
     button.style.top=Math.max(8,rect.bottom+6)+'px';
     // mousedown must not collapse the selection before we read it.
     button.addEventListener('mousedown',event=>event.preventDefault());
-    const context={quote,heading:nearestHeadingAbove(state.body,range),rect};
+    const nodes=storyTextNodes(state.body),startNode=nodes.indexOf(range.startContainer);
+    const occurrence=startNode<0?0:quoteOccurrenceAt(nodes.map(node=>node.data),quote,startNode,range.startOffset);
+    const context={quote,heading:nearestHeadingAbove(state.body,range),rect,occurrence};
     button.addEventListener('click',()=>openCommentCompose(state,context));
     state.overlay.appendChild(button);state.affordance=button;
   },0));
   state.body.addEventListener('mousedown',()=>{if(!state.compose&&state.affordance)closeCommentCompose(state);});
 }
-function openCommentCompose(state,{quote,heading,rect}){
+function openCommentCompose(state,{quote,heading,rect,occurrence}){
   closeCommentCompose(state);
   const form=document.createElement('form');form.className='storycommentform';
   form.innerHTML='<blockquote></blockquote><textarea maxlength="'+STORY_COMMENT_MAX+'" aria-label="Your comment" required></textarea>'
@@ -253,7 +294,7 @@ function openCommentCompose(state,{quote,heading,rect}){
     try{
       const result=await storyCommentRequest(state,'POST','/api/story-comments',
         storyCommentPayload({storyId:state.storyId,path:state.story.path,questionId:state.questionId,
-          quote,heading,comment:area.value}));
+          quote,heading,occurrence,comment:area.value}));
       window.getSelection()?.removeAllRanges();
       closeCommentCompose(state);
       state.comments.push(result.comment);renderStoryComments(state);
@@ -283,8 +324,10 @@ async function showStoryInReader(storyId){
   const state=storyReaderState;if(!state)return;
   const slug=storyId.replace(/^story:/,'');
   state.body.innerHTML=`<p class="storysectionmissing">Loading ${esc(slug)}…</p>`;
-  const result=await fetchQuestionStory(storyId);
-  if(storyReaderState!==state)return;
+  // Only the latest request may render: a slower earlier one is dropped.
+  const load=state.load=(state.load||0)+1;
+  const result=await fetchQuestionStory(storyId,true);
+  if(storyReaderState!==state||state.load!==load)return;
   state.path.textContent=result.ok?result.path:'';
   state.body.innerHTML=result.ok?storyReaderBodyMarkup(result.markdown,slug)
     :`<p class="storyreadererror" role="alert"><b>${esc(slug)}</b> could not be opened. ${esc(result.error)}</p>`;

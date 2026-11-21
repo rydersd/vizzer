@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import os
 import threading
 import unittest
 from unittest.mock import patch
@@ -105,6 +106,42 @@ class Store(Fixture):
         with self.assertRaises(StoryCommentError):
             add_comment(self.root, Cfg(), good())
         self.assertEqual(self.store.read_text(), '{not json')
+
+
+class ReviewFindings(Fixture):
+    # PR #37 review findings.
+    def test_store_symlink_to_another_valid_store_is_refused(self):
+        other = self.root / 'other-store.json'
+        other.write_text(json.dumps([{'id': 'x', 'status': 'open', 'storyId': 'story:live-wet-x'}]))
+        self.store.symlink_to(other)
+        with self.assertRaises(StoryCommentError):
+            list_comments(self.root, 'story:live-wet-x')
+
+    def test_store_that_is_a_fifo_is_refused_without_blocking(self):
+        os.mkfifo(self.store)
+        done = []
+        def read():
+            try:
+                list_comments(self.root, 'story:live-wet-x')
+            except StoryCommentError:
+                done.append('refused')
+        worker = threading.Thread(target=read, daemon=True)
+        worker.start()
+        worker.join(2)
+        self.assertEqual(done, ['refused'])
+
+    def test_unpaired_surrogate_is_a_400_not_a_dropped_write(self):
+        with self.assertRaises(StoryCommentError) as caught:
+            add_comment(self.root, Cfg(), good(comment='bad \ud800 text'))
+        self.assertEqual(caught.exception.status, 400)
+        self.assertFalse(self.store.exists())
+
+    def test_occurrence_is_stored_and_validated(self):
+        self.assertEqual(add_comment(self.root, Cfg(), good(occurrence=2))['occurrence'], 2)
+        self.assertNotIn('occurrence', add_comment(self.root, Cfg(), good()))
+        for bad in (-1, True, '1', 1.5, 10_000):
+            with self.assertRaises(StoryCommentError, msg=repr(bad)):
+                add_comment(self.root, Cfg(), good(occurrence=bad))
 
 
 class Caps(Fixture):

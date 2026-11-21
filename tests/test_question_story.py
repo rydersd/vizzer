@@ -33,7 +33,8 @@ class StoryFileResolution(unittest.TestCase):
             '---\nstatus: proposed\nsummary: A story.\n---\n# Live wet X\n\n## Acceptance criteria\n- one\n')
         (stories / 'canonical-y.md').write_text('# Canonical Y\n')
         (self.root / 'prod_spec/story-id-crosswalk.json').write_text(
-            json.dumps({'aliases': {'story:old-y': 'story:canonical-y'}}))
+            json.dumps({'schema': 1, 'aliases': {'story:old-y': 'story:canonical-y'}}))
+        self.items = {'story:live-wet-x', 'story:canonical-y'}
         # Untracked: this directory is not a git repository at all.
 
     def tearDown(self):
@@ -45,8 +46,32 @@ class StoryFileResolution(unittest.TestCase):
         self.assertEqual(path.name, 'live-wet-x.md')
 
     def test_alias_follows_the_crosswalk(self):
-        path, _ = resolve_story_file(self.root, Cfg(), 'story:old-y')
+        path, _ = resolve_story_file(self.root, Cfg(), 'story:old-y', self.items)
         self.assertEqual(path.name, 'canonical-y.md')
+
+    # PR #37 review: the reader used its own raw alias loader, unlike the engine's validated one.
+    def test_alias_shadowing_a_current_story_is_ignored(self):
+        (self.root / 'prod_spec/story-id-crosswalk.json').write_text(
+            json.dumps({'schema': 1, 'aliases': {'story:live-wet-x': 'story:canonical-y'}}))
+        path, _ = resolve_story_file(self.root, Cfg(), 'story:live-wet-x', self.items)
+        self.assertEqual(path.name, 'live-wet-x.md')
+
+    def test_alias_file_without_schema_1_is_ignored(self):
+        (self.root / 'prod_spec/story-id-crosswalk.json').write_text(
+            json.dumps({'aliases': {'story:old-y': 'story:canonical-y'}}))
+        path, _ = resolve_story_file(self.root, Cfg(), 'story:old-y', self.items)
+        self.assertIsNone(path)
+
+    def test_alias_file_outside_the_project_is_not_read(self):
+        outside = tempfile.TemporaryDirectory()
+        self.addCleanup(outside.cleanup)
+        crosswalk = Path(outside.name) / 'crosswalk.json'
+        crosswalk.write_text(json.dumps({'schema': 1, 'aliases': {'story:old-z': 'story:canonical-y'}}))
+        class Outside(Cfg):
+            def get(self, key, default=None):
+                return str(crosswalk) if key == 'render.story_aliases' else super().get(key, default)
+        path, _ = resolve_story_file(self.root, Outside(), 'story:old-z', self.items)
+        self.assertIsNone(path)
 
     def test_unresolvable_story_says_why(self):
         path, reason = resolve_story_file(self.root, Cfg(), 'story:nope')

@@ -6,8 +6,8 @@ const sandbox={SERVED:true,console};sandbox.window=sandbox;sandbox.document={};
 vm.createContext(sandbox);
 const esc="const esc = s => String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));";
 vm.runInContext(esc+read('markdown.js')+read('story_reader.js')+
-  ';this.api={findQuoteSegments,storyCommentPayload,storyCommentsListMarkup};',sandbox);
-const {findQuoteSegments,storyCommentPayload,storyCommentsListMarkup}=sandbox.api;
+  ';this.api={findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt};',sandbox);
+const {findQuoteSegments,storyCommentPayload,storyCommentsListMarkup,quoteOccurrenceAt}=sandbox.api;
 const fail=m=>{console.error('FAIL '+m);process.exit(1);};
 const eq=(a,b,m)=>{if(JSON.stringify(a)!==JSON.stringify(b))fail(m+' '+JSON.stringify(a));};
 // anchoring inside one text node
@@ -36,4 +36,12 @@ if(!html.includes('data-delete-story-comment="1"'))fail('delete for open');
 if(html.includes('data-delete-story-comment="2"'))fail('no delete for resolved');
 if(!html.includes('unanchored'))fail('unanchored label');
 if(!html.includes('resolved')||!html.includes('open'))fail('status text');
+// PR #37 review: repeated prose anchors to the selected occurrence, not the first.
+const repeated=['water moves. Later, water moves.'];
+eq(findQuoteSegments(repeated,'water moves',1),[{node:0,start:20,end:31}],'second occurrence');
+eq(findQuoteSegments(repeated,'water moves',2),null,'missing occurrence is unanchored');
+eq(quoteOccurrenceAt(repeated,'water moves',0,20),1,'selection at the second copy');
+eq(quoteOccurrenceAt(repeated,'water moves',0,0),0,'selection at the first copy');
+if(storyCommentPayload({storyId:'s',path:'p',quote:'q',heading:'',comment:'c',occurrence:1}).occurrence!==1)fail('payload occurrence');
 console.log('comments ok');
+
